@@ -2,7 +2,8 @@ const { Router } = require('../lib/router');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
 const { assertTeachesClass, assertStudentsInClass } = require('../lib/access');
-const { z, id, optionalId, isoDate, requiredText, text } = require('../lib/validate');
+const { z, id, optionalId, isoDate, requiredText, text, httpUrl } = require('../lib/validate');
+const { forbidden, notFound } = require('../lib/errors');
 const { withTransaction } = require('../db/tx');
 
 const ATTENDANCE_STATUSES = ['Present', 'Absent', 'Leave'];
@@ -188,11 +189,20 @@ router.get('/student/assignments', async (req, res) => {
      WHERE a.class_id=(SELECT class_id FROM students WHERE id=$1) ORDER BY a.due_date`, [stu]);
   res.json(rows);
 });
+const submissionBody = z.object({ assignment_id: id, title: text(200).default(''), file_link: httpUrl });
 router.post('/student/submissions', async (req, res) => {
-  const { assignment_id, title, file_link } = req.body;
+  const { assignment_id, title, file_link } = submissionBody.parse(req.body);
+  // the assignment must exist in this school and be set for the student's own class
+  const { rows: found } = await pool.query(
+    `SELECT a.class_id = st.class_id AS own_class
+       FROM assignments a JOIN students st ON st.id = $3 AND st.school_id = a.school_id
+      WHERE a.id = $1 AND a.school_id = $2`,
+    [assignment_id, sid(req), ref(req)]);
+  if (!found[0]) throw notFound('Assignment not found');
+  if (!found[0].own_class) throw forbidden('This assignment is not for your class');
   const { rows } = await pool.query(
     `INSERT INTO submissions (school_id, assignment_id, student_id, title, file_link) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [sid(req), assignment_id, ref(req), title || '', file_link || '']);
+    [sid(req), assignment_id, ref(req), title, file_link]);
   res.status(201).json(rows[0]);
 });
 
