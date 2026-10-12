@@ -1,9 +1,11 @@
 const { Router } = require('../lib/router');
 const pool = require('../db/pool');
-const { auth } = require('../middleware/auth');
+const { auth, requireRole } = require('../middleware/auth');
 
 const router = Router();
 router.use(auth);
+router.use('/teacher', requireRole('teacher'));
+router.use('/student', requireRole('student'));
 
 const sid = (req) => req.user.school_id;
 const ref = (req) => req.user.ref_id;
@@ -54,7 +56,7 @@ router.get('/teacher/students', async (req, res) => {
 });
 
 // Announcements filtered by role audience
-router.get('/announcements', async (req, res) => {
+router.get('/announcements', requireRole('teacher', 'student', 'parent'), async (req, res) => {
   const aud = req.user.role === 'teacher' ? ['All', 'Teachers'] : ['All', 'Students'];
   const { rows } = await pool.query(
     `SELECT id, title, target_audience, description, start_date, end_date FROM announcements

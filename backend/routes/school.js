@@ -4,7 +4,8 @@ const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
 
 const router = Router();
-router.use(auth);
+// Every /api/school route is for the school's administrator only.
+router.use(auth, requireRole('school_admin'));
 
 // tenant id helper — everything is scoped to the caller's school
 const sid = (req) => req.user.school_id;
@@ -136,11 +137,9 @@ router.post('/announcements', async (req, res) => {
   res.status(201).json(rows[0]);
 });
 
-// ---------- WRITE: admissions / faculty / classes / fees (admin only) ----------
-const adminOnly = requireRole('school_admin');
-
+// ---------- WRITE: admissions / faculty / classes / fees ----------
 // Admit a new student (creates student + login)
-router.post('/students', adminOnly, async (req, res) => {
+router.post('/students', async (req, res) => {
   const s = sid(req);
   const { first_name, last_name, email, gender, age, dob, class_id, guardian_name, guardian_phone, city, roll_no } = req.body;
   if (!first_name || !last_name || !email) return res.status(400).json({ error: 'first_name, last_name, email required' });
@@ -165,7 +164,7 @@ router.post('/students', adminOnly, async (req, res) => {
 });
 
 // Add a teacher (creates teacher + login)
-router.post('/teachers', adminOnly, async (req, res) => {
+router.post('/teachers', async (req, res) => {
   const s = sid(req);
   const { first_name, last_name, email, gender, dob, phone, cnic, qualification } = req.body;
   if (!first_name || !last_name || !email) return res.status(400).json({ error: 'first_name, last_name, email required' });
@@ -190,7 +189,7 @@ router.post('/teachers', adminOnly, async (req, res) => {
 });
 
 // Create a class
-router.post('/classes', adminOnly, async (req, res) => {
+router.post('/classes', async (req, res) => {
   const { code, name, section } = req.body;
   if (!code || !name) return res.status(400).json({ error: 'code and name required' });
   try {
@@ -205,7 +204,7 @@ router.post('/classes', adminOnly, async (req, res) => {
 });
 
 // Collect a fee
-router.post('/fees', adminOnly, async (req, res) => {
+router.post('/fees', async (req, res) => {
   const s = sid(req);
   const { student_id, total_fee, paid_amount } = req.body;
   if (!student_id || total_fee == null) return res.status(400).json({ error: 'student_id and total_fee required' });
