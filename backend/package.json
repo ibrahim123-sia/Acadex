@@ -5,6 +5,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "db:migrate": "node db/migrate.js",
+    "db:seed": "node db/seed.js",
+    "db:reset": "node db/migrate.js && node db/seed.js --reset",
+    "migrate": "npm run db:migrate",
+    "seed": "npm run db:seed",
     "test": "vitest run",
     "test:watch": "vitest"
   },

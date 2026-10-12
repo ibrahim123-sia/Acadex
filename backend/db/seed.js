@@ -210,11 +210,26 @@ async function seedSchool({ name, slug, color, plan, adminEmail, classDefs, numT
   return { sid, teachers: teachers.length, students: sCount, classes: classes.length };
 }
 
+// Demo data only. Refuses to run in production, and refuses to touch a database that
+// already has data unless --reset is passed (which wipes every tenant table first).
+async function guard() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to seed demo data when NODE_ENV=production');
+  }
+  const reset = process.argv.includes('--reset');
+  const [{ n }] = await q(`SELECT (SELECT count(*) FROM schools) + (SELECT count(*) FROM users) AS n`);
+  if (Number(n) > 0 && !reset) {
+    throw new Error('Database already has data. Run "npm run db:reset" to wipe it and reseed.');
+  }
+  if (reset) {
+    await q('TRUNCATE notifications, parent_children, audit_log, submissions, assignments, grades, student_attendance, teacher_attendance, timetable, exam_schedule, tuition_fee, teacher_subjects, subjects, students, teachers, classes, users, announcements, schools RESTART IDENTITY CASCADE');
+  }
+}
+
 (async () => {
   try {
+    await guard();
     const hash = await bcrypt.hash(PW, 10);
-    // wipe (schema migrate already dropped; but allow re-run)
-    await q('TRUNCATE notifications, parent_children, audit_log, submissions, assignments, grades, student_attendance, teacher_attendance, timetable, exam_schedule, tuition_fee, teacher_subjects, subjects, students, teachers, classes, users, announcements, schools RESTART IDENTITY CASCADE');
 
     // Super admin (platform)
     await makeUser(null, 'super_admin', 'superadmin@acadex.com', 'Acadex Super Admin', null, hash);
@@ -247,7 +262,8 @@ async function seedSchool({ name, slug, color, plan, adminEmail, classDefs, numT
     console.log('SEED DONE. Password for all demo users:', PW);
     await pool.end();
   } catch (e) {
-    console.error('SEED FAIL', e);
+    console.error('❌ Seed failed:', e.message);
+    await pool.end().catch(() => {});
     process.exit(1);
   }
 })();

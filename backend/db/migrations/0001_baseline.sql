@@ -1,16 +1,12 @@
 -- ============================================================
 --  Acadex — Multi-tenant School Management SaaS (PostgreSQL)
 --  Every tenant table carries school_id for row-level isolation.
+--  Baseline migration: the schema as it existed before versioned migrations.
+--  Idempotent (IF NOT EXISTS) so it is safe on databases created by the old schema.sql.
 -- ============================================================
 
-DROP TABLE IF EXISTS notifications, parent_children, audit_log, submissions, assignments, grades,
-  student_attendance, teacher_attendance, timetable, exam_schedule,
-  tuition_fee, student_subjects, teacher_subjects, subjects,
-  guardians, addresses, admissions, qualifications, teachers,
-  students, classes, announcements, users, schools CASCADE;
-
 -- ---------- Platform (tenant registry) ----------
-CREATE TABLE schools (
+CREATE TABLE IF NOT EXISTS schools (
   id            SERIAL PRIMARY KEY,
   name          TEXT NOT NULL,
   slug          TEXT UNIQUE NOT NULL,
@@ -25,7 +21,7 @@ CREATE TABLE schools (
 );
 
 -- ---------- Unified auth ----------
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id            SERIAL PRIMARY KEY,
   school_id     INT REFERENCES schools(id) ON DELETE CASCADE,   -- NULL only for super_admin
   role          TEXT NOT NULL CHECK (role IN ('super_admin','school_admin','teacher','student','parent')),
@@ -37,10 +33,10 @@ CREATE TABLE users (
   last_login_at TIMESTAMPTZ,
   created_at    TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_users_school ON users(school_id);
+CREATE INDEX IF NOT EXISTS idx_users_school ON users(school_id);
 
 -- ---------- Academic structure ----------
-CREATE TABLE classes (
+CREATE TABLE IF NOT EXISTS classes (
   id         SERIAL PRIMARY KEY,
   school_id  INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   code       TEXT NOT NULL,
@@ -49,17 +45,17 @@ CREATE TABLE classes (
   UNIQUE (school_id, code)
 );
 
-CREATE TABLE subjects (
+CREATE TABLE IF NOT EXISTS subjects (
   id         SERIAL PRIMARY KEY,
   school_id  INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   class_id   INT REFERENCES classes(id) ON DELETE CASCADE,
   code       TEXT NOT NULL,
   name       TEXT NOT NULL
 );
-CREATE INDEX idx_subjects_school ON subjects(school_id);
+CREATE INDEX IF NOT EXISTS idx_subjects_school ON subjects(school_id);
 
 -- ---------- People ----------
-CREATE TABLE teachers (
+CREATE TABLE IF NOT EXISTS teachers (
   id           SERIAL PRIMARY KEY,
   school_id    INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   first_name   TEXT NOT NULL,
@@ -74,9 +70,9 @@ CREATE TABLE teachers (
   created_at   TIMESTAMPTZ DEFAULT now(),
   UNIQUE (school_id, email)
 );
-CREATE INDEX idx_teachers_school ON teachers(school_id);
+CREATE INDEX IF NOT EXISTS idx_teachers_school ON teachers(school_id);
 
-CREATE TABLE students (
+CREATE TABLE IF NOT EXISTS students (
   id             SERIAL PRIMARY KEY,
   school_id      INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   roll_no        TEXT,
@@ -97,10 +93,10 @@ CREATE TABLE students (
   created_at     TIMESTAMPTZ DEFAULT now(),
   UNIQUE (school_id, email)
 );
-CREATE INDEX idx_students_school ON students(school_id);
-CREATE INDEX idx_students_class ON students(class_id);
+CREATE INDEX IF NOT EXISTS idx_students_school ON students(school_id);
+CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_id);
 
-CREATE TABLE teacher_subjects (
+CREATE TABLE IF NOT EXISTS teacher_subjects (
   id         SERIAL PRIMARY KEY,
   school_id  INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   teacher_id INT NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
@@ -109,7 +105,7 @@ CREATE TABLE teacher_subjects (
 );
 
 -- ---------- Operations ----------
-CREATE TABLE tuition_fee (
+CREATE TABLE IF NOT EXISTS tuition_fee (
   id                SERIAL PRIMARY KEY,
   school_id         INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   receipt_id        TEXT NOT NULL,
@@ -121,9 +117,9 @@ CREATE TABLE tuition_fee (
   payment_status    TEXT NOT NULL DEFAULT 'Pending' CHECK (payment_status IN ('Paid','Partial','Pending')),
   created_at        TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_fee_school ON tuition_fee(school_id);
+CREATE INDEX IF NOT EXISTS idx_fee_school ON tuition_fee(school_id);
 
-CREATE TABLE grades (
+CREATE TABLE IF NOT EXISTS grades (
   id              SERIAL PRIMARY KEY,
   school_id       INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   student_id      INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
@@ -135,9 +131,9 @@ CREATE TABLE grades (
   total_marks     NUMERIC(10,2) NOT NULL,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_grades_school ON grades(school_id);
+CREATE INDEX IF NOT EXISTS idx_grades_school ON grades(school_id);
 
-CREATE TABLE assignments (
+CREATE TABLE IF NOT EXISTS assignments (
   id           SERIAL PRIMARY KEY,
   school_id    INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   class_id     INT REFERENCES classes(id) ON DELETE CASCADE,
@@ -149,7 +145,7 @@ CREATE TABLE assignments (
   created_at   TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE submissions (
+CREATE TABLE IF NOT EXISTS submissions (
   id            SERIAL PRIMARY KEY,
   school_id     INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   assignment_id INT NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
@@ -160,7 +156,7 @@ CREATE TABLE submissions (
   submitted_date TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE student_attendance (
+CREATE TABLE IF NOT EXISTS student_attendance (
   id         SERIAL PRIMARY KEY,
   school_id  INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   student_id INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
@@ -169,9 +165,9 @@ CREATE TABLE student_attendance (
   att_date   DATE NOT NULL,
   status     TEXT NOT NULL CHECK (status IN ('Present','Absent','Leave'))
 );
-CREATE INDEX idx_satt_school ON student_attendance(school_id);
+CREATE INDEX IF NOT EXISTS idx_satt_school ON student_attendance(school_id);
 
-CREATE TABLE teacher_attendance (
+CREATE TABLE IF NOT EXISTS teacher_attendance (
   id         SERIAL PRIMARY KEY,
   school_id  INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   teacher_id INT NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
@@ -180,7 +176,7 @@ CREATE TABLE teacher_attendance (
   UNIQUE (teacher_id, att_date)
 );
 
-CREATE TABLE timetable (
+CREATE TABLE IF NOT EXISTS timetable (
   id         SERIAL PRIMARY KEY,
   school_id  INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   class_id   INT NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
@@ -190,7 +186,7 @@ CREATE TABLE timetable (
   teacher_id INT REFERENCES teachers(id) ON DELETE SET NULL
 );
 
-CREATE TABLE exam_schedule (
+CREATE TABLE IF NOT EXISTS exam_schedule (
   id         SERIAL PRIMARY KEY,
   school_id  INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   class_id   INT REFERENCES classes(id) ON DELETE CASCADE,
@@ -201,7 +197,7 @@ CREATE TABLE exam_schedule (
   total_marks INT DEFAULT 100
 );
 
-CREATE TABLE announcements (
+CREATE TABLE IF NOT EXISTS announcements (
   id            SERIAL PRIMARY KEY,
   school_id     INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   title         TEXT NOT NULL,
@@ -211,9 +207,9 @@ CREATE TABLE announcements (
   end_date      DATE,
   created_at    TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_ann_school ON announcements(school_id);
+CREATE INDEX IF NOT EXISTS idx_ann_school ON announcements(school_id);
 
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
   id         SERIAL PRIMARY KEY,
   school_id  INT REFERENCES schools(id) ON DELETE CASCADE,
   user_id    INT REFERENCES users(id) ON DELETE SET NULL,
@@ -223,20 +219,20 @@ CREATE TABLE audit_log (
   detail     TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_audit_school ON audit_log(school_id);
+CREATE INDEX IF NOT EXISTS idx_audit_school ON audit_log(school_id);
 
 -- ---------- Parent → child links ----------
-CREATE TABLE parent_children (
+CREATE TABLE IF NOT EXISTS parent_children (
   id             SERIAL PRIMARY KEY,
   school_id      INT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   parent_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   student_id     INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
   UNIQUE (parent_user_id, student_id)
 );
-CREATE INDEX idx_pc_parent ON parent_children(parent_user_id);
+CREATE INDEX IF NOT EXISTS idx_pc_parent ON parent_children(parent_user_id);
 
 -- ---------- Notifications ----------
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   id         SERIAL PRIMARY KEY,
   school_id  INT REFERENCES schools(id) ON DELETE CASCADE,
   user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -247,4 +243,4 @@ CREATE TABLE notifications (
   is_read    BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_notif_user ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, is_read);
