@@ -24,9 +24,9 @@ router.get('/student/overview', async (req, res) => {
     pool.query(`SELECT st.*, c.name class_name FROM students st LEFT JOIN classes c ON c.id=st.class_id WHERE st.id=$1 AND st.school_id=$2`, [stu, s]),
     pool.query(`SELECT su.name subject, g.assignment_type, g.assignment_name, g.obtained_marks, g.total_marks,
                   ROUND(g.obtained_marks/NULLIF(g.total_marks,0)*100,1) percentage
-                FROM grades g LEFT JOIN subjects su ON su.id=g.subject_id WHERE g.student_id=$1 ORDER BY g.id DESC`, [stu]),
-    pool.query(`SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 GROUP BY status`, [stu]),
-    pool.query(`SELECT total_fee, paid_amount, remaining_balance, payment_status, receipt_id FROM tuition_fee WHERE student_id=$1 ORDER BY id DESC LIMIT 1`, [stu]),
+                FROM grades g LEFT JOIN subjects su ON su.id=g.subject_id WHERE g.student_id=$1 AND g.school_id=$2 ORDER BY g.id DESC`, [stu, s]),
+    pool.query(`SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 AND school_id=$2 GROUP BY status`, [stu, s]),
+    pool.query(`SELECT total_fee, paid_amount, remaining_balance, payment_status, receipt_id FROM tuition_fee WHERE student_id=$1 AND school_id=$2 ORDER BY id DESC LIMIT 1`, [stu, s]),
   ]);
   res.json({
     profile: profile.rows[0] || null,
@@ -41,9 +41,9 @@ router.get('/teacher/overview', async (req, res) => {
   const s = sid(req), tch = ref(req);
   const [profile, classes, subjects, students] = await Promise.all([
     pool.query(`SELECT * FROM teachers WHERE id=$1 AND school_id=$2`, [tch, s]),
-    pool.query(`SELECT DISTINCT c.id, c.name FROM teacher_subjects ts JOIN classes c ON c.id=ts.class_id WHERE ts.teacher_id=$1`, [tch]),
-    pool.query(`SELECT ts.id, su.name subject, c.name class_name FROM teacher_subjects ts JOIN subjects su ON su.id=ts.subject_id LEFT JOIN classes c ON c.id=ts.class_id WHERE ts.teacher_id=$1`, [tch]),
-    pool.query(`SELECT count(DISTINCT st.id)::int c FROM teacher_subjects ts JOIN students st ON st.class_id=ts.class_id WHERE ts.teacher_id=$1`, [tch]),
+    pool.query(`SELECT DISTINCT c.id, c.name FROM teacher_subjects ts JOIN classes c ON c.id=ts.class_id WHERE ts.teacher_id=$1 AND ts.school_id=$2`, [tch, s]),
+    pool.query(`SELECT ts.id, su.name subject, c.name class_name FROM teacher_subjects ts JOIN subjects su ON su.id=ts.subject_id LEFT JOIN classes c ON c.id=ts.class_id WHERE ts.teacher_id=$1 AND ts.school_id=$2`, [tch, s]),
+    pool.query(`SELECT count(DISTINCT st.id)::int c FROM teacher_subjects ts JOIN students st ON st.class_id=ts.class_id AND st.school_id=ts.school_id WHERE ts.teacher_id=$1 AND ts.school_id=$2`, [tch, s]),
   ]);
   res.json({
     profile: profile.rows[0] || null,
@@ -57,8 +57,8 @@ router.get('/teacher/overview', async (req, res) => {
 router.get('/teacher/students', async (req, res) => {
   const { rows } = await pool.query(
     `SELECT DISTINCT st.id, st.roll_no, st.first_name||' '||st.last_name name, c.name class_name
-     FROM teacher_subjects ts JOIN students st ON st.class_id=ts.class_id JOIN classes c ON c.id=st.class_id
-     WHERE ts.teacher_id=$1 ORDER BY c.name, st.roll_no`, [ref(req)]);
+     FROM teacher_subjects ts JOIN students st ON st.class_id=ts.class_id AND st.school_id=ts.school_id JOIN classes c ON c.id=st.class_id
+     WHERE ts.teacher_id=$1 AND ts.school_id=$2 ORDER BY c.name, st.roll_no`, [ref(req), sid(req)]);
   res.json(rows);
 });
 
@@ -79,7 +79,7 @@ router.get('/teacher/classes', async (req, res) => {
     `SELECT DISTINCT c.id, c.name, c.code,
        (SELECT count(*) FROM students s WHERE s.class_id=c.id)::int students
      FROM teacher_subjects ts JOIN classes c ON c.id=ts.class_id
-     WHERE ts.teacher_id=$1 ORDER BY c.id`, [ref(req)]);
+     WHERE ts.teacher_id=$1 AND ts.school_id=$2 ORDER BY c.id`, [ref(req), sid(req)]);
   res.json(rows);
 });
 
@@ -151,7 +151,7 @@ router.get('/teacher/assignments', async (req, res) => {
     `SELECT a.id, a.title, a.description, a.due_date, c.name class_name, su.name subject,
             (SELECT count(*) FROM submissions s WHERE s.assignment_id=a.id)::int submissions
      FROM assignments a LEFT JOIN classes c ON c.id=a.class_id LEFT JOIN subjects su ON su.id=a.subject_id
-     WHERE a.teacher_id=$1 ORDER BY a.created_at DESC`, [ref(req)]);
+     WHERE a.teacher_id=$1 AND a.school_id=$2 ORDER BY a.created_at DESC`, [ref(req), sid(req)]);
   res.json(rows);
 });
 
@@ -174,7 +174,7 @@ router.post('/teacher/assignments', async (req, res) => {
   await pool.query(
     `INSERT INTO notifications (school_id, user_id, type, title, message)
      SELECT $1, u.id, 'assignment', 'New assignment: ' || $2, 'A new assignment has been posted for your class.'
-     FROM users u WHERE u.role='student' AND u.ref_id IN (SELECT id FROM students WHERE class_id=$3)`,
+     FROM users u WHERE u.role='student' AND u.school_id=$1 AND u.ref_id IN (SELECT id FROM students WHERE class_id=$3 AND school_id=$1)`,
     [sid(req), title, class_id]).catch(() => {});
   res.status(201).json(rows[0]);
 });
@@ -186,7 +186,7 @@ router.get('/student/assignments', async (req, res) => {
     `SELECT a.id, a.title, a.description, a.due_date, su.name subject,
             (SELECT count(*) FROM submissions s WHERE s.assignment_id=a.id AND s.student_id=$1)::int submitted
      FROM assignments a LEFT JOIN subjects su ON su.id=a.subject_id
-     WHERE a.class_id=(SELECT class_id FROM students WHERE id=$1) ORDER BY a.due_date`, [stu]);
+     WHERE a.school_id=$2 AND a.class_id=(SELECT class_id FROM students WHERE id=$1 AND school_id=$2) ORDER BY a.due_date`, [stu, sid(req)]);
   res.json(rows);
 });
 const submissionBody = z.object({ assignment_id: id, title: text(200).default(''), file_link: httpUrl });
