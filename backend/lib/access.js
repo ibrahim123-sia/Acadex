@@ -1,7 +1,7 @@
 // Ownership checks. Never trust an id from the client: every check is scoped to the
 // caller's school and to what their role is actually linked to.
 const pool = require('../db/pool');
-const { forbidden, badRequest } = require('./errors');
+const { forbidden, badRequest, notFound } = require('./errors');
 
 // The teacher must be assigned to this class (and, if given, this subject in that class).
 async function assertTeachesClass(user, classId, subjectId = null, db = pool) {
@@ -42,4 +42,37 @@ async function assertInSchool(table, rowId, schoolId, db = pool) {
   if (!rows[0]) throw badRequest(`${SCHOOL_TABLES[table]} not found in this school`);
 }
 
-module.exports = { assertTeachesClass, assertStudentsInClass, assertInSchool };
+// Who may see a student's records (report card, fee voucher, ...):
+//   school admin of that school, the student themself, a linked parent, and — only when
+//   allowTeachers — a teacher assigned to the student's class.
+// A student outside the caller's school is reported as 404 so ids can't be probed.
+async function assertCanViewStudent(user, studentId, { allowTeachers = false } = {}, db = pool) {
+  if (!user.school_id) throw forbidden();
+  const { rows } = await db.query(`SELECT id, class_id FROM students WHERE id = $1 AND school_id = $2`, [
+    studentId,
+    user.school_id,
+  ]);
+  const student = rows[0];
+  if (!student) throw notFound('Student not found');
+
+  let allowed = false;
+  if (user.role === 'school_admin') allowed = true;
+  else if (user.role === 'student') allowed = user.ref_id === student.id;
+  else if (user.role === 'parent') {
+    const r = await db.query(
+      `SELECT 1 FROM parent_children WHERE parent_user_id = $1 AND student_id = $2 AND school_id = $3`,
+      [user.id, student.id, user.school_id]
+    );
+    allowed = r.rowCount > 0;
+  } else if (user.role === 'teacher' && allowTeachers && student.class_id) {
+    const r = await db.query(
+      `SELECT 1 FROM teacher_subjects WHERE teacher_id = $1 AND class_id = $2 AND school_id = $3 LIMIT 1`,
+      [user.ref_id, student.class_id, user.school_id]
+    );
+    allowed = r.rowCount > 0;
+  }
+  if (!allowed) throw forbidden();
+  return student;
+}
+
+module.exports = { assertTeachesClass, assertStudentsInClass, assertInSchool, assertCanViewStudent };

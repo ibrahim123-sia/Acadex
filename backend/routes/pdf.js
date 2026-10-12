@@ -1,25 +1,31 @@
 const { Router } = require('../lib/router');
 const PDFDocument = require('pdfkit');
 const pool = require('../db/pool');
-const { auth } = require('../middleware/auth');
+const { auth, requireRole } = require('../middleware/auth');
+const { assertCanViewStudent } = require('../lib/access');
+const { notFound } = require('../lib/errors');
+const { idParam } = require('../lib/validate');
 
 const router = Router();
-router.use(auth);
+// School-scoped documents; the platform super admin has no school.
+router.use(auth, requireRole('school_admin', 'teacher', 'student', 'parent'));
 const money = (n) => 'PKR ' + Number(n || 0).toLocaleString();
 
 // Report card PDF
 router.get('/report-card/:studentId', async (req, res) => {
   const s = req.user.school_id;
+  const { studentId } = idParam('studentId').parse(req.params);
+  await assertCanViewStudent(req.user, studentId, { allowTeachers: true });
   const stu = (await pool.query(
     `SELECT st.*, c.name class_name FROM students st LEFT JOIN classes c ON c.id=st.class_id WHERE st.id=$1 AND st.school_id=$2`,
-    [req.params.studentId, s])).rows[0];
-  if (!stu) return res.status(404).json({ error: 'Student not found' });
+    [studentId, s])).rows[0];
+  if (!stu) throw notFound('Student not found');
   const school = (await pool.query(`SELECT name, primary_color FROM schools WHERE id=$1`, [s])).rows[0];
   const grades = (await pool.query(
     `SELECT su.name subject, g.assignment_name, g.obtained_marks, g.total_marks,
        ROUND(g.obtained_marks/NULLIF(g.total_marks,0)*100,1) pct
-     FROM grades g LEFT JOIN subjects su ON su.id=g.subject_id WHERE g.student_id=$1 ORDER BY su.name`, [req.params.studentId])).rows;
-  const att = (await pool.query(`SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 GROUP BY status`, [req.params.studentId])).rows;
+     FROM grades g LEFT JOIN subjects su ON su.id=g.subject_id WHERE g.student_id=$1 AND g.school_id=$2 ORDER BY su.name`, [studentId, s])).rows;
+  const att = (await pool.query(`SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 AND school_id=$2 GROUP BY status`, [studentId, s])).rows;
   const present = att.find((a) => a.status === 'Present')?.c || 0;
   const totalAtt = att.reduce((x, a) => x + a.c, 0) || 1;
   const avg = grades.length ? (grades.reduce((x, g) => x + Number(g.pct || 0), 0) / grades.length).toFixed(1) : '0';
@@ -75,8 +81,9 @@ router.get('/fee-voucher/:feeId', async (req, res) => {
   const f = (await pool.query(
     `SELECT f.*, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name
      FROM tuition_fee f JOIN students st ON st.id=f.student_id LEFT JOIN classes c ON c.id=st.class_id
-     WHERE f.id=$1 AND f.school_id=$2`, [req.params.feeId, s])).rows[0];
-  if (!f) return res.status(404).json({ error: 'Fee record not found' });
+     WHERE f.id=$1 AND f.school_id=$2`, [idParam('feeId').parse(req.params).feeId, s])).rows[0];
+  if (!f) throw notFound('Fee record not found');
+  await assertCanViewStudent(req.user, f.student_id, { allowTeachers: false });
   const school = (await pool.query(`SELECT name, primary_color FROM schools WHERE id=$1`, [s])).rows[0];
   const accent = school.primary_color || '#4F46E5';
 

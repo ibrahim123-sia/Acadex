@@ -19,13 +19,19 @@ async function one(sql, params) {
 
 async function resetDb() {
   assertTestDb();
-  const { rows } = await pool.query(
-    `SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename <> 'schema_migrations'`
-  );
-  if (rows.length) {
-    const list = rows.map((r) => `"${r.tablename}"`).join(', ');
-    await pool.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
-  }
+  // DELETE with FK triggers disabled (needs a superuser, which the test server has) instead
+  // of TRUNCATE: TRUNCATE creates new data files per table, which is very slow on Windows.
+  await pool.query(`DO $$
+    DECLARE r record;
+    BEGIN
+      SET LOCAL session_replication_role = replica;
+      FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations' LOOP
+        EXECUTE format('DELETE FROM %I', r.tablename);
+      END LOOP;
+      FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' LOOP
+        EXECUTE format('ALTER SEQUENCE %I RESTART', r.sequencename);
+      END LOOP;
+    END $$`);
 
   const hash = await bcrypt.hash(PASSWORD, 4);
   const users = {};
