@@ -4,7 +4,8 @@ const { z } = require('zod');
 
 const id = z.coerce.number().int().positive().max(2147483647);
 const optionalId = z
-  .union([id, z.literal(''), z.null(), z.undefined()])
+  .union([id, z.literal(''), z.null()])
+  .optional()
   .transform((v) => (v === '' || v == null ? null : v));
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected a date as YYYY-MM-DD').refine((s) => {
   const d = new Date(`${s}T00:00:00Z`);

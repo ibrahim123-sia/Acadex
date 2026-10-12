@@ -1,7 +1,12 @@
 const { Router } = require('../lib/router');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
+const { assertInSchool } = require('../lib/access');
+const { HttpError } = require('../lib/errors');
+const { z, id, optionalId, isoDate, text, requiredText, money } = require('../lib/validate');
+const { withTransaction } = require('../db/tx');
 
 const router = Router();
 // Every /api/school route is for the school's administrator only.
@@ -128,90 +133,118 @@ router.get('/announcements', async (req, res) => {
      FROM announcements WHERE school_id=$1 ORDER BY created_at DESC`, [sid(req)]);
   res.json(rows);
 });
+const announcementBody = z.object({
+  title: requiredText(200),
+  target_audience: z.enum(['All', 'Teachers', 'Students']).default('All'),
+  description: requiredText(5000),
+  end_date: z.union([isoDate, z.literal(''), z.null()]).optional().transform((v) => v || null),
+});
 router.post('/announcements', async (req, res) => {
-  const { title, target_audience = 'All', description, end_date } = req.body;
-  if (!title || !description) return res.status(400).json({ error: 'title and description required' });
+  const { title, target_audience, description, end_date } = announcementBody.parse(req.body);
   const { rows } = await pool.query(
     `INSERT INTO announcements (school_id, title, target_audience, description, end_date) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [sid(req), title, target_audience, description, end_date || null]);
+    [sid(req), title, target_audience, description, end_date]);
   res.status(201).json(rows[0]);
 });
 
 // ---------- WRITE: admissions / faculty / classes / fees ----------
+const optionalDate = z.union([isoDate, z.literal(''), z.null()]).optional().transform((v) => v || null);
+const person = {
+  first_name: requiredText(80),
+  last_name: requiredText(80),
+  email: z.string().trim().toLowerCase().pipe(z.email()),
+  gender: text(20).optional().transform((v) => v || null),
+  dob: optionalDate,
+};
+
 // Admit a new student (creates student + login)
+const studentBody = z.object({
+  ...person,
+  age: z.union([z.coerce.number().int().min(1).max(120), z.literal(''), z.null()]).optional().transform((v) => (v === '' || v == null ? null : v)),
+  class_id: optionalId,
+  guardian_name: text(120).default(''),
+  guardian_phone: text(30).default(''),
+  city: text(80).default(''),
+  roll_no: text(40).optional().transform((v) => v || null),
+});
 router.post('/students', async (req, res) => {
   const s = sid(req);
-  const { first_name, last_name, email, gender, age, dob, class_id, guardian_name, guardian_phone, city, roll_no } = req.body;
-  if (!first_name || !last_name || !email) return res.status(400).json({ error: 'first_name, last_name, email required' });
-  const client = await pool.connect();
+  const b = studentBody.parse(req.body);
+  if (b.class_id) await assertInSchool('classes', b.class_id, s);
   try {
-    await client.query('BEGIN');
-    const st = (await client.query(
-      `INSERT INTO students (school_id, roll_no, first_name, last_name, age, gender, email, dob, class_id, guardian_name, guardian_phone, city)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-      [s, roll_no || null, first_name, last_name, age || null, gender || null, email.toLowerCase(), dob || null, class_id || null, guardian_name || '', guardian_phone || '', city || ''])).rows[0];
-    const hash = await bcrypt.hash('Acadex@123', 10);
-    await client.query(`INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,'student',$2,$3,$4,$5)`,
-      [s, email.toLowerCase(), hash, `${first_name} ${last_name}`, st.id]);
-    await client.query('COMMIT');
-    audit(s, req.user.name, 'admit_student', 'Student', `${first_name} ${last_name}`);
+    const st = await withTransaction(async (client) => {
+      const row = (await client.query(
+        `INSERT INTO students (school_id, roll_no, first_name, last_name, age, gender, email, dob, class_id, guardian_name, guardian_phone, city)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [s, b.roll_no, b.first_name, b.last_name, b.age, b.gender, b.email, b.dob, b.class_id, b.guardian_name, b.guardian_phone, b.city])).rows[0];
+      const hash = await bcrypt.hash('Acadex@123', 10);
+      await client.query(`INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,'student',$2,$3,$4,$5)`,
+        [s, b.email, hash, `${b.first_name} ${b.last_name}`, row.id]);
+      return row;
+    });
+    audit(s, req.user.name, 'admit_student', 'Student', `${b.first_name} ${b.last_name}`);
     res.status(201).json(st);
   } catch (e) {
-    await client.query('ROLLBACK');
-    if (e.code === '23505') return res.status(409).json({ error: 'A user with this email already exists' });
+    if (e.code === '23505') throw new HttpError(409, 'A user with this email already exists');
     throw e;
-  } finally { client.release(); }
+  }
 });
 
 // Add a teacher (creates teacher + login)
+const teacherBody = z.object({
+  ...person,
+  phone: text(30).default(''),
+  cnic: text(30).default(''),
+  qualification: text(120).default(''),
+});
 router.post('/teachers', async (req, res) => {
   const s = sid(req);
-  const { first_name, last_name, email, gender, dob, phone, cnic, qualification } = req.body;
-  if (!first_name || !last_name || !email) return res.status(400).json({ error: 'first_name, last_name, email required' });
-  const client = await pool.connect();
+  const b = teacherBody.parse(req.body);
   try {
-    await client.query('BEGIN');
-    const t = (await client.query(
-      `INSERT INTO teachers (school_id, first_name, last_name, gender, dob, email, phone, cnic, qualification)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [s, first_name, last_name, gender || null, dob || null, email.toLowerCase(), phone || '', cnic || '', qualification || ''])).rows[0];
-    const hash = await bcrypt.hash('Acadex@123', 10);
-    await client.query(`INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,'teacher',$2,$3,$4,$5)`,
-      [s, email.toLowerCase(), hash, `${first_name} ${last_name}`, t.id]);
-    await client.query('COMMIT');
-    audit(s, req.user.name, 'add_teacher', 'Teacher', `${first_name} ${last_name}`);
+    const t = await withTransaction(async (client) => {
+      const row = (await client.query(
+        `INSERT INTO teachers (school_id, first_name, last_name, gender, dob, email, phone, cnic, qualification)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [s, b.first_name, b.last_name, b.gender, b.dob, b.email, b.phone, b.cnic, b.qualification])).rows[0];
+      const hash = await bcrypt.hash('Acadex@123', 10);
+      await client.query(`INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,'teacher',$2,$3,$4,$5)`,
+        [s, b.email, hash, `${b.first_name} ${b.last_name}`, row.id]);
+      return row;
+    });
+    audit(s, req.user.name, 'add_teacher', 'Teacher', `${b.first_name} ${b.last_name}`);
     res.status(201).json(t);
   } catch (e) {
-    await client.query('ROLLBACK');
-    if (e.code === '23505') return res.status(409).json({ error: 'A user with this email already exists' });
+    if (e.code === '23505') throw new HttpError(409, 'A user with this email already exists');
     throw e;
-  } finally { client.release(); }
+  }
 });
 
 // Create a class
+const classBody = z.object({ code: requiredText(20), name: requiredText(80), section: text(20).optional().transform((v) => v || 'A') });
 router.post('/classes', async (req, res) => {
-  const { code, name, section } = req.body;
-  if (!code || !name) return res.status(400).json({ error: 'code and name required' });
+  const { code, name, section } = classBody.parse(req.body);
   try {
     const { rows } = await pool.query(`INSERT INTO classes (school_id, code, name, section) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [sid(req), code, name, section || 'A']);
+      [sid(req), code, name, section]);
     audit(sid(req), req.user.name, 'create_class', 'Class', name);
     res.status(201).json(rows[0]);
   } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Class code already exists' });
+    if (e.code === '23505') throw new HttpError(409, 'Class code already exists');
     throw e;
   }
 });
 
 // Collect a fee
+const feeBody = z
+  .object({ student_id: id, total_fee: money, paid_amount: money.default(0) })
+  .refine((b) => b.paid_amount <= b.total_fee, { message: 'Paid amount cannot exceed the total fee', path: ['paid_amount'] });
 router.post('/fees', async (req, res) => {
   const s = sid(req);
-  const { student_id, total_fee, paid_amount } = req.body;
-  if (!student_id || total_fee == null) return res.status(400).json({ error: 'student_id and total_fee required' });
-  const paid = Number(paid_amount || 0), total = Number(total_fee);
+  const { student_id, total_fee: total, paid_amount: paid } = feeBody.parse(req.body);
+  await assertInSchool('students', student_id, s);
   const remaining = total - paid;
   const status = remaining <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending';
-  const receipt = 'RCP-' + Date.now().toString().slice(-8);
+  const receipt = 'RCP-' + crypto.randomBytes(5).toString('hex').toUpperCase();
   const { rows } = await pool.query(
     `INSERT INTO tuition_fee (school_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status)
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [s, receipt, student_id, total, paid, remaining, status]);

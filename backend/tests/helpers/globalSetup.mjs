@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -25,7 +26,18 @@ function freePort() {
 
 let pg;
 
+// If a previous run was killed before teardown, its postgres.exe children keep the
+// cluster's shared memory alive on Windows and the next start fails. Only processes
+// running this repo's embedded binary are touched.
+function killStrayEmbeddedPostgres() {
+  if (process.platform !== 'win32') return;
+  const binDir = path.join(backendDir, 'node_modules', '@embedded-postgres').replace(/'/g, "''");
+  const ps = `Get-CimInstance Win32_Process -Filter "Name='postgres.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Replace('/', '\\').IndexOf('${binDir}', [StringComparison]::OrdinalIgnoreCase) -ge 0 } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
+  spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { stdio: 'ignore' });
+}
+
 async function startEmbedded() {
+  killStrayEmbeddedPostgres();
   const EmbeddedPostgres = require('embedded-postgres').default;
   const port = await freePort();
   // The cluster is kept between runs (initdb is slow on Windows); the database is recreated each run.
@@ -40,7 +52,8 @@ async function startEmbedded() {
     onLog: () => {},
     initdbFlags: ['--encoding=UTF8', '--locale=C'],
     // PG18 io_worker children can outlive the postmaster on Windows and lock the next run.
-    postgresFlags: ['-c', 'io_method=sync'],
+    // fsync off: this cluster is disposable, and it makes the per-test TRUNCATE much faster.
+    postgresFlags: ['-c', 'io_method=sync', '-c', 'fsync=off', '-c', 'synchronous_commit=off', '-c', 'full_page_writes=off'],
   });
   if (fresh) await pg.initialise();
   await pg.start();

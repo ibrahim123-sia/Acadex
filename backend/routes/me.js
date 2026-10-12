@@ -1,8 +1,12 @@
 const { Router } = require('../lib/router');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
-const { assertTeachesClass } = require('../lib/access');
-const { id, optionalId } = require('../lib/validate');
+const { assertTeachesClass, assertStudentsInClass } = require('../lib/access');
+const { z, id, optionalId, isoDate, requiredText, text } = require('../lib/validate');
+const { withTransaction } = require('../db/tx');
+
+const ATTENDANCE_STATUSES = ['Present', 'Absent', 'Leave'];
+const ASSESSMENT_TYPES = ['Quiz', 'Midterm', 'Assignment', 'Final', 'Test', 'Project'];
 
 const router = Router();
 router.use(auth);
@@ -91,37 +95,53 @@ router.get('/teacher/class/:classId/roster', async (req, res) => {
   res.json({ date, students: rows });
 });
 
-// Bulk-save attendance for a whole class on a date
+// Bulk-save attendance for a whole class on a date (replaces that class's day)
+const attendanceBody = z.object({
+  class_id: id,
+  date: isoDate,
+  records: z.array(z.object({ student_id: id, status: z.enum(ATTENDANCE_STATUSES) })).max(500),
+});
 router.post('/teacher/attendance', async (req, res) => {
-  const { class_id, date, records } = req.body; // records: [{student_id, status}]
-  if (!class_id || !date || !Array.isArray(records)) return res.status(400).json({ error: 'class_id, date, records required' });
-  await assertTeachesClass(req.user, id.parse(class_id));
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  const { class_id, date, records } = attendanceBody.parse(req.body);
+  await assertTeachesClass(req.user, class_id);
+  await assertStudentsInClass(sid(req), class_id, records.map((r) => r.student_id));
+  await withTransaction(async (client) => {
     await client.query(`DELETE FROM student_attendance WHERE school_id=$1 AND class_id=$2 AND att_date=$3`, [sid(req), class_id, date]);
     for (const r of records) {
       await client.query(`INSERT INTO student_attendance (school_id, student_id, class_id, att_date, status) VALUES ($1,$2,$3,$4,$5)`,
         [sid(req), r.student_id, class_id, date, r.status]);
     }
-    await client.query('COMMIT');
-    res.json({ saved: records.length });
-  } catch (e) { await client.query('ROLLBACK'); throw e; }
-  finally { client.release(); }
+  });
+  res.json({ saved: records.length });
 });
 
-// Bulk grade entry for a class/subject
+// Bulk grade entry for a class/subject (all-or-nothing)
+const gradesBody = z
+  .object({
+    class_id: id,
+    subject_id: optionalId,
+    assignment_type: z.enum(ASSESSMENT_TYPES).default('Quiz'),
+    assignment_name: requiredText(120),
+    total_marks: z.coerce.number().positive().max(10000).default(100),
+    records: z.array(z.object({ student_id: id, obtained_marks: z.coerce.number().min(0) })).max(500),
+  })
+  .refine((b) => b.records.every((r) => r.obtained_marks <= b.total_marks), {
+    message: 'Obtained marks cannot exceed total marks',
+    path: ['records'],
+  });
 router.post('/teacher/grades', async (req, res) => {
-  const { class_id, subject_id, assignment_type, assignment_name, total_marks, records } = req.body;
-  if (!class_id || !assignment_name || !Array.isArray(records)) return res.status(400).json({ error: 'class_id, assignment_name, records required' });
-  await assertTeachesClass(req.user, id.parse(class_id), optionalId.parse(subject_id));
-  for (const r of records) {
-    await pool.query(
-      `INSERT INTO grades (school_id, student_id, class_id, subject_id, assignment_type, assignment_name, obtained_marks, total_marks)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [sid(req), r.student_id, class_id, subject_id || null, assignment_type || 'Quiz', assignment_name, r.obtained_marks, total_marks || 100]);
-  }
-  res.json({ saved: records.length });
+  const b = gradesBody.parse(req.body);
+  await assertTeachesClass(req.user, b.class_id, b.subject_id);
+  await assertStudentsInClass(sid(req), b.class_id, b.records.map((r) => r.student_id));
+  await withTransaction(async (client) => {
+    for (const r of b.records) {
+      await client.query(
+        `INSERT INTO grades (school_id, student_id, class_id, subject_id, assignment_type, assignment_name, obtained_marks, total_marks)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [sid(req), r.student_id, b.class_id, b.subject_id, b.assignment_type, b.assignment_name, r.obtained_marks, b.total_marks]);
+    }
+  });
+  res.json({ saved: b.records.length });
 });
 
 // Teacher's assignments
@@ -135,14 +155,20 @@ router.get('/teacher/assignments', async (req, res) => {
 });
 
 // Assign an assignment to a whole class at once
+const assignmentBody = z.object({
+  class_id: id,
+  subject_id: optionalId,
+  title: requiredText(200),
+  description: text(5000).default(''),
+  due_date: z.union([isoDate, z.literal(''), z.null()]).optional().transform((v) => v || null),
+});
 router.post('/teacher/assignments', async (req, res) => {
-  const { class_id, subject_id, title, description, due_date } = req.body;
-  if (!class_id || !title) return res.status(400).json({ error: 'class_id and title required' });
-  await assertTeachesClass(req.user, id.parse(class_id), optionalId.parse(subject_id));
+  const { class_id, subject_id, title, description, due_date } = assignmentBody.parse(req.body);
+  await assertTeachesClass(req.user, class_id, subject_id);
   const { rows } = await pool.query(
     `INSERT INTO assignments (school_id, class_id, subject_id, teacher_id, title, description, due_date)
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-    [sid(req), class_id, subject_id || null, ref(req), title, description || '', due_date || null]);
+    [sid(req), class_id, subject_id, ref(req), title, description, due_date]);
   // notify students of the class
   await pool.query(
     `INSERT INTO notifications (school_id, user_id, type, title, message)
