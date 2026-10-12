@@ -1,6 +1,8 @@
 const { Router } = require('../lib/router');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
+const { assertTeachesClass } = require('../lib/access');
+const { id, optionalId } = require('../lib/validate');
 
 const router = Router();
 router.use(auth);
@@ -78,12 +80,14 @@ router.get('/teacher/classes', async (req, res) => {
 
 // Roster for a class + attendance already marked for a date (defaults today)
 router.get('/teacher/class/:classId/roster', async (req, res) => {
+  const classId = id.parse(req.params.classId);
+  await assertTeachesClass(req.user, classId);
   const date = req.query.date || new Date().toISOString().slice(0, 10);
   const { rows } = await pool.query(
     `SELECT st.id, st.roll_no, st.first_name||' '||st.last_name name,
             (SELECT status FROM student_attendance a WHERE a.student_id=st.id AND a.class_id=$2 AND a.att_date=$3 LIMIT 1) status
      FROM students st WHERE st.class_id=$1 AND st.school_id=$4 ORDER BY st.roll_no`,
-    [req.params.classId, req.params.classId, date, sid(req)]);
+    [classId, classId, date, sid(req)]);
   res.json({ date, students: rows });
 });
 
@@ -91,6 +95,7 @@ router.get('/teacher/class/:classId/roster', async (req, res) => {
 router.post('/teacher/attendance', async (req, res) => {
   const { class_id, date, records } = req.body; // records: [{student_id, status}]
   if (!class_id || !date || !Array.isArray(records)) return res.status(400).json({ error: 'class_id, date, records required' });
+  await assertTeachesClass(req.user, id.parse(class_id));
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -109,6 +114,7 @@ router.post('/teacher/attendance', async (req, res) => {
 router.post('/teacher/grades', async (req, res) => {
   const { class_id, subject_id, assignment_type, assignment_name, total_marks, records } = req.body;
   if (!class_id || !assignment_name || !Array.isArray(records)) return res.status(400).json({ error: 'class_id, assignment_name, records required' });
+  await assertTeachesClass(req.user, id.parse(class_id), optionalId.parse(subject_id));
   for (const r of records) {
     await pool.query(
       `INSERT INTO grades (school_id, student_id, class_id, subject_id, assignment_type, assignment_name, obtained_marks, total_marks)
@@ -132,6 +138,7 @@ router.get('/teacher/assignments', async (req, res) => {
 router.post('/teacher/assignments', async (req, res) => {
   const { class_id, subject_id, title, description, due_date } = req.body;
   if (!class_id || !title) return res.status(400).json({ error: 'class_id and title required' });
+  await assertTeachesClass(req.user, id.parse(class_id), optionalId.parse(subject_id));
   const { rows } = await pool.query(
     `INSERT INTO assignments (school_id, class_id, subject_id, teacher_id, title, description, due_date)
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
