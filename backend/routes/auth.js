@@ -2,8 +2,12 @@ const { Router } = require('../lib/router');
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { signToken, auth } = require('../middleware/auth');
+const { z } = require('../lib/validate');
 
 const router = Router();
+
+// Compared against when the email is unknown, so response time doesn't reveal which emails exist.
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
 async function loadSchool(school_id) {
   if (!school_id) return null;
@@ -11,15 +15,28 @@ async function loadSchool(school_id) {
   return rows[0] || null;
 }
 
+const publicUser = (u) => ({
+  id: u.id,
+  role: u.role,
+  school_id: u.school_id,
+  full_name: u.full_name,
+  email: u.email,
+  ref_id: u.ref_id,
+});
+
 // POST /api/auth/login
+const loginBody = z.object({
+  email: z.string().trim().toLowerCase().min(1).max(254),
+  password: z.string().min(1).max(200),
+});
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
-  const { rows } = await pool.query('SELECT * FROM users WHERE email=$1', [String(email).toLowerCase().trim()]);
+  const parsed = loginBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Email and password are required' });
+  const { email, password } = parsed.data;
+  const { rows } = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
   const user = rows[0];
-  if (!user || !user.is_active) return res.status(401).json({ error: 'Invalid email or password' });
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Invalid email or password' });
+  const ok = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
+  if (!user || !ok || !user.is_active) return res.status(401).json({ error: 'Invalid email or password' });
 
   // suspended tenant guard
   const school = await loadSchool(user.school_id);
@@ -27,20 +44,20 @@ router.post('/login', async (req, res) => {
     return res.status(403).json({ error: 'This school account is currently suspended.' });
   }
   await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
-  const token = signToken(user);
-  res.json({
-    token,
-    user: { id: user.id, role: user.role, school_id: user.school_id, full_name: user.full_name, email: user.email, ref_id: user.ref_id },
-    school,
-  });
+  res.json({ token: signToken(user), user: publicUser(user), school });
 });
 
 // GET /api/auth/me
 router.get('/me', auth, async (req, res) => {
   const { rows } = await pool.query('SELECT id, role, school_id, full_name, email, ref_id FROM users WHERE id=$1', [req.user.id]);
-  const user = rows[0];
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ user, school: await loadSchool(user.school_id) });
+  res.json({ user: publicUser(rows[0]), school: await loadSchool(rows[0].school_id) });
+});
+
+// POST /api/auth/logout — revokes every token issued to this user so far.
+// (Per-device sessions arrive with refresh tokens in Phase 0B.)
+router.post('/logout', auth, async (req, res) => {
+  await pool.query('UPDATE users SET token_version = token_version + 1 WHERE id=$1', [req.user.id]);
+  res.json({ ok: true });
 });
 
 module.exports = router;

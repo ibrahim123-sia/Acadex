@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, saveAuth } from './api';
 import { GraduationCap, ShieldCheck, BarChart3, Users } from 'lucide-react';
 
-const HOME = { super_admin: '/platform', school_admin: '/admin', teacher: '/teacher', student: '/student' };
+const HOME = { super_admin: '/platform', school_admin: '/admin', teacher: '/teacher', student: '/student', parent: '/parent' };
 
 export default function Login() {
   const nav = useNavigate();

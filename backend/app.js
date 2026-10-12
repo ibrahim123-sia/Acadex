@@ -1,14 +1,42 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const pool = require('./db/pool');
+const { loadConfig } = require('./config');
 const { wrap } = require('./lib/router');
 const { errorHandler } = require('./lib/errors');
 
-function createApp() {
+function createApp(config = loadConfig()) {
   const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', config.trustProxy);
 
-  app.use(cors());
-  app.use(express.json());
+  app.use(helmet());
+  app.use(
+    cors({
+      // requests without an Origin header (curl, server-to-server) are not CORS requests
+      origin: (origin, cb) => cb(null, !origin || config.corsOrigins.includes(origin)),
+      credentials: true,
+    })
+  );
+  app.use(express.json({ limit: '100kb' }));
+
+  app.use(
+    '/api',
+    rateLimit({ windowMs: 60 * 1000, limit: config.apiRateLimit, standardHeaders: 'draft-8', legacyHeaders: false })
+  );
+  // Failed logins only, keyed by IP + email, so one attacker can't lock out a whole school.
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: config.loginRateLimit,
+    skipSuccessfulRequests: true,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    keyGenerator: (req) => `${ipKeyGenerator(req.ip)}|${String(req.body?.email || '').toLowerCase().trim()}`,
+    message: { error: 'Too many login attempts. Please wait 15 minutes and try again.' },
+  });
+  app.use('/api/auth/login', loginLimiter);
 
   app.get('/api/health', wrap(async (req, res) => {
     try {
