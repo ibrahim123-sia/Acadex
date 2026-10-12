@@ -1,9 +1,9 @@
-const express = require('express');
+const { Router } = require('../lib/router');
 const PDFDocument = require('pdfkit');
 const pool = require('../db/pool');
 const { auth } = require('../middleware/auth');
 
-const router = express.Router();
+const router = Router();
 router.use(auth);
 const money = (n) => 'PKR ' + Number(n || 0).toLocaleString();
 

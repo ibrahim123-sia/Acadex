@@ -1,8 +1,8 @@
-const express = require('express');
+const { Router } = require('../lib/router');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
 
-const router = express.Router();
+const router = Router();
 router.use(auth, requireRole('parent'));
 
 // Children of the logged-in parent

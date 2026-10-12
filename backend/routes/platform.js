@@ -1,9 +1,9 @@
-const express = require('express');
+const { Router } = require('../lib/router');
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
 
-const router = express.Router();
+const router = Router();
 router.use(auth, requireRole('super_admin'));
 
 // Platform KPIs
@@ -61,7 +61,7 @@ router.post('/schools', async (req, res) => {
   } catch (e) {
     await client.query('ROLLBACK');
     if (e.code === '23505') return res.status(409).json({ error: 'Slug or admin email already exists' });
-    res.status(500).json({ error: e.message });
+    throw e;
   } finally { client.release(); }
 });
 

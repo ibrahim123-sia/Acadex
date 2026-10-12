@@ -1,8 +1,8 @@
-const express = require('express');
+const { Router } = require('../lib/router');
 const pool = require('../db/pool');
 const { auth } = require('../middleware/auth');
 
-const router = express.Router();
+const router = Router();
 router.use(auth);
 
 const sid = (req) => req.user.school_id;
@@ -99,7 +99,7 @@ router.post('/teacher/attendance', async (req, res) => {
     }
     await client.query('COMMIT');
     res.json({ saved: records.length });
-  } catch (e) { await client.query('ROLLBACK'); res.status(500).json({ error: e.message }); }
+  } catch (e) { await client.query('ROLLBACK'); throw e; }
   finally { client.release(); }
 });
 

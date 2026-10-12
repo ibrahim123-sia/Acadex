@@ -1,9 +1,9 @@
-const express = require('express');
+const { Router } = require('../lib/router');
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
 
-const router = express.Router();
+const router = Router();
 router.use(auth);
 
 // tenant id helper — everything is scoped to the caller's school
@@ -160,7 +160,7 @@ router.post('/students', adminOnly, async (req, res) => {
   } catch (e) {
     await client.query('ROLLBACK');
     if (e.code === '23505') return res.status(409).json({ error: 'A user with this email already exists' });
-    res.status(500).json({ error: e.message });
+    throw e;
   } finally { client.release(); }
 });
 
@@ -185,7 +185,7 @@ router.post('/teachers', adminOnly, async (req, res) => {
   } catch (e) {
     await client.query('ROLLBACK');
     if (e.code === '23505') return res.status(409).json({ error: 'A user with this email already exists' });
-    res.status(500).json({ error: e.message });
+    throw e;
   } finally { client.release(); }
 });
 
@@ -200,7 +200,7 @@ router.post('/classes', adminOnly, async (req, res) => {
     res.status(201).json(rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Class code already exists' });
-    res.status(500).json({ error: e.message });
+    throw e;
   }
 });
 
