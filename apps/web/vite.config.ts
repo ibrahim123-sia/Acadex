@@ -14,12 +14,13 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
+    // recharts (~540 kB) lands in a chunk only the lazy dashboard pages load
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
           react: ['react', 'react-dom', 'react-router'],
           query: ['@tanstack/react-query'],
-          charts: ['recharts'],
           i18n: ['i18next', 'react-i18next'],
         },
       },
