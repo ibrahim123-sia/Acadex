@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import { formatDate, todayISO } from '../format';
 import { PageHeader, StatCard, Card, Table, Td, Spinner, Badge, Button, Modal, Field, usePaged, Pager } from '../ui';
-import { BookOpen, ClipboardList, Users, Megaphone, CalendarCheck, Save, Plus } from 'lucide-react';
+import { BookOpen, ClipboardList, Users, Megaphone, Save, Plus } from 'lucide-react';
 
 function useClasses() {
   const [classes, setClasses] = useState([]);

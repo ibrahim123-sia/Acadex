@@ -40,7 +40,6 @@ function toResponse(err) {
   return [500, { error: 'Something went wrong' }];
 }
 
-// eslint-disable-next-line no-unused-vars
 function errorHandler(err, req, res, next) {
   const [status, body] = toResponse(err);
   if (status >= 500) console.error(`[${req.method} ${req.originalUrl}]`, err);

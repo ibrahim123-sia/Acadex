@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api, getUser } from '../api';
+import { api } from '../api';
 import { formatMoney as money, formatDate } from '../format';
 import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, usePaged, Pager, ErrorNote } from '../ui';
 import { TrendingUp, CalendarCheck, Wallet, Upload } from 'lucide-react';

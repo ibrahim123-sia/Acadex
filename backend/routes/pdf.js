@@ -88,7 +88,7 @@ router.get('/fee-voucher/:feeId', async (req, res) => {
   const school = await schoolSettings(s);
   const accent = school.primary_color || '#4F46E5';
   // built-in PDF fonts lack U+202F/U+00A0, which some locales put between amount and symbol
-  const money = (n) => formatMoney(n, school.currency, school.locale).replace(/[  ]/g, ' ');
+  const money = (n) => formatMoney(n, school.currency, school.locale).replace(/[\u202F\u00A0]/g, ' ');
 
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
   res.setHeader('Content-Type', 'application/pdf');
