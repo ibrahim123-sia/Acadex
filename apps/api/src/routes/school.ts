@@ -10,13 +10,15 @@ import {
 } from '@acadex/shared';
 import { db, withTransaction } from '../db/context';
 import { assertInSchool } from '../lib/access';
+import { badRequest, forbidden, notFound } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { conflict } from '../lib/errors';
+import { id } from '@acadex/shared';
 import { todayIn } from '../lib/locale';
 import { parsePage, sendPage } from '../lib/pagination';
-import { generateTempPassword, hashPassword } from '../lib/passwords';
+import { inviteUser } from '../auth/invites';
 import { schoolTimeZone } from '../lib/school';
-import { auth, currentUser, requirePermission, schoolId } from '../middleware/auth';
+import { auth, currentUser, requirePermission, schoolId, userCan } from '../middleware/auth';
 import { grantSystemRole } from '../rbac';
 
 const router = Router();
@@ -24,8 +26,14 @@ const router = Router();
 // them; custom roles such as "Accountant" can hold a subset).
 router.use(auth);
 
-const userIdByEmail = async (client: typeof db, email: string) =>
-  (await client.query<{ id: number }>('SELECT id FROM users WHERE email=$1', [email])).rows[0]!.id;
+/** A school account with no password yet: the person sets one through the invitation. */
+const createAccount = async (client: typeof db, schoolIdValue: number, role: string, email: string, fullName: string, refId: number | null) =>
+  (
+    await client.query<{ id: number }>(
+      `INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,$2,$3,NULL,$4,$5) RETURNING id`,
+      [schoolIdValue, role, email, fullName, refId]
+    )
+  ).rows[0]!.id;
 const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === '23505';
 const auditAs = (req: Request, action: string, entity: string, detail: string) =>
   audit({ schoolId: schoolId(req), userId: currentUser(req).id, actor: currentUser(req).name, action, entity, detail });
@@ -215,12 +223,11 @@ router.post('/announcements', requirePermission('announcements.manage'), async (
 
 // ---------- WRITE: admissions / faculty / classes / fees ----------
 
-// Admit a new student (creates student + login)
+// Admit a new student (creates the student record and an account, and emails an invitation)
 router.post('/students', requirePermission('students.manage'), async (req, res) => {
   const s = schoolId(req);
   const b = createStudentBody.parse(req.body);
   if (b.class_id) await assertInSchool('classes', b.class_id, s);
-  const tempPassword = generateTempPassword();
   try {
     const st = await withTransaction(async (client) => {
       const row = (
@@ -230,27 +237,23 @@ router.post('/students', requirePermission('students.manage'), async (req, res) 
           [s, b.roll_no, b.first_name, b.last_name, b.age, b.gender, b.email, b.dob, b.class_id, b.guardian_name, b.guardian_phone, b.city]
         )
       ).rows[0];
-      await client.query(
-        `INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id, must_change_password)
-         VALUES ($1,'student',$2,$3,$4,$5,TRUE)`,
-        [s, b.email, await hashPassword(tempPassword), `${b.first_name} ${b.last_name}`, row.id]
-      );
-      await grantSystemRole(client, await userIdByEmail(client, b.email), 'student', s, currentUser(req).id);
-      return row;
+      const userId = await createAccount(client, s, 'student', b.email, `${b.first_name} ${b.last_name}`, row.id);
+      await grantSystemRole(client, userId, 'student', s, currentUser(req).id);
+      return { row, userId };
     });
+    const invite = await inviteUser(st.userId, { id: currentUser(req).id, name: currentUser(req).name });
     await auditAs(req, 'admit_student', 'Student', `${b.first_name} ${b.last_name}`);
-    res.status(201).json({ ...st, login: { email: b.email, tempPassword } });
+    res.status(201).json({ ...st.row, user_id: st.userId, invite });
   } catch (e) {
     if (isUniqueViolation(e)) throw conflict('A user with this email already exists');
     throw e;
   }
 });
 
-// Add a teacher (creates teacher + login)
+// Add a teacher (creates the staff record and an account, and emails an invitation)
 router.post('/teachers', requirePermission('staff.manage'), async (req, res) => {
   const s = schoolId(req);
   const b = createTeacherBody.parse(req.body);
-  const tempPassword = generateTempPassword();
   try {
     const t = await withTransaction(async (client) => {
       const row = (
@@ -260,20 +263,35 @@ router.post('/teachers', requirePermission('staff.manage'), async (req, res) => 
           [s, b.first_name, b.last_name, b.gender, b.dob, b.email, b.phone, b.cnic, b.qualification]
         )
       ).rows[0];
-      await client.query(
-        `INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id, must_change_password)
-         VALUES ($1,'teacher',$2,$3,$4,$5,TRUE)`,
-        [s, b.email, await hashPassword(tempPassword), `${b.first_name} ${b.last_name}`, row.id]
-      );
-      await grantSystemRole(client, await userIdByEmail(client, b.email), 'teacher', s, currentUser(req).id);
-      return row;
+      const userId = await createAccount(client, s, 'teacher', b.email, `${b.first_name} ${b.last_name}`, row.id);
+      await grantSystemRole(client, userId, 'teacher', s, currentUser(req).id);
+      return { row, userId };
     });
+    const invite = await inviteUser(t.userId, { id: currentUser(req).id, name: currentUser(req).name });
     await auditAs(req, 'add_teacher', 'Teacher', `${b.first_name} ${b.last_name}`);
-    res.status(201).json({ ...t, login: { email: b.email, tempPassword } });
+    res.status(201).json({ ...t.row, user_id: t.userId, invite });
   } catch (e) {
     if (isUniqueViolation(e)) throw conflict('A user with this email already exists');
     throw e;
   }
+});
+
+// Send a new invitation (the previous link stops working). Only for accounts that haven't
+// set a password yet; others can use "forgot password".
+router.post('/users/:userId/invite', async (req, res) => {
+  const userId = id.parse(req.params.userId);
+  const { rows } = await db.query<{ id: number; role: string; password_hash: string | null }>(
+    `SELECT id, role, password_hash FROM users WHERE id=$1 AND school_id=$2`,
+    [userId, schoolId(req)]
+  );
+  const u = rows[0];
+  if (!u) throw notFound('User not found');
+  const needed = u.role === 'student' ? 'students.manage' : u.role === 'parent' ? 'students.manage' : 'staff.manage';
+  if (!userCan(req, needed)) throw forbidden('You do not have permission to do this');
+  if (u.password_hash) throw badRequest('This person has already activated their account. They can use "Forgot password".');
+  const invite = await inviteUser(u.id, { id: currentUser(req).id, name: currentUser(req).name });
+  await auditAs(req, 'resend_invite', 'User', invite.email);
+  res.json({ invite });
 });
 
 // Create a class

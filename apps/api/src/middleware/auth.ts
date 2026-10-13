@@ -1,8 +1,9 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import type { Permission, Role } from '@acadex/shared';
+import { MFA_REQUIRED_ROLES, type Permission, type Role, type SessionUser } from '@acadex/shared';
+import { getConfig } from '../config';
 import { db, setTenant } from '../db/context';
 import { can, type AccessContext, type Grant } from '../rbac';
+import { verifyAccessToken } from '../auth/tokens';
 
 export interface AuthUser {
   id: number;
@@ -12,7 +13,12 @@ export interface AuthUser {
   name: string;
   email: string;
   token_version: number;
+  session_id: string;
   must_change_password: boolean;
+  mfa_enabled: boolean;
+  email_verified: boolean;
+  /** an administrator who still has to set up 2FA (ADMIN_MFA=required) */
+  mfa_enrollment_required: boolean;
   /** Effective permission grants from all of the user's role assignments. */
   grants: Grant[];
 }
@@ -23,28 +29,9 @@ declare module 'express-serve-static-core' {
   }
 }
 
-interface TokenUser {
-  id: number;
-  token_version?: number | null;
-  role: string;
-  school_id: number | null;
-}
+const deny = (res: Response, status: number, error: string, code: string) => res.status(status).json({ error, code });
 
-const expiresIn = () => process.env.JWT_EXPIRES_IN || '12h';
-
-// The token only identifies the user and the session version; role, school and status are
-// re-read from the database on every request (see makeAuth()).
-export function signToken(user: TokenUser): string {
-  return jwt.sign(
-    { id: user.id, tv: user.token_version ?? 0, role: user.role, school_id: user.school_id },
-    process.env.JWT_SECRET!,
-    { expiresIn: expiresIn() as jwt.SignOptions['expiresIn'], algorithm: 'HS256' }
-  );
-}
-
-const unauthorized = (res: Response, error = 'Invalid or expired session') => res.status(401).json({ error });
-
-interface UserRow {
+export interface UserRow {
   id: number;
   role: Role;
   school_id: number | null;
@@ -54,69 +41,103 @@ interface UserRow {
   is_active: boolean;
   token_version: number;
   must_change_password: boolean;
+  mfa_enabled: boolean;
+  email_verified_at: Date | null;
   school_status: string | null;
+  session_found: boolean;
+  session_revoked: boolean;
+  session_expired: boolean;
+  session_mfa_verified: boolean;
   grants: Grant[];
 }
 
-// allowPendingPasswordChange: only for /auth/me, /auth/change-password and /auth/logout,
-// which an account with a one-time password must still be able to reach.
-const makeAuth = ({ allowPendingPasswordChange = false } = {}): RequestHandler =>
+/** The account, its school status, the given session's state and all role grants. */
+export async function loadUserRow(userId: number, sessionId: string): Promise<UserRow | undefined> {
+  const { rows } = await db.query<UserRow>(
+    `SELECT u.id, u.role, u.school_id, u.ref_id, u.full_name, u.email, u.is_active, u.token_version,
+            u.must_change_password, u.mfa_enabled, u.email_verified_at, s.status AS school_status,
+            ss.id IS NOT NULL AS session_found,
+            ss.revoked_at IS NOT NULL AS session_revoked,
+            COALESCE(ss.expires_at < now(), true) AS session_expired,
+            COALESCE(ss.mfa_verified, false) AS session_mfa_verified,
+            COALESCE((SELECT json_agg(DISTINCT jsonb_build_object('permission', rp.permission,
+                               'scopeType', ur.scope_type, 'scopeId', ur.scope_id))
+                        FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
+                       WHERE ur.user_id = u.id), '[]') AS grants
+       FROM users u
+       LEFT JOIN schools s ON s.id = u.school_id
+       LEFT JOIN sessions ss ON ss.id = $2::uuid AND ss.user_id = u.id
+      WHERE u.id = $1`,
+    [userId, sessionId]
+  );
+  return rows[0];
+}
+
+/** Whether this account must enrol in 2FA before using the app. */
+export const mfaEnrollmentRequired = (role: Role, mfaEnabled: boolean) =>
+  getConfig().adminMfaRequired && MFA_REQUIRED_ROLES.includes(role) && !mfaEnabled;
+
+// allowIncomplete: for the few routes an account must reach while it still has to change its
+// password or set up 2FA (auth/me, logout, change-password, 2FA setup).
+const makeAuth = ({ allowIncomplete = false } = {}): RequestHandler =>
   async function auth(req: Request, res: Response, next: NextFunction) {
     const header = req.headers.authorization || '';
-    if (!header.startsWith('Bearer ')) return void unauthorized(res, 'No token provided');
-    let payload: jwt.JwtPayload;
-    try {
-      payload = jwt.verify(header.slice(7), process.env.JWT_SECRET!, { algorithms: ['HS256'] }) as jwt.JwtPayload;
-    } catch {
-      return void unauthorized(res);
-    }
-    if (!Number.isInteger(payload.id) || !Number.isInteger(payload.tv)) return void unauthorized(res);
-    const claimedSchool = Number.isInteger(payload.school_id) ? (payload.school_id as number) : null;
+    if (!header.startsWith('Bearer ')) return void deny(res, 401, 'No token provided', 'UNAUTHENTICATED');
+    const claims = verifyAccessToken(header.slice(7));
+    if (!claims) return void deny(res, 401, 'Invalid or expired session', 'TOKEN_INVALID');
 
-    // The lookup runs in the context the (signed) token claims — its own user row, school
-    // row and role assignments are visible there without bypassing RLS — and the claim is
+    // The lookup runs in the context the (signed) token claims — its own user row, school row,
+    // session and role assignments are visible there without bypassing RLS — and every claim is
     // verified against the database below. Every later query in the request stays in it.
-    setTenant(claimedSchool, payload.id);
-    const { rows } = await db.query<UserRow>(
-      `SELECT u.id, u.role, u.school_id, u.ref_id, u.full_name, u.email, u.is_active, u.token_version,
-              u.must_change_password, s.status AS school_status,
-              COALESCE((SELECT json_agg(DISTINCT jsonb_build_object('permission', rp.permission,
-                                 'scopeType', ur.scope_type, 'scopeId', ur.scope_id))
-                          FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
-                         WHERE ur.user_id = u.id), '[]') AS grants
-         FROM users u LEFT JOIN schools s ON s.id = u.school_id
-        WHERE u.id = $1`,
-      [payload.id]
-    );
-    const u = rows[0];
-    // token_version is bumped on logout / password change, which revokes older tokens;
-    // a token issued for another school than the account's current one is stale
-    if (!u || !u.is_active || u.token_version !== payload.tv || u.school_id !== claimedSchool) {
-      return void unauthorized(res);
+    setTenant(claims.school_id, claims.id);
+    const u = await loadUserRow(claims.id, claims.sid);
+    // token_version is bumped on password change / logout-everywhere; a token issued for
+    // another school than the account's current one is stale; the session must be live
+    if (!u || !u.is_active || u.token_version !== claims.tv || u.school_id !== claims.school_id) {
+      return void deny(res, 401, 'Invalid or expired session', 'SESSION_INVALID');
+    }
+    if (!u.session_found || u.session_revoked || u.session_expired) {
+      return void deny(res, 401, 'You have been signed out. Please sign in again.', 'SESSION_REVOKED');
+    }
+    if (u.mfa_enabled && !u.session_mfa_verified) {
+      return void deny(res, 401, 'Two-factor verification is required. Please sign in again.', 'MFA_REQUIRED');
     }
     if (u.school_id && u.school_status !== 'active') {
-      return void res.status(403).json({ error: 'This school account is currently suspended.' });
+      return void deny(res, 403, 'This school account is currently suspended.', 'SCHOOL_SUSPENDED');
     }
-    if (u.must_change_password && !allowPendingPasswordChange) {
-      return void res.status(403).json({ error: 'Please set a new password first.', code: 'PASSWORD_CHANGE_REQUIRED' });
+    const enrollmentRequired = mfaEnrollmentRequired(u.role, u.mfa_enabled);
+    if (!allowIncomplete) {
+      if (u.must_change_password) {
+        return void deny(res, 403, 'Please set a new password first.', 'PASSWORD_CHANGE_REQUIRED');
+      }
+      if (enrollmentRequired) {
+        return void deny(res, 403, 'Administrators must set up two-factor authentication first.', 'MFA_ENROLLMENT_REQUIRED');
+      }
     }
-    req.user = {
-      id: u.id,
-      role: u.role,
-      school_id: u.school_id,
-      ref_id: u.ref_id,
-      name: u.full_name,
-      email: u.email,
-      token_version: u.token_version,
-      must_change_password: u.must_change_password,
-      grants: u.grants,
-    };
+    req.user = toAuthUser(u, claims.sid);
     next();
   };
 
-export const auth = makeAuth();
-export const authAllowingPasswordChange = makeAuth({ allowPendingPasswordChange: true });
+export function toAuthUser(u: UserRow, sessionId: string): AuthUser {
+  return {
+    id: u.id,
+    role: u.role,
+    school_id: u.school_id,
+    ref_id: u.ref_id,
+    name: u.full_name,
+    email: u.email,
+    token_version: u.token_version,
+    session_id: sessionId,
+    must_change_password: u.must_change_password,
+    mfa_enabled: u.mfa_enabled,
+    email_verified: !!u.email_verified_at,
+    mfa_enrollment_required: mfaEnrollmentRequired(u.role, u.mfa_enabled),
+    grants: u.grants,
+  };
+}
 
+export const auth = makeAuth();
+export const authAllowingIncomplete = makeAuth({ allowIncomplete: true });
 
 /**
  * Allow the request only if the user holds `permission` for their school (or platform-wide).
@@ -143,6 +164,31 @@ export const requireSchoolUser: RequestHandler = (req, res, next) => {
 
 /** True when the signed-in user holds `permission` (for their school by default). */
 export const userCan = (req: Request, permission: Permission, ctx?: AccessContext) => !!req.user && can(req.user, permission, ctx);
+
+/** Permissions that apply to the user's own school (or platform-wide), for the UI. */
+export function effectivePermissions(user: Pick<AuthUser, 'school_id' | 'grants'>): Permission[] {
+  const set = new Set<Permission>();
+  for (const g of user.grants) {
+    if (g.scopeType === 'platform' || (g.scopeType === 'school' && g.scopeId === user.school_id)) set.add(g.permission);
+  }
+  return [...set].sort();
+}
+
+/** The signed-in user as the web app sees it. */
+export function toSessionUser(user: AuthUser): SessionUser {
+  return {
+    id: user.id,
+    role: user.role,
+    school_id: user.school_id,
+    full_name: user.name,
+    email: user.email,
+    ref_id: user.ref_id,
+    must_change_password: user.must_change_password,
+    mfa_enabled: user.mfa_enabled,
+    mfa_enrollment_required: user.mfa_enrollment_required,
+    permissions: effectivePermissions(user),
+  };
+}
 
 /** req.user after auth(); throws if a route forgot the middleware. */
 export function currentUser(req: Request): AuthUser {

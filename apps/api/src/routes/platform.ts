@@ -4,7 +4,7 @@ import { db, systemContext, withTransaction } from '../db/context';
 import { audit } from '../lib/audit';
 import { conflict, notFound } from '../lib/errors';
 import { parsePage, sendPage } from '../lib/pagination';
-import { generateTempPassword, hashPassword } from '../lib/passwords';
+import { inviteUser } from '../auth/invites';
 import { auth, currentUser, requirePermission } from '../middleware/auth';
 import { grantSystemRole } from '../rbac';
 
@@ -70,19 +70,18 @@ router.post('/schools', requirePermission('platform.schools.manage'), async (req
           [b.name, b.slug, b.plan, b.primary_color || '#2563EB', b.adminEmail, b.currency, b.timezone, b.locale]
         )
       ).rows[0];
-      const tempPassword = generateTempPassword();
       const admin = (
         await client.query<{ id: number }>(
-          `INSERT INTO users (school_id, role, email, password_hash, full_name, must_change_password)
-           VALUES ($1,'school_admin',$2,$3,$4,TRUE) RETURNING id`,
-          [school.id, b.adminEmail, await hashPassword(tempPassword), b.adminName || `${b.name} Administrator`]
+          `INSERT INTO users (school_id, role, email, password_hash, full_name) VALUES ($1,'school_admin',$2,NULL,$3) RETURNING id`,
+          [school.id, b.adminEmail, b.adminName || `${b.name} Administrator`]
         )
       ).rows[0]!;
       await grantSystemRole(client, admin.id, 'school_admin', school.id, actor.id);
       await audit({ schoolId: school.id, userId: actor.id, actor: actor.name, action: 'create_school', entity: 'School', detail: b.name }, client);
-      return { school, admin: { email: b.adminEmail, tempPassword } };
+      return { school, adminId: admin.id };
     });
-    res.status(201).json(out);
+    const invite = await inviteUser(out.adminId, { id: actor.id, name: actor.name });
+    res.status(201).json({ school: out.school, admin: { email: b.adminEmail, invite } });
   } catch (e) {
     if ((e as { code?: string })?.code === '23505') throw conflict('Slug or admin email already exists');
     throw e;

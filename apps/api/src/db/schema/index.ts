@@ -5,3 +5,4 @@ export * from './academics';
 export * from './learning';
 export * from './operations';
 export * from './identity';
+export * from './auth';

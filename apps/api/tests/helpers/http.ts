@@ -6,7 +6,10 @@ export { fixture, request };
 
 export const app = createApp();
 
-const withAuth = (req: request.Test, token?: string | null) => (token ? req.set('Authorization', `Bearer ${token}`) : req);
+const withAuth = (req: request.Test, token?: string | null) => {
+  req.set('X-Acadex-Client', 'web');
+  return token ? req.set('Authorization', `Bearer ${token}`) : req;
+};
 
 /** Requests as the holder of `token` (or anonymously with null). */
 export const as = (token?: string | null) => ({

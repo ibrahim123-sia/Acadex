@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { app, as, fixture, request } from './helpers/http';
 
 import { loadConfig } from '../src/config';
+import { signAccessToken } from '../src/auth/tokens';
 
 let f;
 beforeEach(async () => {
@@ -48,12 +49,13 @@ describe('token validity is re-checked on every request', () => {
   });
 
   it('a token signed with another secret is rejected', async () => {
-    const forged = jwt.sign({ id: f.users.adminA.id, role: 'school_admin', school_id: f.schools.A.id, tv: 0 }, 'wrong-secret-wrong-secret-wrong-secret');
+    const forged = jwt.sign({ id: f.users.adminA.id, school_id: f.schools.A.id, tv: 0, sid: '00000000-0000-0000-0000-000000000000' }, 'wrong-secret-wrong-secret-wrong-secret', { audience: 'acadex:access' });
     expect((await as(forged).get('/api/school/students')).status).toBe(401);
   });
 
   it('a token claiming another school than the account belongs to is rejected', async () => {
-    const forged = jwt.sign({ id: f.users.adminA.id, tv: 0, role: 'school_admin', school_id: f.schools.B.id }, process.env.JWT_SECRET!);
+    const { rows } = await q(`INSERT INTO sessions (user_id, expires_at, mfa_verified) VALUES ($1, now() + interval '1 day', true) RETURNING id`, [f.users.adminA.id]);
+    const forged = signAccessToken({ id: f.users.adminA.id, tv: 0, sid: rows[0].id, school_id: f.schools.B.id });
     expect((await as(forged).get('/api/school/students')).status).toBe(401);
     // and an account moved to another school can't keep using its old token
     await q(`UPDATE users SET school_id=$1 WHERE id=$2`, [f.schools.B.id, f.users.t2.id]);
@@ -61,7 +63,7 @@ describe('token validity is re-checked on every request', () => {
   });
 
   it('an old-format token without a version is rejected', async () => {
-    const old = jwt.sign({ id: f.users.adminA.id, role: 'school_admin', school_id: f.schools.A.id }, process.env.JWT_SECRET!);
+    const old = jwt.sign({ id: f.users.adminA.id, role: 'school_admin', school_id: f.schools.A.id }, process.env.JWT_SECRET!, { audience: 'acadex:access' });
     expect((await as(old).get('/api/school/students')).status).toBe(401);
   });
 
@@ -70,11 +72,17 @@ describe('token validity is re-checked on every request', () => {
     expect(res.status).toBe(401);
   });
 
-  it('login issues a token that expires within 12 hours', async () => {
+  it('login issues a 15-minute access token and an httpOnly refresh cookie', async () => {
     const res = await request(app).post('/api/auth/login').send({ email: 'admin@alpha.test', password: f.PASSWORD });
     expect(res.status).toBe(200);
-    const { iat, exp } = jwt.decode(res.body.token) as jwt.JwtPayload;
-    expect(exp! - iat!).toBeLessThanOrEqual(12 * 3600);
+    const { iat, exp } = jwt.decode(res.body.access_token) as jwt.JwtPayload;
+    expect(exp! - iat!).toBe(15 * 60);
+    expect(res.body.expires_in).toBe(900);
+    const cookie = String(res.headers['set-cookie']);
+    expect(cookie).toMatch(/acadex_rt=/);
+    expect(cookie).toMatch(/HttpOnly/i);
+    expect(cookie).toMatch(/Path=\/api\/auth/);
+    expect(cookie).toMatch(/SameSite=Strict/i);
   });
 
   it('login is refused for a suspended school', async () => {

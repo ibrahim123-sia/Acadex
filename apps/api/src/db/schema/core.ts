@@ -36,7 +36,8 @@ export const users = pgTable(
     schoolId: integer('school_id'), // NULL only for platform staff
     role: text('role').notNull(),
     email: text('email').notNull(),
-    passwordHash: text('password_hash').notNull(),
+    /** NULL until an invited user sets a password */
+    passwordHash: text('password_hash'),
     fullName: text('full_name').notNull(),
     refId: integer('ref_id'), // teachers.id or students.id for profile linkage
     isActive: boolean('is_active').default(true),
@@ -45,6 +46,8 @@ export const users = pgTable(
     tokenVersion: integer('token_version').default(0).notNull(),
     mustChangePassword: boolean('must_change_password').default(false).notNull(),
     passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    mfaEnabled: boolean('mfa_enabled').notNull().default(false),
   },
   (t) => [
     index('idx_users_school').on(t.schoolId),

@@ -3,7 +3,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { as, fixture } from './helpers/http';
 
-import { signToken } from '../src/middleware/auth';
 import { grantSystemRole } from '../src/rbac';
 
 let f;
@@ -27,11 +26,11 @@ beforeAll(async () => {
     await grantSystemRole(fixture.pool, u.id, role, B.id); // a normal member of school B
     return u;
   };
-  crossStudent = signToken(await mk('student', 'cross.s@beta.test', S1.id));
-  crossTeacher = signToken(await mk('teacher', 'cross.t@beta.test', f.teachers.T1.id));
+  crossStudent = await fixture.tokenFor(await mk('student', 'cross.s@beta.test', S1.id));
+  crossTeacher = await fixture.tokenFor(await mk('teacher', 'cross.t@beta.test', f.teachers.T1.id));
   const pB = await mk('parent', 'cross.p@beta.test', null);
   await q(`INSERT INTO parent_children (school_id, parent_user_id, student_id) VALUES ($1,$2,$3)`, [B.id, pB.id, S1.id]);
-  crossParent = signToken(pB);
+  crossParent = await fixture.tokenFor(pB);
 });
 
 describe('tenant scoping on self-service endpoints', () => {

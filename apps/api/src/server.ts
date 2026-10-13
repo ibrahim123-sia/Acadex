@@ -11,6 +11,8 @@ try {
 
 const { createApp } = await import('./app');
 const { logger } = await import('./lib/logger');
+const { startOutboxFlusher } = await import('./lib/mailer');
+startOutboxFlusher();
 
 const server = createApp(config).listen(config.port, () => logger.info(`Acadex API listening on port ${config.port}`));
 

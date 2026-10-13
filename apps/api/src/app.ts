@@ -1,10 +1,11 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import { pool } from './db/pool';
 import { dbContext } from './db/context';
-import { loadConfig, type Config } from './config';
+import { getConfig, type Config } from './config';
 import { errorHandler } from './lib/errors';
 import { httpLogger } from './lib/logger';
 import { PAGINATION_HEADERS } from './lib/pagination';
@@ -16,7 +17,7 @@ import parentRoutes from './routes/parent';
 import pdfRoutes from './routes/pdf';
 import rolesRoutes from './routes/roles';
 
-export function createApp(config: Config = loadConfig()) {
+export function createApp(config: Config = getConfig()) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
@@ -32,6 +33,7 @@ export function createApp(config: Config = loadConfig()) {
     })
   );
   app.use(express.json({ limit: '100kb' }));
+  app.use(cookieParser());
 
   app.use(
     '/api',
@@ -48,6 +50,22 @@ export function createApp(config: Config = loadConfig()) {
     message: { error: 'Too many login attempts. Please wait 15 minutes and try again.' },
   });
   app.use('/api/auth/login', loginLimiter);
+  // second factor, email links and reset requests: per IP (+ email where there is one)
+  const sensitive = (limit: number, skipSuccessfulRequests: boolean) =>
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit,
+      skipSuccessfulRequests,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      keyGenerator: (req) => `${ipKeyGenerator(req.ip ?? '')}|${String(req.body?.email || '').toLowerCase().trim()}`,
+      message: { error: 'Too many attempts. Please wait 15 minutes and try again.' },
+    });
+  app.use('/api/auth/mfa/verify', sensitive(config.loginRateLimit, true));
+  app.use('/api/auth/invites/accept', sensitive(config.loginRateLimit, true));
+  app.use('/api/auth/password-reset/confirm', sensitive(config.loginRateLimit, true));
+  app.use('/api/auth/password-reset/request', sensitive(5, false)); // also limits email flooding
+  app.use('/api/auth/verify-email', sensitive(10, false));
 
   app.get('/api/health', async (req, res) => {
     try {

@@ -1,7 +1,7 @@
 // Deterministic two-tenant fixture used by the API tests.
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
-import { signToken } from '../../src/middleware/auth';
+import { signAccessToken } from '../../src/auth/tokens';
 import { grantSystemRole, syncRbacCatalogue } from '../../src/rbac';
 
 /** Superuser connection (bypasses RLS): resets, setup inserts and assertions in tests. */
@@ -20,6 +20,34 @@ function assertTestDb() {
 
 async function one(sql: string, params: unknown[]): Promise<any> {
   return (await pool.query(sql, params)).rows[0];
+}
+
+/** An access token backed by a real (2FA-verified) session, like after a login. */
+export async function tokenFor(u: { id: number; token_version?: number; school_id: number | null }): Promise<string> {
+  const { rows } = await pool.query(
+    `INSERT INTO sessions (user_id, expires_at, mfa_verified) VALUES ($1, now() + interval '1 day', true) RETURNING id`,
+    [u.id]
+  );
+  return signAccessToken({ id: u.id, tv: u.token_version ?? 0, sid: rows[0].id, school_id: u.school_id });
+}
+
+/** Emails recorded by the development mail driver. */
+export async function outbox(to?: string) {
+  const { rows } = await pool.query(
+    `SELECT * FROM email_outbox WHERE ($1::text IS NULL OR to_email = $1) ORDER BY id`,
+    [to ?? null]
+  );
+  return rows;
+}
+
+/** The token from the newest emailed link of a kind ("accept-invite", "reset-password", ...). */
+export async function tokenFromEmail(to: string, path: string): Promise<string> {
+  const mails = await outbox(to);
+  for (const m of mails.reverse()) {
+    const match = new RegExp(`/${path}#token=([A-Za-z0-9_-]+)`).exec(m.text_body);
+    if (match) return match[1]!;
+  }
+  throw new Error(`no ${path} email for ${to}`);
 }
 
 export async function resetDb() {
@@ -123,7 +151,8 @@ export async function resetDb() {
     S1.id,
   ]);
 
-  const tokens: Record<string, string> = Object.fromEntries(Object.entries(users).map(([k, u]) => [k, signToken(u)]));
+  const tokens: Record<string, string> = {};
+  for (const [k, u] of Object.entries(users)) tokens[k] = await tokenFor(u);
   return {
     PASSWORD,
     users,

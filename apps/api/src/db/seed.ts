@@ -16,8 +16,8 @@ async function q(text: string, params?: unknown[]): Promise<any[]> { return (awa
 
 async function makeUser(school_id: number | null, role: string, email: string, full_name: string, ref_id: number | null, hash: string) {
   await q(
-    `INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id)
-     VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (email) DO NOTHING`,
+    `INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id, email_verified_at)
+     VALUES ($1,$2,$3,$4,$5,$6,now()) ON CONFLICT (email) DO NOTHING`,
     [school_id, role, email.toLowerCase(), hash, full_name, ref_id]
   );
   const [u] = await q(`SELECT id FROM users WHERE email=$1`, [email.toLowerCase()]);

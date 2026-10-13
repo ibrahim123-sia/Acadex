@@ -29,6 +29,13 @@
       "when": 1791908510092,
       "tag": "0003_rls_own_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791908941182,
+      "tag": "0004_auth_sessions_mfa",
+      "breakpoints": true
     }
   ]
 }
