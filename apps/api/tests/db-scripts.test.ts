@@ -53,7 +53,7 @@ describe('migrate', () => {
     expect(r1.status, r1.stderr).toBe(0);
     expect(r2.status, r2.stderr).toBe(0);
     const { rows } = await fixture.pool.query('SELECT id FROM schema_migrations ORDER BY id');
-    expect(rows.map((r) => r.id)).toContain('0001_baseline');
+    expect(rows.map((r) => r.id)).toContain('drizzle:0000_baseline');
   });
 });
 
