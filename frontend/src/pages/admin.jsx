@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api, downloadPdf } from '../api';
-import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField } from '../ui';
+import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField, CredentialsNotice } from '../ui';
 import { Users, GraduationCap, BookOpen, Wallet, Search, Megaphone, Plus, FileText } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 
@@ -61,11 +61,13 @@ export function AdminStudents() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', gender: 'Male', age: '', class_id: '', guardian_name: '' });
   const [err, setErr] = useState('');
+  const [created, setCreated] = useState(null);
+  const close = () => { setOpen(false); setCreated(null); setErr(''); };
   const load = (s = '') => api.get('/school/students', { params: { search: s } }).then((r) => setRows(r.data));
   useEffect(() => { load(); api.get('/school/classes').then((r) => setClasses(r.data)); }, []);
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    try { await api.post('/school/students', { ...form, age: form.age ? Number(form.age) : null }); setOpen(false); setForm({ first_name: '', last_name: '', email: '', gender: 'Male', age: '', class_id: '', guardian_name: '' }); load(search); }
+    try { const { data } = await api.post('/school/students', { ...form, age: form.age ? Number(form.age) : null }); setCreated(data); setForm({ first_name: '', last_name: '', email: '', gender: 'Male', age: '', class_id: '', guardian_name: '' }); load(search); }
     catch (e2) { setErr(e2.response?.data?.error || 'Failed'); }
   };
   return (
@@ -89,7 +91,8 @@ export function AdminStudents() {
         )} />
       )}
       {open && (
-        <Modal title="Admit New Student" onClose={() => setOpen(false)}>
+        <Modal title="Admit New Student" onClose={close}>
+          {created ? <CredentialsNotice title={`${created.first_name} ${created.last_name} admitted`} {...created.login} onDone={close} /> : (
           <form onSubmit={submit}>
             <div className="grid grid-cols-2 gap-3">
               <Field label="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} required />
@@ -106,6 +109,7 @@ export function AdminStudents() {
             {err && <div className="text-sm text-rose-600 mb-2">{err}</div>}
             <div className="flex justify-end mt-2"><Button type="submit">Admit Student</Button></div>
           </form>
+          )}
         </Modal>
       )}
     </>
@@ -117,11 +121,13 @@ export function AdminTeachers() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', gender: 'Male', phone: '', qualification: '' });
   const [err, setErr] = useState('');
+  const [created, setCreated] = useState(null);
+  const close = () => { setOpen(false); setCreated(null); setErr(''); };
   const load = () => api.get('/school/teachers').then((r) => setRows(r.data));
   useEffect(() => { load(); }, []);
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    try { await api.post('/school/teachers', form); setOpen(false); setForm({ first_name: '', last_name: '', email: '', gender: 'Male', phone: '', qualification: '' }); load(); }
+    try { const { data } = await api.post('/school/teachers', form); setCreated(data); setForm({ first_name: '', last_name: '', email: '', gender: 'Male', phone: '', qualification: '' }); load(); }
     catch (e2) { setErr(e2.response?.data?.error || 'Failed'); }
   };
   if (!rows) return <Spinner />;
@@ -133,7 +139,8 @@ export function AdminTeachers() {
           <Td>{t.gender}</Td><Td>{t.phone}</Td><Td>{t.qualification}</Td><Td>{t.subjects}</Td></>
       )} />
       {open && (
-        <Modal title="Add Teacher" onClose={() => setOpen(false)}>
+        <Modal title="Add Teacher" onClose={close}>
+          {created ? <CredentialsNotice title={`${created.first_name} ${created.last_name} added`} {...created.login} onDone={close} /> : (
           <form onSubmit={submit}>
             <div className="grid grid-cols-2 gap-3">
               <Field label="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} required />
@@ -148,6 +155,7 @@ export function AdminTeachers() {
             {err && <div className="text-sm text-rose-600 mb-2">{err}</div>}
             <div className="flex justify-end mt-2"><Button type="submit">Add Teacher</Button></div>
           </form>
+          )}
         </Modal>
       )}
     </>

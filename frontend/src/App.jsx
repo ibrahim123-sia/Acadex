@@ -1,19 +1,19 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { getUser } from './api';
+import { getUser, HOME } from './api';
 import { Layout } from './ui';
 import Login from './Login.jsx';
+import ChangePassword from './ChangePassword.jsx';
 import { PlatformDashboard, PlatformSchools, PlatformAudit } from './pages/platform.jsx';
 import { AdminDashboard, AdminStudents, AdminTeachers, AdminClasses, AdminFees, AdminAnnouncements } from './pages/admin.jsx';
 import { TeacherDashboard, TeacherAttendance, TeacherGradebook, TeacherAssignments, TeacherAnnouncements } from './pages/teacher.jsx';
 import { StudentDashboard, StudentAssignments } from './pages/student.jsx';
 import { ParentDashboard } from './pages/parent.jsx';
 
-const HOME = { super_admin: '/platform', school_admin: '/admin', teacher: '/teacher', student: '/student', parent: '/parent' };
-
 function Protected({ roles, children }) {
   const user = getUser();
   if (!user) return <Navigate to="/login" replace />;
+  if (user.must_change_password) return <Navigate to="/change-password" replace />;
   if (roles && !roles.includes(user.role)) return <Navigate to={HOME[user.role] || '/login'} replace />;
   return <Layout>{children}</Layout>;
 }
@@ -24,6 +24,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/change-password" element={user ? <ChangePassword /> : <Navigate to="/login" replace />} />
 
       <Route path="/platform" element={P(['super_admin'], <PlatformDashboard />)} />
       <Route path="/platform/schools" element={P(['super_admin'], <PlatformSchools />)} />

@@ -4,7 +4,7 @@ import { api, getUser, getSchool, logout } from './api';
 import {
   LayoutDashboard, Building2, Users, GraduationCap, Wallet, Megaphone,
   BookOpen, ClipboardList, ScrollText, LogOut, School, Bell, X,
-  CalendarCheck, PenSquare, FileText, Baby,
+  CalendarCheck, PenSquare, FileText, Baby, KeyRound, Copy, CheckCircle2,
 } from 'lucide-react';
 
 const NAV = {
@@ -95,6 +95,7 @@ export function Layout({ children }) {
         </nav>
         <div className="p-3 border-t border-slate-800">
           <div className="px-2 py-2 text-sm"><div className="text-white font-medium truncate">{user?.full_name}</div><div className="text-xs text-slate-500 truncate">{user?.email}</div></div>
+          <NavLink to="/change-password" className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-slate-800 text-slate-300"><KeyRound size={16} /> Change password</NavLink>
           <button onClick={logout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm hover:bg-slate-800 text-slate-300"><LogOut size={16} /> Sign out</button>
         </div>
       </aside>
@@ -167,4 +168,30 @@ export const SelectField = ({ label, options, ...p }) => (
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select></label>
 );
+// Shown once after an account is created. The password is not stored anywhere readable,
+// so it cannot be shown again — the user replaces it at first sign-in.
+export function CredentialsNotice({ title, email, tempPassword, onDone }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(`Email: ${email}
+One-time password: ${tempPassword}`); setCopied(true); } catch { /* clipboard blocked */ }
+  };
+  return (
+    <div className="text-center py-2">
+      <CheckCircle2 size={44} className="text-emerald-500 mx-auto mb-3" />
+      <div className="font-semibold text-slate-800 text-lg">{title}</div>
+      <div className="text-sm text-slate-500 mt-1">Share these sign-in details. They will be asked to choose their own password at first sign-in.</div>
+      <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-left">
+        <div><span className="text-slate-500">Email:</span> <b className="break-all">{email}</b></div>
+        <div><span className="text-slate-500">One-time password:</span> <b className="font-mono select-all">{tempPassword}</b></div>
+      </div>
+      <div className="text-xs text-amber-700 mt-2">This password is shown only once.</div>
+      <div className="mt-4 flex justify-center gap-2">
+        <button type="button" onClick={copy} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-slate-300 hover:bg-slate-50"><Copy size={16} /> {copied ? 'Copied' : 'Copy'}</button>
+        <Button onClick={onDone}>Done</Button>
+      </div>
+    </div>
+  );
+}
+
 export { FileText };

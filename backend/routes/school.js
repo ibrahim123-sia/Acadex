@@ -1,12 +1,12 @@
 const { Router } = require('../lib/router');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
 const { assertInSchool } = require('../lib/access');
 const { HttpError } = require('../lib/errors');
 const { z, id, optionalId, isoDate, text, requiredText, money } = require('../lib/validate');
 const { withTransaction } = require('../db/tx');
+const { generateTempPassword, hashPassword } = require('../lib/passwords');
 
 const router = Router();
 // Every /api/school route is for the school's administrator only.
@@ -171,19 +171,20 @@ router.post('/students', async (req, res) => {
   const s = sid(req);
   const b = studentBody.parse(req.body);
   if (b.class_id) await assertInSchool('classes', b.class_id, s);
+  const tempPassword = generateTempPassword();
   try {
     const st = await withTransaction(async (client) => {
       const row = (await client.query(
         `INSERT INTO students (school_id, roll_no, first_name, last_name, age, gender, email, dob, class_id, guardian_name, guardian_phone, city)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
         [s, b.roll_no, b.first_name, b.last_name, b.age, b.gender, b.email, b.dob, b.class_id, b.guardian_name, b.guardian_phone, b.city])).rows[0];
-      const hash = await bcrypt.hash('Acadex@123', 10);
-      await client.query(`INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,'student',$2,$3,$4,$5)`,
-        [s, b.email, hash, `${b.first_name} ${b.last_name}`, row.id]);
+      await client.query(
+        `INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id, must_change_password) VALUES ($1,'student',$2,$3,$4,$5,TRUE)`,
+        [s, b.email, await hashPassword(tempPassword), `${b.first_name} ${b.last_name}`, row.id]);
       return row;
     });
     audit(s, req.user.name, 'admit_student', 'Student', `${b.first_name} ${b.last_name}`);
-    res.status(201).json(st);
+    res.status(201).json({ ...st, login: { email: b.email, tempPassword } });
   } catch (e) {
     if (e.code === '23505') throw new HttpError(409, 'A user with this email already exists');
     throw e;
@@ -200,19 +201,20 @@ const teacherBody = z.object({
 router.post('/teachers', async (req, res) => {
   const s = sid(req);
   const b = teacherBody.parse(req.body);
+  const tempPassword = generateTempPassword();
   try {
     const t = await withTransaction(async (client) => {
       const row = (await client.query(
         `INSERT INTO teachers (school_id, first_name, last_name, gender, dob, email, phone, cnic, qualification)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
         [s, b.first_name, b.last_name, b.gender, b.dob, b.email, b.phone, b.cnic, b.qualification])).rows[0];
-      const hash = await bcrypt.hash('Acadex@123', 10);
-      await client.query(`INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,'teacher',$2,$3,$4,$5)`,
-        [s, b.email, hash, `${b.first_name} ${b.last_name}`, row.id]);
+      await client.query(
+        `INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id, must_change_password) VALUES ($1,'teacher',$2,$3,$4,$5,TRUE)`,
+        [s, b.email, await hashPassword(tempPassword), `${b.first_name} ${b.last_name}`, row.id]);
       return row;
     });
     audit(s, req.user.name, 'add_teacher', 'Teacher', `${b.first_name} ${b.last_name}`);
-    res.status(201).json(t);
+    res.status(201).json({ ...t, login: { email: b.email, tempPassword } });
   } catch (e) {
     if (e.code === '23505') throw new HttpError(409, 'A user with this email already exists');
     throw e;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
-import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField } from '../ui';
-import { Building2, Users, GraduationCap, Wallet, Plus, CheckCircle2 } from 'lucide-react';
+import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField, CredentialsNotice } from '../ui';
+import { Building2, Users, GraduationCap, Wallet, Plus } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 const money = (n) => 'PKR ' + Number(n || 0).toLocaleString();
@@ -75,16 +75,7 @@ export function PlatformSchools() {
       {open && (
         <Modal title="Register a New School" onClose={close}>
           {created ? (
-            <div className="text-center py-4">
-              <CheckCircle2 size={44} className="text-emerald-500 mx-auto mb-3" />
-              <div className="font-semibold text-slate-800 text-lg">{created.school.name} onboarded!</div>
-              <div className="text-sm text-slate-500 mt-1">Share these admin credentials:</div>
-              <div className="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-left inline-block">
-                <div><span className="text-slate-500">Email:</span> <b>{created.admin.email}</b></div>
-                <div><span className="text-slate-500">Temp password:</span> <b>{created.admin.tempPassword}</b></div>
-              </div>
-              <div className="mt-4"><Button onClick={close}>Done</Button></div>
-            </div>
+            <CredentialsNotice title={`${created.school.name} onboarded!`} email={created.admin.email} tempPassword={created.admin.tempPassword} onDone={close} />
           ) : (
             <form onSubmit={submit}>
               <Field label="School name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') })} required placeholder="e.g. Beaconhouse School" />

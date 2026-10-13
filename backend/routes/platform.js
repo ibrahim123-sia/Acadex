@@ -1,10 +1,10 @@
 const { Router } = require('../lib/router');
-const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
 const { HttpError, notFound } = require('../lib/errors');
 const { z, id, text, requiredText } = require('../lib/validate');
 const { withTransaction } = require('../db/tx');
+const { generateTempPassword, hashPassword } = require('../lib/passwords');
 
 const PLANS = ['free', 'pro', 'enterprise'];
 
@@ -59,11 +59,10 @@ router.post('/schools', async (req, res) => {
       const school = (await client.query(
         `INSERT INTO schools (name, slug, plan, primary_color, contact_email) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
         [name, slug, plan, primary_color || '#2563EB', adminEmail])).rows[0];
-      const tempPassword = 'Acadex@' + Math.floor(1000 + (Date.now() % 9000));
-      const hash = await bcrypt.hash(tempPassword, 10);
+      const tempPassword = generateTempPassword();
       await client.query(
-        `INSERT INTO users (school_id, role, email, password_hash, full_name) VALUES ($1,'school_admin',$2,$3,$4)`,
-        [school.id, adminEmail, hash, adminName || `${name} Administrator`]);
+        `INSERT INTO users (school_id, role, email, password_hash, full_name, must_change_password) VALUES ($1,'school_admin',$2,$3,$4,TRUE)`,
+        [school.id, adminEmail, await hashPassword(tempPassword), adminName || `${name} Administrator`]);
       await client.query(`INSERT INTO audit_log (school_id, actor, action, entity, detail) VALUES ($1,$2,'create_school','School',$3)`,
         [school.id, req.user.name, name]);
       return { school, admin: { email: adminEmail, tempPassword } };

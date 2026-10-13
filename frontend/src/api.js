@@ -29,6 +29,8 @@ export function saveAuth({ token, user, school }) {
   localStorage.setItem('acadex_user', JSON.stringify(user));
   localStorage.setItem('acadex_school', JSON.stringify(school || null));
 }
+export const HOME = { super_admin: '/platform', school_admin: '/admin', teacher: '/teacher', student: '/student', parent: '/parent' };
+
 export const getUser = () => { try { return JSON.parse(localStorage.getItem('acadex_user')); } catch { return null; } };
 export const getSchool = () => { try { return JSON.parse(localStorage.getItem('acadex_school')); } catch { return null; } };
 export const logout = async () => {

@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, saveAuth } from './api';
+import { api, saveAuth, HOME } from './api';
 import { GraduationCap, ShieldCheck, BarChart3, Users } from 'lucide-react';
-
-const HOME = { super_admin: '/platform', school_admin: '/admin', teacher: '/teacher', student: '/student', parent: '/parent' };
 
 export default function Login() {
   const nav = useNavigate();
@@ -18,7 +16,7 @@ export default function Login() {
     try {
       const { data } = await api.post('/auth/login', { email, password });
       saveAuth(data);
-      nav(HOME[data.user.role] || '/login', { replace: true });
+      nav(data.user.must_change_password ? '/change-password' : HOME[data.user.role] || '/login', { replace: true });
     } catch (e2) {
       setErr(e2.response?.data?.error || 'Login failed');
     } finally { setLoading(false); }
