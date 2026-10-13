@@ -6,6 +6,7 @@ const { z, id, text, requiredText } = require('../lib/validate');
 const { withTransaction } = require('../db/tx');
 const { generateTempPassword, hashPassword } = require('../lib/passwords');
 const { isValidCurrency, isValidTimeZone, isValidLocale } = require('../lib/locale');
+const { parsePage, sendPage } = require('../lib/pagination');
 
 const PLANS = ['free', 'pro', 'enterprise'];
 const localeFields = {
@@ -43,13 +44,15 @@ router.get('/stats', async (req, res) => {
 
 // List all schools with counts
 router.get('/schools', async (req, res) => {
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(`
     SELECT sc.*,
       (SELECT count(*) FROM students s WHERE s.school_id=sc.id)::int students,
       (SELECT count(*) FROM teachers t WHERE t.school_id=sc.id)::int teachers,
-      (SELECT count(*) FROM classes c WHERE c.school_id=sc.id)::int classes
-    FROM schools sc ORDER BY sc.created_at DESC`);
-  res.json(rows);
+      (SELECT count(*) FROM classes c WHERE c.school_id=sc.id)::int classes,
+      count(*) OVER() _total
+    FROM schools sc ORDER BY sc.created_at DESC, sc.id DESC LIMIT $1 OFFSET $2`, [pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // Register a new school + its first admin
@@ -108,10 +111,11 @@ router.patch('/schools/:id', async (req, res) => {
 });
 
 router.get('/audit', async (req, res) => {
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
-    `SELECT a.*, sc.name school_name FROM audit_log a LEFT JOIN schools sc ON sc.id=a.school_id
-     ORDER BY a.created_at DESC LIMIT 50`);
-  res.json(rows);
+    `SELECT a.*, sc.name school_name, count(*) OVER() _total FROM audit_log a LEFT JOIN schools sc ON sc.id=a.school_id
+     ORDER BY a.created_at DESC, a.id DESC LIMIT $1 OFFSET $2`, [pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 module.exports = router;

@@ -7,6 +7,7 @@ const { forbidden, notFound } = require('../lib/errors');
 const { withTransaction } = require('../db/tx');
 const { todayIn } = require('../lib/locale');
 const { schoolSettings } = require('../lib/school');
+const { parsePage, sendPage } = require('../lib/pagination');
 
 const ATTENDANCE_STATUSES = ['Present', 'Absent', 'Leave'];
 const ASSESSMENT_TYPES = ['Quiz', 'Midterm', 'Assignment', 'Final', 'Test', 'Project'];
@@ -67,10 +68,11 @@ router.get('/teacher/students', async (req, res) => {
 // Announcements filtered by role audience
 router.get('/announcements', requireRole('teacher', 'student', 'parent'), async (req, res) => {
   const aud = req.user.role === 'teacher' ? ['All', 'Teachers'] : ['All', 'Students'];
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
-    `SELECT id, title, target_audience, description, start_date, end_date FROM announcements
-     WHERE school_id=$1 AND target_audience = ANY($2) ORDER BY created_at DESC`, [sid(req), aud]);
-  res.json(rows);
+    `SELECT id, title, target_audience, description, start_date, end_date, count(*) OVER() _total FROM announcements
+     WHERE school_id=$1 AND target_audience = ANY($2) ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`, [sid(req), aud, pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // ================= TEACHER WORKFLOWS =================
@@ -150,12 +152,13 @@ router.post('/teacher/grades', async (req, res) => {
 
 // Teacher's assignments
 router.get('/teacher/assignments', async (req, res) => {
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT a.id, a.title, a.description, a.due_date, c.name class_name, su.name subject,
-            (SELECT count(*) FROM submissions s WHERE s.assignment_id=a.id)::int submissions
+            (SELECT count(*) FROM submissions s WHERE s.assignment_id=a.id)::int submissions, count(*) OVER() _total
      FROM assignments a LEFT JOIN classes c ON c.id=a.class_id LEFT JOIN subjects su ON su.id=a.subject_id
-     WHERE a.teacher_id=$1 AND a.school_id=$2 ORDER BY a.created_at DESC`, [ref(req), sid(req)]);
-  res.json(rows);
+     WHERE a.teacher_id=$1 AND a.school_id=$2 ORDER BY a.created_at DESC, a.id DESC LIMIT $3 OFFSET $4`, [ref(req), sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // Assign an assignment to a whole class at once
@@ -185,12 +188,14 @@ router.post('/teacher/assignments', async (req, res) => {
 // ================= STUDENT =================
 router.get('/student/assignments', async (req, res) => {
   const stu = ref(req);
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT a.id, a.title, a.description, a.due_date, su.name subject,
-            (SELECT count(*) FROM submissions s WHERE s.assignment_id=a.id AND s.student_id=$1)::int submitted
+            (SELECT count(*) FROM submissions s WHERE s.assignment_id=a.id AND s.student_id=$1)::int submitted,
+            count(*) OVER() _total
      FROM assignments a LEFT JOIN subjects su ON su.id=a.subject_id
-     WHERE a.school_id=$2 AND a.class_id=(SELECT class_id FROM students WHERE id=$1 AND school_id=$2) ORDER BY a.due_date`, [stu, sid(req)]);
-  res.json(rows);
+     WHERE a.school_id=$2 AND a.class_id=(SELECT class_id FROM students WHERE id=$1 AND school_id=$2) ORDER BY a.due_date NULLS LAST, a.id LIMIT $3 OFFSET $4`, [stu, sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 const submissionBody = z.object({ assignment_id: id, title: text(200).default(''), file_link: httpUrl });
 router.post('/student/submissions', async (req, res) => {
@@ -211,9 +216,14 @@ router.post('/student/submissions', async (req, res) => {
 
 // ================= NOTIFICATIONS (all roles) =================
 router.get('/notifications', async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT id, type, title, message, is_read, created_at FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 30`, [req.user.id]);
-  res.json({ items: rows, unread: rows.filter((r) => !r.is_read).length });
+  const pg = parsePage(req.query, { defaultSize: 20 });
+  const [items, counts] = await Promise.all([
+    pool.query(
+      `SELECT id, type, title, message, is_read, created_at FROM notifications WHERE user_id=$1
+       ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`, [req.user.id, pg.limit, pg.offset]),
+    pool.query(`SELECT count(*)::int total, count(*) FILTER (WHERE NOT is_read)::int unread FROM notifications WHERE user_id=$1`, [req.user.id]),
+  ]);
+  res.json({ items: items.rows, unread: counts.rows[0].unread, total: counts.rows[0].total });
 });
 router.post('/notifications/read-all', async (req, res) => {
   await pool.query(`UPDATE notifications SET is_read=TRUE WHERE user_id=$1`, [req.user.id]);

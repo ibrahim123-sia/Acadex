@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { api, getUser, getSchool, logout } from './api';
 import {
   LayoutDashboard, Building2, Users, GraduationCap, Wallet, Megaphone,
   BookOpen, ClipboardList, ScrollText, LogOut, School, Bell, X,
-  CalendarCheck, PenSquare, FileText, Baby, KeyRound, Copy, CheckCircle2,
+  CalendarCheck, PenSquare, FileText, Baby, KeyRound, Copy, CheckCircle2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 const NAV = {
@@ -193,5 +193,38 @@ One-time password: ${tempPassword}`); setCopied(true); } catch { /* clipboard bl
     </div>
   );
 }
+
+// Loads one page of a paginated list endpoint (total comes from the X-Total-Count header).
+export function usePaged(path, params = {}, pageSize = 50) {
+  const [page, setPage] = useState(1);
+  const [state, setState] = useState({ rows: null, total: 0, error: '' });
+  const key = JSON.stringify(params);
+  useEffect(() => { setPage(1); }, [key]);
+  const load = useCallback(() => api.get(path, { params: { ...JSON.parse(key), page, pageSize } })
+    .then((r) => setState({ rows: r.data, total: Number(r.headers['x-total-count'] ?? r.data.length), error: '' }))
+    .catch((e) => setState((st) => ({ ...st, rows: st.rows ?? [], error: e.response?.data?.error || 'Could not load this list' }))),
+  [path, key, page, pageSize]);
+  useEffect(() => { load(); }, [load]);
+  return { ...state, page, pageSize, setPage, reload: load };
+}
+
+export function Pager({ page, pageSize, total, setPage }) {
+  if (total <= pageSize) return null;
+  const last = Math.ceil(total / pageSize);
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  const btn = 'inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-sm disabled:opacity-40 hover:bg-slate-50';
+  return (
+    <nav className="flex items-center justify-between mt-3 text-sm text-slate-500" aria-label="Pagination">
+      <span>Showing {from}–{to} of {total}</span>
+      <div className="flex gap-2">
+        <button type="button" className={btn} disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft size={16} /> Prev</button>
+        <button type="button" className={btn} disabled={page >= last} onClick={() => setPage(page + 1)}>Next <ChevronRight size={16} /></button>
+      </div>
+    </nav>
+  );
+}
+
+export const ErrorNote = ({ children }) => (children ? <div role="alert" className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 mb-3">{children}</div> : null);
 
 export { FileText };

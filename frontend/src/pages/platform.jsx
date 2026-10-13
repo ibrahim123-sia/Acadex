@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import { formatMoney, formatDateTime } from '../format';
-import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField, CredentialsNotice } from '../ui';
+import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField, CredentialsNotice, usePaged, Pager } from '../ui';
 import { Building2, Users, GraduationCap, Wallet, Plus } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
@@ -56,13 +56,13 @@ const TIMEZONES = (() => {
 })();
 
 export function PlatformSchools() {
-  const [rows, setRows] = useState(null);
+  const list = usePaged('/platform/schools');
+  const rows = list.rows;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_SCHOOL });
   const [created, setCreated] = useState(null);
   const [err, setErr] = useState('');
-  const load = () => api.get('/platform/schools').then((r) => setRows(r.data));
-  useEffect(() => { load(); }, []);
+  const load = list.reload;
   const submit = async (e) => {
     e.preventDefault(); setErr('');
     try { const { data } = await api.post('/platform/schools', form); setCreated(data); load(); }
@@ -80,6 +80,7 @@ export function PlatformSchools() {
           <Td><Badge>{s.plan}</Badge></Td><Td>{s.students}</Td><Td>{s.teachers}</Td><Td>{s.classes}</Td><Td><Badge>{s.status}</Badge></Td>
         </>
       )} />
+      <Pager {...list} />
       {open && (
         <Modal title="Register a New School" onClose={close}>
           {created ? (
@@ -112,8 +113,8 @@ export function PlatformSchools() {
 }
 
 export function PlatformAudit() {
-  const [rows, setRows] = useState(null);
-  useEffect(() => { api.get('/platform/audit').then((r) => setRows(r.data)); }, []);
+  const list = usePaged('/platform/audit');
+  const rows = list.rows;
   if (!rows) return <Spinner />;
   return (
     <>
@@ -126,6 +127,7 @@ export function PlatformAudit() {
           <Td>{a.entity}</Td>
         </>
       )} />
+      <Pager {...list} />
     </>
   );
 }

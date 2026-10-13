@@ -6,6 +6,7 @@ const pool = require('./db/pool');
 const { loadConfig } = require('./config');
 const { wrap } = require('./lib/router');
 const { errorHandler } = require('./lib/errors');
+const { PAGINATION_HEADERS } = require('./lib/pagination');
 
 function createApp(config = loadConfig()) {
   const app = express();
@@ -18,6 +19,7 @@ function createApp(config = loadConfig()) {
       // requests without an Origin header (curl, server-to-server) are not CORS requests
       origin: (origin, cb) => cb(null, !origin || config.corsOrigins.includes(origin)),
       credentials: true,
+      exposedHeaders: PAGINATION_HEADERS,
     })
   );
   app.use(express.json({ limit: '100kb' }));

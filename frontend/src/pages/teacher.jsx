@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import { formatDate, todayISO } from '../format';
-import { PageHeader, StatCard, Card, Table, Td, Spinner, Badge, Button, Modal, Field } from '../ui';
+import { PageHeader, StatCard, Card, Table, Td, Spinner, Badge, Button, Modal, Field, usePaged, Pager } from '../ui';
 import { BookOpen, ClipboardList, Users, Megaphone, CalendarCheck, Save, Plus } from 'lucide-react';
 
 function useClasses() {
@@ -157,11 +157,11 @@ export function TeacherGradebook() {
 
 export function TeacherAssignments() {
   const classes = useClasses();
-  const [rows, setRows] = useState(null);
+  const list = usePaged('/me/teacher/assignments');
+  const rows = list.rows;
+  const load = list.reload;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ class_id: '', title: '', description: '', due_date: '' });
-  const load = () => api.get('/me/teacher/assignments').then((r) => setRows(r.data));
-  useEffect(() => { load(); }, []);
   const submit = async (e) => {
     e.preventDefault();
     await api.post('/me/teacher/assignments', { ...form, class_id: form.class_id || classes[0]?.id });
@@ -177,6 +177,7 @@ export function TeacherAssignments() {
             <Td>{formatDate(a.due_date)}</Td><Td><Badge>{a.submissions + ' submitted'}</Badge></Td></>
         )} />
       )}
+      {rows && <Pager {...list} />}
       {open && (
         <Modal title="Assign to a class" onClose={() => setOpen(false)}>
           <form onSubmit={submit}>
@@ -198,8 +199,8 @@ export function TeacherAssignments() {
 }
 
 export function TeacherAnnouncements() {
-  const [rows, setRows] = useState(null);
-  useEffect(() => { api.get('/me/announcements').then((r) => setRows(r.data)); }, []);
+  const list = usePaged('/me/announcements', {}, 20);
+  const rows = list.rows;
   if (!rows) return <Spinner />;
   return (
     <>
@@ -210,6 +211,7 @@ export function TeacherAnnouncements() {
           <div className="flex-1"><div className="font-semibold text-slate-800">{a.title}</div><div className="text-sm text-slate-500">{a.description}</div></div>
           <Badge>{a.target_audience}</Badge>
         </Card>))}</div>
+      <Pager {...list} />
     </>
   );
 }

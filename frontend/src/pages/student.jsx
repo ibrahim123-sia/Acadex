@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api, getUser } from '../api';
 import { formatMoney as money, formatDate } from '../format';
-import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field } from '../ui';
+import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, usePaged, Pager, ErrorNote } from '../ui';
 import { TrendingUp, CalendarCheck, Wallet, Upload } from 'lucide-react';
 
 
@@ -34,15 +34,17 @@ export function StudentDashboard() {
 }
 
 export function StudentAssignments() {
-  const [rows, setRows] = useState(null);
+  const list = usePaged('/me/student/assignments');
+  const rows = list.rows;
   const [active, setActive] = useState(null);
   const [link, setLink] = useState('');
-  const load = () => api.get('/me/student/assignments').then((r) => setRows(r.data));
-  useEffect(() => { load(); }, []);
+  const [err, setErr] = useState('');
   const submit = async (e) => {
-    e.preventDefault();
-    await api.post('/me/student/submissions', { assignment_id: active.id, title: 'My submission', file_link: link });
-    setActive(null); setLink(''); load();
+    e.preventDefault(); setErr('');
+    try {
+      await api.post('/me/student/submissions', { assignment_id: active.id, title: 'My submission', file_link: link });
+      setActive(null); setLink(''); list.reload();
+    } catch (e2) { setErr(e2.response?.data?.details?.[0]?.message || e2.response?.data?.error || 'Could not submit'); }
   };
   if (!rows) return <Spinner />;
   return (
@@ -56,10 +58,12 @@ export function StudentAssignments() {
           <Td>{!a.submitted && <button onClick={() => setActive(a)} className="text-indigo-600 hover:underline text-sm font-medium flex items-center gap-1"><Upload size={14} /> Submit</button>}</Td>
         </>
       )} />
+      <Pager {...list} />
       {active && (
-        <Modal title={`Submit: ${active.title}`} onClose={() => setActive(null)}>
+        <Modal title={`Submit: ${active.title}`} onClose={() => { setActive(null); setErr(''); }}>
           <form onSubmit={submit}>
             <Field label="File link / URL" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://drive.google.com/…" required />
+            <ErrorNote>{err}</ErrorNote>
             <div className="flex justify-end mt-2"><Button type="submit"><Upload size={16} /> Submit assignment</Button></div>
           </form>
         </Modal>

@@ -8,6 +8,7 @@ const { z, id, optionalId, isoDate, text, requiredText, money } = require('../li
 const { withTransaction } = require('../db/tx');
 const { todayIn } = require('../lib/locale');
 const { schoolSettings } = require('../lib/school');
+const { parsePage, sendPage } = require('../lib/pagination');
 const { generateTempPassword, hashPassword } = require('../lib/passwords');
 
 const router = Router();
@@ -48,93 +49,116 @@ router.get('/dashboard', async (req, res) => {
 });
 
 // ---------- Students ----------
+const studentQuery = z.object({ search: z.string().trim().max(100).default('') });
 router.get('/students', async (req, res) => {
-  const q = `%${(req.query.search || '').toLowerCase()}%`;
+  const pg = parsePage(req.query);
+  const { search } = studentQuery.parse({ search: req.query.search });
+  const q = `%${search.toLowerCase()}%`;
   const { rows } = await pool.query(
     `SELECT st.id, st.roll_no, st.first_name, st.last_name, st.email, st.gender, st.age, st.status,
             c.name class_name,
-            COALESCE((SELECT payment_status FROM tuition_fee f WHERE f.student_id=st.id ORDER BY id DESC LIMIT 1),'—') fee_status
+            COALESCE((SELECT payment_status FROM tuition_fee f WHERE f.student_id=st.id AND f.school_id=st.school_id ORDER BY id DESC LIMIT 1),'—') fee_status,
+            count(*) OVER() _total
      FROM students st LEFT JOIN classes c ON c.id=st.class_id
      WHERE st.school_id=$1 AND (LOWER(st.first_name||' '||st.last_name) LIKE $2 OR LOWER(st.roll_no) LIKE $2)
-     ORDER BY st.created_at DESC`, [sid(req), q]);
-  res.json(rows);
+     ORDER BY st.created_at DESC, st.id DESC LIMIT $3 OFFSET $4`, [sid(req), q, pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // ---------- Teachers ----------
 router.get('/teachers', async (req, res) => {
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT t.id, t.first_name, t.last_name, t.email, t.gender, t.phone, t.qualification,
-            (SELECT count(*) FROM teacher_subjects ts WHERE ts.teacher_id=t.id)::int subjects
-     FROM teachers t WHERE t.school_id=$1 ORDER BY t.created_at DESC`, [sid(req)]);
-  res.json(rows);
+            (SELECT count(*) FROM teacher_subjects ts WHERE ts.teacher_id=t.id)::int subjects,
+            count(*) OVER() _total
+     FROM teachers t WHERE t.school_id=$1 ORDER BY t.created_at DESC, t.id DESC LIMIT $2 OFFSET $3`, [sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // ---------- Classes & subjects ----------
 router.get('/classes', async (req, res) => {
+  const pg = parsePage(req.query, { defaultSize: 100 }); // also feeds class dropdowns
   const { rows } = await pool.query(
     `SELECT c.id, c.code, c.name, c.section,
        (SELECT count(*) FROM students s WHERE s.class_id=c.id)::int students,
-       (SELECT count(*) FROM subjects su WHERE su.class_id=c.id)::int subjects
-     FROM classes c WHERE c.school_id=$1 ORDER BY c.id`, [sid(req)]);
-  res.json(rows);
+       (SELECT count(*) FROM subjects su WHERE su.class_id=c.id)::int subjects,
+       count(*) OVER() _total
+     FROM classes c WHERE c.school_id=$1 ORDER BY c.id LIMIT $2 OFFSET $3`, [sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // ---------- Fees ----------
 router.get('/fees', async (req, res) => {
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT f.id, f.receipt_id, f.total_fee, f.paid_amount, f.remaining_balance, f.payment_status, f.payment_date,
-            st.first_name||' '||st.last_name student, st.roll_no
+            st.first_name||' '||st.last_name student, st.roll_no, count(*) OVER() _total
      FROM tuition_fee f JOIN students st ON st.id=f.student_id
-     WHERE f.school_id=$1 ORDER BY f.id DESC`, [sid(req)]);
-  res.json(rows);
+     WHERE f.school_id=$1 ORDER BY f.id DESC LIMIT $2 OFFSET $3`, [sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
+});
+
+// Fee totals for the whole school (the fees list is paginated, so the UI can't add it up)
+router.get('/fees/summary', async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT COALESCE(SUM(paid_amount),0)::float8 collected, COALESCE(SUM(remaining_balance),0)::float8 outstanding
+     FROM tuition_fee WHERE school_id=$1`, [sid(req)]);
+  res.json(rows[0]);
 });
 
 // ---------- Grades ----------
 router.get('/grades', async (req, res) => {
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT g.id, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name,
             su.name subject, g.assignment_type, g.assignment_name, g.obtained_marks, g.total_marks,
-            ROUND(g.obtained_marks / NULLIF(g.total_marks,0) * 100, 1) percentage
+            ROUND(g.obtained_marks / NULLIF(g.total_marks,0) * 100, 1) percentage, count(*) OVER() _total
      FROM grades g JOIN students st ON st.id=g.student_id
        LEFT JOIN classes c ON c.id=g.class_id LEFT JOIN subjects su ON su.id=g.subject_id
-     WHERE g.school_id=$1 ORDER BY g.id DESC LIMIT 100`, [sid(req)]);
-  res.json(rows);
+     WHERE g.school_id=$1 ORDER BY g.id DESC LIMIT $2 OFFSET $3`, [sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
-// ---------- Attendance (recent, grouped) ----------
+// ---------- Attendance (most recent first) ----------
 router.get('/attendance', async (req, res) => {
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
-    `SELECT a.att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name, a.subject, a.status
+    `SELECT a.att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name, a.subject, a.status,
+            count(*) OVER() _total
      FROM student_attendance a JOIN students st ON st.id=a.student_id LEFT JOIN classes c ON c.id=a.class_id
-     WHERE a.school_id=$1 ORDER BY a.att_date DESC, a.id DESC LIMIT 60`, [sid(req)]);
-  res.json(rows);
+     WHERE a.school_id=$1 ORDER BY a.att_date DESC, a.id DESC LIMIT $2 OFFSET $3`, [sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // ---------- Timetable ----------
 router.get('/timetable', async (req, res) => {
+  const pg = parsePage(req.query, { defaultSize: 100 });
   const { rows } = await pool.query(
     `SELECT tt.day_of_week, tt.time_slot, tt.subject, c.name class_name,
-            t.first_name||' '||t.last_name teacher
+            t.first_name||' '||t.last_name teacher, count(*) OVER() _total
      FROM timetable tt JOIN classes c ON c.id=tt.class_id LEFT JOIN teachers t ON t.id=tt.teacher_id
-     WHERE tt.school_id=$1 ORDER BY c.id, tt.time_slot`, [sid(req)]);
-  res.json(rows);
+     WHERE tt.school_id=$1 ORDER BY c.id, tt.time_slot, tt.id LIMIT $2 OFFSET $3`, [sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // ---------- Exams ----------
 router.get('/exams', async (req, res) => {
+  const pg = parsePage(req.query, { defaultSize: 100 });
   const { rows } = await pool.query(
-    `SELECT e.exam_name, e.subject, e.exam_date, e.time_slot, e.total_marks, c.name class_name
+    `SELECT e.exam_name, e.subject, e.exam_date, e.time_slot, e.total_marks, c.name class_name, count(*) OVER() _total
      FROM exam_schedule e LEFT JOIN classes c ON c.id=e.class_id
-     WHERE e.school_id=$1 ORDER BY e.exam_date`, [sid(req)]);
-  res.json(rows);
+     WHERE e.school_id=$1 ORDER BY e.exam_date, e.id LIMIT $2 OFFSET $3`, [sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 
 // ---------- Announcements ----------
 router.get('/announcements', async (req, res) => {
+  const pg = parsePage(req.query);
   const { rows } = await pool.query(
-    `SELECT id, title, target_audience, description, start_date, end_date, created_at
-     FROM announcements WHERE school_id=$1 ORDER BY created_at DESC`, [sid(req)]);
-  res.json(rows);
+    `SELECT id, title, target_audience, description, start_date, end_date, created_at, count(*) OVER() _total
+     FROM announcements WHERE school_id=$1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`, [sid(req), pg.limit, pg.offset]);
+  sendPage(res, rows, pg);
 });
 const announcementBody = z.object({
   title: requiredText(200),

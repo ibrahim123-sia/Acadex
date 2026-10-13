@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api, downloadPdf } from '../api';
 import { formatMoney as money } from '../format';
-import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField, CredentialsNotice } from '../ui';
+import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField, CredentialsNotice, usePaged, Pager, ErrorNote } from '../ui';
 import { Users, GraduationCap, BookOpen, Wallet, Search, Megaphone, Plus, FileText } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 
@@ -55,19 +55,19 @@ export function AdminDashboard() {
 }
 
 export function AdminStudents() {
-  const [rows, setRows] = useState(null);
   const [search, setSearch] = useState('');
+  const list = usePaged('/school/students', { search });
+  const rows = list.rows;
   const [classes, setClasses] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', gender: 'Male', age: '', class_id: '', guardian_name: '' });
   const [err, setErr] = useState('');
   const [created, setCreated] = useState(null);
   const close = () => { setOpen(false); setCreated(null); setErr(''); };
-  const load = (s = '') => api.get('/school/students', { params: { search: s } }).then((r) => setRows(r.data));
-  useEffect(() => { load(); api.get('/school/classes').then((r) => setClasses(r.data)); }, []);
+  useEffect(() => { api.get('/school/classes').then((r) => setClasses(r.data)); }, []);
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    try { const { data } = await api.post('/school/students', { ...form, age: form.age ? Number(form.age) : null }); setCreated(data); setForm({ first_name: '', last_name: '', email: '', gender: 'Male', age: '', class_id: '', guardian_name: '' }); load(search); }
+    try { const { data } = await api.post('/school/students', { ...form, age: form.age ? Number(form.age) : null }); setCreated(data); setForm({ first_name: '', last_name: '', email: '', gender: 'Male', age: '', class_id: '', guardian_name: '' }); list.reload(); }
     catch (e2) { setErr(e2.response?.data?.error || 'Failed'); }
   };
   return (
@@ -76,7 +76,7 @@ export function AdminStudents() {
         action={<Button onClick={() => setOpen(true)}><Plus size={16} /> Admit Student</Button>} />
       <div className="relative mb-4 max-w-sm">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input value={search} onChange={(e) => { setSearch(e.target.value); load(e.target.value); }} placeholder="Search by name or roll no…"
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or roll no…"
           className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
       </div>
       {!rows ? <Spinner /> : (
@@ -90,6 +90,8 @@ export function AdminStudents() {
           </>
         )} />
       )}
+      <ErrorNote>{list.error}</ErrorNote>
+      <Pager {...list} />
       {open && (
         <Modal title="Admit New Student" onClose={close}>
           {created ? <CredentialsNotice title={`${created.first_name} ${created.last_name} admitted`} {...created.login} onDone={close} /> : (
@@ -117,17 +119,16 @@ export function AdminStudents() {
 }
 
 export function AdminTeachers() {
-  const [rows, setRows] = useState(null);
+  const list = usePaged('/school/teachers');
+  const rows = list.rows;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', gender: 'Male', phone: '', qualification: '' });
   const [err, setErr] = useState('');
   const [created, setCreated] = useState(null);
   const close = () => { setOpen(false); setCreated(null); setErr(''); };
-  const load = () => api.get('/school/teachers').then((r) => setRows(r.data));
-  useEffect(() => { load(); }, []);
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    try { const { data } = await api.post('/school/teachers', form); setCreated(data); setForm({ first_name: '', last_name: '', email: '', gender: 'Male', phone: '', qualification: '' }); load(); }
+    try { const { data } = await api.post('/school/teachers', form); setCreated(data); setForm({ first_name: '', last_name: '', email: '', gender: 'Male', phone: '', qualification: '' }); list.reload(); }
     catch (e2) { setErr(e2.response?.data?.error || 'Failed'); }
   };
   if (!rows) return <Spinner />;
@@ -138,6 +139,7 @@ export function AdminTeachers() {
         <><Td className="font-medium text-slate-800">{t.first_name} {t.last_name}</Td><Td className="text-slate-500">{t.email}</Td>
           <Td>{t.gender}</Td><Td>{t.phone}</Td><Td>{t.qualification}</Td><Td>{t.subjects}</Td></>
       )} />
+      <Pager {...list} />
       {open && (
         <Modal title="Add Teacher" onClose={close}>
           {created ? <CredentialsNotice title={`${created.first_name} ${created.last_name} added`} {...created.login} onDone={close} /> : (
@@ -201,24 +203,55 @@ export function AdminClasses() {
   );
 }
 
+function StudentPicker({ value, onChange }) {
+  const [q, setQ] = useState('');
+  const [options, setOptions] = useState([]);
+  useEffect(() => {
+    const t = setTimeout(() => api.get('/school/students', { params: { search: q, pageSize: 10 } }).then((r) => setOptions(r.data)).catch(() => setOptions([])), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+  return (
+    <div className="mb-3">
+      <label className="block"><span className="block text-sm font-medium text-slate-700 mb-1">Student</span>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or roll no…"
+          className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" /></label>
+      <div className="mt-1 max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100" role="listbox" aria-label="Matching students">
+        {options.length === 0 ? <div className="px-3 py-2 text-sm text-slate-400">No students found</div> : options.map((s) => (
+          <button type="button" key={s.id} role="option" aria-selected={String(s.id) === String(value)} onClick={() => onChange(s.id)}
+            className={`w-full text-left px-3 py-2 text-sm ${String(s.id) === String(value) ? 'bg-indigo-50 text-indigo-700 font-medium' : 'hover:bg-slate-50'}`}>
+            {s.first_name} {s.last_name} <span className="text-slate-400">({s.roll_no || '—'})</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function AdminFees() {
-  const [rows, setRows] = useState(null);
-  const [students, setStudents] = useState([]);
+  const list = usePaged('/school/fees');
+  const rows = list.rows;
+  const [summary, setSummary] = useState(null);
   const [open, setOpen] = useState(false);
+  const [err, setErr] = useState('');
   const [form, setForm] = useState({ student_id: '', total_fee: '', paid_amount: '' });
-  const load = () => api.get('/school/fees').then((r) => setRows(r.data));
-  useEffect(() => { load(); api.get('/school/students').then((r) => setStudents(r.data)); }, []);
-  const submit = async (e) => { e.preventDefault(); await api.post('/school/fees', { ...form, total_fee: Number(form.total_fee), paid_amount: Number(form.paid_amount || 0) }); setOpen(false); setForm({ student_id: '', total_fee: '', paid_amount: '' }); load(); };
-  if (!rows) return <Spinner />;
-  const collected = rows.reduce((a, r) => a + Number(r.paid_amount), 0);
-  const outstanding = rows.reduce((a, r) => a + Number(r.remaining_balance), 0);
+  const loadSummary = () => api.get('/school/fees/summary').then((r) => setSummary(r.data));
+  useEffect(() => { loadSummary(); }, []);
+  const submit = async (e) => {
+    e.preventDefault(); setErr('');
+    if (!form.student_id) return setErr('Choose a student');
+    try {
+      await api.post('/school/fees', { ...form, total_fee: Number(form.total_fee), paid_amount: Number(form.paid_amount || 0) });
+      setOpen(false); setForm({ student_id: '', total_fee: '', paid_amount: '' }); list.reload(); loadSummary();
+    } catch (e2) { setErr(e2.response?.data?.details?.[0]?.message || e2.response?.data?.error || 'Could not save the receipt'); }
+  };
+  if (!rows || !summary) return <Spinner />;
   return (
     <>
       <PageHeader title="Fees" subtitle="Tuition fee collection & receipts" action={<Button onClick={() => setOpen(true)}><Plus size={16} /> Collect Fee</Button>} />
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
-        <StatCard label="Collected" value={money(collected)} icon={Wallet} tint="#16A34A" />
-        <StatCard label="Outstanding" value={money(outstanding)} icon={Wallet} tint="#DC2626" />
-        <StatCard label="Receipts" value={rows.length} icon={Wallet} tint="#4F46E5" />
+        <StatCard label="Collected" value={money(summary.collected)} icon={Wallet} tint="#16A34A" />
+        <StatCard label="Outstanding" value={money(summary.outstanding)} icon={Wallet} tint="#DC2626" />
+        <StatCard label="Receipts" value={list.total} icon={Wallet} tint="#4F46E5" />
       </div>
       <Table columns={['Receipt', 'Student', 'Total', 'Paid', 'Balance', 'Status', '']} rows={rows} render={(f) => (
         <>
@@ -229,15 +262,16 @@ export function AdminFees() {
           <Td><button onClick={() => downloadPdf(`/pdf/fee-voucher/${f.id}`, `voucher-${f.receipt_id}.pdf`)} className="text-indigo-600 hover:underline text-sm flex items-center gap-1"><FileText size={14} /> Voucher</button></Td>
         </>
       )} />
+      <Pager {...list} />
       {open && (
         <Modal title="Collect Fee" onClose={() => setOpen(false)}>
           <form onSubmit={submit}>
-            <SelectField label="Student" value={form.student_id} onChange={(e) => setForm({ ...form, student_id: e.target.value })}
-              options={[{ value: '', label: 'Select student…' }, ...students.map((s) => ({ value: s.id, label: `${s.first_name} ${s.last_name} (${s.roll_no})` }))]} />
+            <StudentPicker value={form.student_id} onChange={(id) => setForm({ ...form, student_id: id })} />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Total fee" type="number" value={form.total_fee} onChange={(e) => setForm({ ...form, total_fee: e.target.value })} required />
               <Field label="Paid amount" type="number" value={form.paid_amount} onChange={(e) => setForm({ ...form, paid_amount: e.target.value })} />
             </div>
+            <ErrorNote>{err}</ErrorNote>
             <div className="flex justify-end mt-2"><Button type="submit">Save Receipt</Button></div>
           </form>
         </Modal>
@@ -247,12 +281,11 @@ export function AdminFees() {
 }
 
 export function AdminAnnouncements() {
-  const [rows, setRows] = useState(null);
+  const list = usePaged('/school/announcements', {}, 20);
+  const rows = list.rows;
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: '', target_audience: 'All', description: '' });
-  const load = () => api.get('/school/announcements').then((r) => setRows(r.data));
-  useEffect(() => { load(); }, []);
-  const submit = async (e) => { e.preventDefault(); await api.post('/school/announcements', form); setOpen(false); setForm({ title: '', target_audience: 'All', description: '' }); load(); };
+  const submit = async (e) => { e.preventDefault(); await api.post('/school/announcements', form); setOpen(false); setForm({ title: '', target_audience: 'All', description: '' }); list.reload(); };
   if (!rows) return <Spinner />;
   return (
     <>
@@ -268,6 +301,7 @@ export function AdminAnnouncements() {
           </Card>
         ))}
       </div>
+      <Pager {...list} />
       {open && (
         <Modal title="New Announcement" onClose={() => setOpen(false)}>
           <form onSubmit={submit}>
