@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { api, downloadPdf } from '../api';
+import { formatMoney as money } from '../format';
 import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button } from '../ui';
 import { TrendingUp, CalendarCheck, Wallet, FileText, ArrowLeft, Baby } from 'lucide-react';
 
-const money = (n) => 'PKR ' + Number(n || 0).toLocaleString();
 
 export function ParentDashboard() {
   const [children, setChildren] = useState(null);

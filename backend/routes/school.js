@@ -6,6 +6,8 @@ const { assertInSchool } = require('../lib/access');
 const { HttpError } = require('../lib/errors');
 const { z, id, optionalId, isoDate, text, requiredText, money } = require('../lib/validate');
 const { withTransaction } = require('../db/tx');
+const { todayIn } = require('../lib/locale');
+const { schoolSettings } = require('../lib/school');
 const { generateTempPassword, hashPassword } = require('../lib/passwords');
 
 const router = Router();
@@ -21,13 +23,14 @@ const audit = (school, actor, action, entity, detail) =>
 // ---------- Admin dashboard ----------
 router.get('/dashboard', async (req, res) => {
   const s = sid(req);
+  const today = todayIn((await schoolSettings(s)).timezone);
   const [students, teachers, classes, fees, feeStatus, attToday, topClasses, recent] = await Promise.all([
     pool.query(`SELECT count(*)::int c FROM students WHERE school_id=$1`, [s]),
     pool.query(`SELECT count(*)::int c FROM teachers WHERE school_id=$1`, [s]),
     pool.query(`SELECT count(*)::int c FROM classes WHERE school_id=$1`, [s]),
     pool.query(`SELECT COALESCE(SUM(paid_amount),0)::numeric collected, COALESCE(SUM(remaining_balance),0)::numeric outstanding FROM tuition_fee WHERE school_id=$1`, [s]),
     pool.query(`SELECT payment_status, count(*)::int c FROM tuition_fee WHERE school_id=$1 GROUP BY payment_status`, [s]),
-    pool.query(`SELECT status, count(*)::int c FROM student_attendance WHERE school_id=$1 AND att_date >= CURRENT_DATE - 7 GROUP BY status`, [s]),
+    pool.query(`SELECT status, count(*)::int c FROM student_attendance WHERE school_id=$1 AND att_date >= $2::date - 7 GROUP BY status`, [s, today]),
     pool.query(`SELECT c.name, count(st.id)::int students FROM classes c LEFT JOIN students st ON st.class_id=c.id WHERE c.school_id=$1 GROUP BY c.id, c.name ORDER BY students DESC`, [s]),
     pool.query(`SELECT id, first_name, last_name, roll_no, created_at FROM students WHERE school_id=$1 ORDER BY created_at DESC LIMIT 6`, [s]),
   ]);
@@ -247,9 +250,10 @@ router.post('/fees', async (req, res) => {
   const remaining = total - paid;
   const status = remaining <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending';
   const receipt = 'RCP-' + crypto.randomBytes(5).toString('hex').toUpperCase();
+  const paidOn = todayIn((await schoolSettings(s)).timezone);
   const { rows } = await pool.query(
-    `INSERT INTO tuition_fee (school_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [s, receipt, student_id, total, paid, remaining, status]);
+    `INSERT INTO tuition_fee (school_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status, payment_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [s, receipt, student_id, total, paid, remaining, status, paidOn]);
   audit(s, req.user.name, 'collect_fee', 'TuitionFee', receipt);
   res.status(201).json(rows[0]);
 });

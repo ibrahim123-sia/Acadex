@@ -5,6 +5,8 @@ const { assertTeachesClass, assertStudentsInClass } = require('../lib/access');
 const { z, id, optionalId, isoDate, requiredText, text, httpUrl } = require('../lib/validate');
 const { forbidden, notFound } = require('../lib/errors');
 const { withTransaction } = require('../db/tx');
+const { todayIn } = require('../lib/locale');
+const { schoolSettings } = require('../lib/school');
 
 const ATTENDANCE_STATUSES = ['Present', 'Absent', 'Leave'];
 const ASSESSMENT_TYPES = ['Quiz', 'Midterm', 'Assignment', 'Final', 'Test', 'Project'];
@@ -87,7 +89,8 @@ router.get('/teacher/classes', async (req, res) => {
 router.get('/teacher/class/:classId/roster', async (req, res) => {
   const classId = id.parse(req.params.classId);
   await assertTeachesClass(req.user, classId);
-  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  // "today" is the school's calendar date, not the server's (UTC) one
+  const date = req.query.date ? isoDate.parse(req.query.date) : todayIn((await schoolSettings(sid(req))).timezone);
   const { rows } = await pool.query(
     `SELECT st.id, st.roll_no, st.first_name||' '||st.last_name name,
             (SELECT status FROM student_attendance a WHERE a.student_id=st.id AND a.class_id=$2 AND a.att_date=$3 LIMIT 1) status

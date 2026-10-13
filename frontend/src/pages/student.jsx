@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { api, getUser } from '../api';
+import { formatMoney as money, formatDate } from '../format';
 import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field } from '../ui';
 import { TrendingUp, CalendarCheck, Wallet, Upload } from 'lucide-react';
 
-const money = (n) => 'PKR ' + Number(n || 0).toLocaleString();
 
 export function StudentDashboard() {
   const [d, setD] = useState(null);
@@ -51,7 +51,7 @@ export function StudentAssignments() {
       <Table columns={['Title', 'Subject', 'Due', 'Status', '']} rows={rows} render={(a) => (
         <>
           <Td className="font-medium text-slate-800">{a.title}<div className="text-xs text-slate-400">{a.description}</div></Td>
-          <Td>{a.subject || '—'}</Td><Td>{a.due_date ? new Date(a.due_date).toLocaleDateString() : '—'}</Td>
+          <Td>{a.subject || '—'}</Td><Td>{formatDate(a.due_date)}</Td>
           <Td>{a.submitted ? <Badge>Paid</Badge> : <Badge>Pending</Badge>}</Td>
           <Td>{!a.submitted && <button onClick={() => setActive(a)} className="text-indigo-600 hover:underline text-sm font-medium flex items-center gap-1"><Upload size={14} /> Submit</button>}</Td>
         </>

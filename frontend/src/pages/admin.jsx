@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { api, downloadPdf } from '../api';
+import { formatMoney as money } from '../format';
 import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField, CredentialsNotice } from '../ui';
 import { Users, GraduationCap, BookOpen, Wallet, Search, Megaphone, Plus, FileText } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 
-const money = (n) => 'PKR ' + Number(n || 0).toLocaleString();
 const PIE = { Paid: '#16A34A', Partial: '#D97706', Pending: '#DC2626' };
 
 export function AdminDashboard() {

@@ -13,7 +13,7 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
 async function loadSchool(school_id) {
   if (!school_id) return null;
-  const { rows } = await pool.query('SELECT id, name, slug, logo_url, primary_color, plan, status FROM schools WHERE id=$1', [school_id]);
+  const { rows } = await pool.query('SELECT id, name, slug, logo_url, primary_color, plan, status, currency, timezone, locale FROM schools WHERE id=$1', [school_id]);
   return rows[0] || null;
 }
 

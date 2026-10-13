@@ -1,6 +1,9 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const pool = require('./pool');
+const { todayIn } = require('../lib/locale');
+
+const TZ = 'Asia/Karachi'; // demo schools use the default school timezone
 
 const PW = 'Acadex@123';
 
@@ -117,7 +120,7 @@ async function seedSchool({ name, slug, color, plan, adminEmail, classDefs, numT
         const dt = new Date(); dt.setDate(dt.getDate() - d);
         await q(`INSERT INTO student_attendance (school_id, student_id, class_id, subject, att_date, status)
                  VALUES ($1,$2,$3,$4,$5,$6)`,
-          [sid, st.id, c.id, rand(c.subjects).name, dt.toISOString().slice(0,10),
+          [sid, st.id, c.id, rand(c.subjects).name, todayIn(TZ, dt),
            (sCount + d) % 7 === 0 ? 'Absent' : 'Present']);
       }
       sCount++;
@@ -125,7 +128,7 @@ async function seedSchool({ name, slug, color, plan, adminEmail, classDefs, numT
   }
 
   // teacher attendance (today)
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayIn(TZ);
   for (const t of teachers) {
     await q(`INSERT INTO teacher_attendance (school_id, teacher_id, att_date, status) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
       [sid, t.id, today, rand(['Present','Present','Present','Leave'])]);
@@ -137,7 +140,7 @@ async function seedSchool({ name, slug, color, plan, adminEmail, classDefs, numT
       const dt = new Date(); dt.setDate(dt.getDate() + 7 + (c.id % 10));
       await q(`INSERT INTO exam_schedule (school_id, class_id, exam_name, subject, exam_date, time_slot, total_marks)
                VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [sid, c.id, 'Mid-Term Examination', s.name, dt.toISOString().slice(0,10), '09:00-11:00', 100]);
+        [sid, c.id, 'Mid-Term Examination', s.name, todayIn(TZ, dt), '09:00-11:00', 100]);
     }
   }
 
@@ -152,7 +155,7 @@ async function seedSchool({ name, slug, color, plan, adminEmail, classDefs, numT
   for (const a of anns) {
     const end = new Date(); end.setDate(end.getDate() + 30);
     await q(`INSERT INTO announcements (school_id, title, target_audience, description, end_date) VALUES ($1,$2,$3,$4,$5)`,
-      [sid, a[0], a[1], a[2], end.toISOString().slice(0,10)]);
+      [sid, a[0], a[1], a[2], todayIn(TZ, end)]);
   }
 
   // audit log samples
@@ -171,7 +174,7 @@ async function seedSchool({ name, slug, color, plan, adminEmail, classDefs, numT
         `INSERT INTO assignments (school_id, class_id, subject_id, teacher_id, title, description, due_date)
          VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
         [sid, c.id, s.id, t.id, `${s.name}: ${rand(['Chapter Review','Worksheet','Project','Practice Problems'])}`,
-         `Complete the assigned ${s.name} tasks and submit before the due date.`, due.toISOString().slice(0,10)]);
+         `Complete the assigned ${s.name} tasks and submit before the due date.`, todayIn(TZ, due)]);
       // a couple of submissions from students of this class
       const classStudents = createdStudents.filter((x) => x.class_id === c.id).slice(0, 2);
       for (const cs of classStudents) {

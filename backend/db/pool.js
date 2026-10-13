@@ -1,5 +1,9 @@
 require('dotenv').config();
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// DATE columns stay 'YYYY-MM-DD' strings. The default parser turns them into a JS Date at
+// server-local midnight, which shifts the day when the server and school timezones differ.
+types.setTypeParser(types.builtins.DATE, (v) => v);
 
 // DATABASE_SSL: "false" for local Postgres, "no-verify" to skip cert checks,
 // anything else (default) = verified TLS, which Neon supports.

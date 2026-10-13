@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
+import { formatMoney, formatDateTime } from '../format';
 import { PageHeader, StatCard, Card, Table, Td, Badge, Spinner, Button, Modal, Field, SelectField, CredentialsNotice } from '../ui';
 import { Building2, Users, GraduationCap, Wallet, Plus } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
-const money = (n) => 'PKR ' + Number(n || 0).toLocaleString();
 
 export function PlatformDashboard() {
   const [d, setD] = useState(null);
@@ -18,7 +18,9 @@ export function PlatformDashboard() {
         <StatCard label="Schools" value={d.schools} icon={Building2} tint="#4F46E5" sub={`${d.activeSchools} active`} />
         <StatCard label="Students" value={d.students} icon={Users} tint="#0891B2" />
         <StatCard label="Teachers" value={d.teachers} icon={GraduationCap} tint="#16A34A" />
-        <StatCard label="Revenue Collected" value={money(d.revenue)} icon={Wallet} tint="#D97706" />
+        <StatCard label="Fees Collected" icon={Wallet} tint="#D97706"
+          value={d.revenueByCurrency.length ? formatMoney(d.revenueByCurrency[0].amount, d.revenueByCurrency[0].currency) : '—'}
+          sub={d.revenueByCurrency.slice(1).map((r) => formatMoney(r.amount, r.currency)).join(' · ') || 'across all schools'} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="p-5">
@@ -47,10 +49,16 @@ export function PlatformDashboard() {
   );
 }
 
+const EMPTY_SCHOOL = { name: '', slug: '', plan: 'free', adminName: '', adminEmail: '', currency: 'PKR', timezone: 'Asia/Karachi', locale: 'en-PK' };
+const CURRENCIES = ['PKR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'QAR', 'INR', 'BDT', 'MYR', 'NGN', 'KES'].map((c) => ({ value: c, label: c }));
+const TIMEZONES = (() => {
+  try { return Intl.supportedValuesOf('timeZone'); } catch { return ['Asia/Karachi', 'UTC']; }
+})();
+
 export function PlatformSchools() {
   const [rows, setRows] = useState(null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', slug: '', plan: 'free', adminName: '', adminEmail: '' });
+  const [form, setForm] = useState({ ...EMPTY_SCHOOL });
   const [created, setCreated] = useState(null);
   const [err, setErr] = useState('');
   const load = () => api.get('/platform/schools').then((r) => setRows(r.data));
@@ -60,7 +68,7 @@ export function PlatformSchools() {
     try { const { data } = await api.post('/platform/schools', form); setCreated(data); load(); }
     catch (e2) { setErr(e2.response?.data?.error || 'Failed'); }
   };
-  const close = () => { setOpen(false); setCreated(null); setErr(''); setForm({ name: '', slug: '', plan: 'free', adminName: '', adminEmail: '' }); };
+  const close = () => { setOpen(false); setCreated(null); setErr(''); setForm({ ...EMPTY_SCHOOL }); };
   if (!rows) return <Spinner />;
   return (
     <>
@@ -85,6 +93,14 @@ export function PlatformSchools() {
               </div>
               <Field label="Admin name" value={form.adminName} onChange={(e) => setForm({ ...form, adminName: e.target.value })} placeholder="Principal / Admin name" />
               <Field label="Admin email" type="email" value={form.adminEmail} onChange={(e) => setForm({ ...form, adminEmail: e.target.value })} required placeholder="admin@school.edu" />
+              <div className="grid grid-cols-2 gap-3">
+                <SelectField label="Currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} options={CURRENCIES} />
+                <Field label="Locale" value={form.locale} onChange={(e) => setForm({ ...form, locale: e.target.value })} placeholder="en-PK" />
+              </div>
+              <label className="block mb-3"><span className="block text-sm font-medium text-slate-700 mb-1">Timezone</span>
+                <input list="acadex-timezones" value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+                <datalist id="acadex-timezones">{TIMEZONES.map((tz) => <option key={tz} value={tz} />)}</datalist></label>
               {err && <div className="text-sm text-rose-600 mb-2">{err}</div>}
               <div className="flex justify-end mt-2"><Button type="submit">Register School</Button></div>
             </form>
@@ -104,7 +120,7 @@ export function PlatformAudit() {
       <PageHeader title="Audit Log" subtitle="Platform-wide activity trail" />
       <Table columns={['When', 'School', 'Actor', 'Action', 'Entity']} rows={rows} render={(a) => (
         <>
-          <Td className="text-slate-500 whitespace-nowrap">{new Date(a.created_at).toLocaleString()}</Td>
+          <Td className="text-slate-500 whitespace-nowrap">{formatDateTime(a.created_at)}</Td>
           <Td>{a.school_name || '—'}</Td><Td>{a.actor}</Td>
           <Td><span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded">{a.action}</span></Td>
           <Td>{a.entity}</Td>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
+import { formatDate, todayISO } from '../format';
 import { PageHeader, StatCard, Card, Table, Td, Spinner, Badge, Button, Modal, Field } from '../ui';
 import { BookOpen, ClipboardList, Users, Megaphone, CalendarCheck, Save, Plus } from 'lucide-react';
 
@@ -33,7 +34,7 @@ export function TeacherDashboard() {
 export function TeacherAttendance() {
   const classes = useClasses();
   const [classId, setClassId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayISO());
   const [students, setStudents] = useState(null);
   const [saved, setSaved] = useState(false);
 
@@ -173,7 +174,7 @@ export function TeacherAssignments() {
       {!rows ? <Spinner /> : (
         <Table columns={['Title', 'Class', 'Subject', 'Due', 'Submissions']} rows={rows} render={(a) => (
           <><Td className="font-medium text-slate-800">{a.title}</Td><Td>{a.class_name}</Td><Td>{a.subject || '—'}</Td>
-            <Td>{a.due_date ? new Date(a.due_date).toLocaleDateString() : '—'}</Td><Td><Badge>{a.submissions + ' submitted'}</Badge></Td></>
+            <Td>{formatDate(a.due_date)}</Td><Td><Badge>{a.submissions + ' submitted'}</Badge></Td></>
         )} />
       )}
       {open && (
