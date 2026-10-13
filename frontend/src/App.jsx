@@ -19,12 +19,21 @@ function Protected({ roles, children }) {
 }
 const P = (roles, el) => <Protected roles={roles}>{el}</Protected>;
 
-export default function App() {
+// These read the user when the route renders. Reading it once in App's body went stale
+// after signing in, which bounced a freshly signed-in user back to /login.
+function SignedIn({ children }) {
+  return getUser() ? children : <Navigate to="/login" replace />;
+}
+function Home() {
   const user = getUser();
+  return <Navigate to={user ? HOME[user.role] || '/login' : '/login'} replace />;
+}
+
+export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/change-password" element={user ? <ChangePassword /> : <Navigate to="/login" replace />} />
+      <Route path="/change-password" element={<SignedIn><ChangePassword /></SignedIn>} />
 
       <Route path="/platform" element={P(['super_admin'], <PlatformDashboard />)} />
       <Route path="/platform/schools" element={P(['super_admin'], <PlatformSchools />)} />
@@ -48,7 +57,7 @@ export default function App() {
 
       <Route path="/parent" element={P(['parent'], <ParentDashboard />)} />
 
-      <Route path="*" element={<Navigate to={user ? (HOME[user.role] || '/login') : '/login'} replace />} />
+      <Route path="*" element={<Home />} />
     </Routes>
   );
 }
