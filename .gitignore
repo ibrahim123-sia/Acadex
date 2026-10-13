@@ -41,10 +41,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # --- Uploads / runtime data ---
-backend-v2/uploads/*
-!backend-v2/uploads/.gitkeep
-backend/uploads/*
-backend/.tmp/
+apps/api/uploads/*
+!apps/api/uploads/.gitkeep
+apps/api/storage/*
+apps/api/.tmp/
 *.sqlite
 *.sqlite3
 *.db

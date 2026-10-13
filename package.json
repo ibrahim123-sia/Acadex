@@ -1,0 +1,25 @@
+{
+  "name": "acadex",
+  "private": true,
+  "description": "Acadex — AI-native learning platform and institute management for every kind of institution",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w @acadex/api\" \"npm run dev -w @acadex/web\"",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w @acadex/api",
+    "db:seed": "npm run db:seed -w @acadex/api",
+    "db:reset": "npm run db:reset -w @acadex/api"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

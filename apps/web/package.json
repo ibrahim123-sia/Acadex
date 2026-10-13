@@ -1,5 +1,5 @@
 {
-  "name": "acadex-frontend",
+  "name": "@acadex/web",
   "private": true,
   "version": "1.0.0",
   "type": "module",
