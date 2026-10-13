@@ -1,148 +1,121 @@
 # 🎓 Acadex
 
-> **A multi-tenant School Management SaaS** — one platform where a super admin onboards schools, and each school runs admissions, attendance, grading, fees and analytics from its own secure, isolated workspace.
+> **AI-native learning platform and institute management** — one platform where institutions run admissions, teaching, attendance, grading, fees and family communication from their own secure, isolated workspace.
 
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![JWT](https://img.shields.io/badge/Auth-JWT%20%2B%20bcrypt-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
-
-**Acadex** is a full-stack, multi-tenant SaaS for schools. A **Super Admin** registers schools onto the platform; each school then gets its own **School Admin, Teacher and Student** portals with fully isolated data (row-level `school_id` scoping). Built on PostgreSQL with a secure, parameterized data layer, JWT + bcrypt authentication, and real-time analytics dashboards.
+![Node.js](https://img.shields.io/badge/Node.js-Express%205-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-RLS%20%2B%20pgvector-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 
 <p align="center">
   <img src="preview.png" alt="Acadex preview" width="100%"/>
 </p>
 
-## ✨ Features
+Acadex is being rebuilt in phases from a school-management app into an AI-native LMS and
+institute ERP. See [CHANGELOG.md](CHANGELOG.md) for what each phase delivered.
 
-**Platform (Super Admin)**
-- Onboard/register new schools (tenants) with branding, plan (Free / Pro / Enterprise) and status
-- Cross-tenant KPIs: total schools, students, teachers, revenue collected
-- Suspend / reactivate schools; platform-wide audit log
+## ✨ What's in it today
 
-**School Admin**
-- Dashboard with live KPIs, fee-status donut chart, students-by-class bar chart, and recent admissions
-- Student directory with instant search; faculty directory; class sections with enrolment counts
-- Fee management — collected vs outstanding, per-student receipts and payment status
-- Announcements targeted to All / Teachers / Students
+**Platform** — register institutions (each gets an invited administrator), plans, suspend /
+reactivate, cross-tenant KPIs, platform audit log.
 
-**Teacher & Student portals**
-- Teacher: assigned classes/subjects, student roster, role-targeted announcements
-- Student: personal grades, attendance percentage, and fee status at a glance
+**Institute office** — dashboard, student admissions and directory, staff directory,
+classes, fee collection with vouchers, announcements, **custom roles & permissions**,
+invitations instead of shared passwords.
 
-**Parent portal**
-- Linked children with grades, attendance and fee status; report-card PDF
+**Teaching** — my classes, roster, keyboard-fast attendance (P / A / L), gradebook,
+assignments. **Learning** — my grades, attendance, fees, assignments and submissions.
+**Family** — linked children's progress, report cards.
 
-**Platform-wide**
-- 🔒 **Multi-tenancy** — every record carries a `school_id`, and every query is scoped to the caller's school
-- 🔐 **Security** — role checks on every route, ownership checks on every id a client sends, revocable sessions, one-time passwords for new accounts, login rate limiting, validated input (Zod) and parameterized SQL. See [docs/security.md](docs/security.md)
-- 🌍 **Per-school locale** — currency, timezone and locale per school (fees, PDFs and "today" follow the school, not the server)
+**Foundation**
+- 🔒 **Tenant isolation twice over** — every query is scoped in code *and* by Postgres
+  row-level security, so a missed filter can't leak another institution's data
+- 🔐 **Accounts** — invitations, password reset, email confirmation, authenticator-app 2FA
+  with recovery codes (required for administrators in production), per-device sessions
+  with rotating refresh tokens and "sign out other devices"
+- 🧩 **RBAC** — permissions, built-in and custom roles; the UI shows exactly what a role may do
+- 🌍 **Locale** — per-institution currency, timezone and locale; Urdu and Arabic UI with
+  right-to-left layout; light / dark theme
+- 📜 **API docs** generated from the same Zod schemas that validate requests (`/api/docs`)
 
-## 🏗️ Architecture
+Details: [docs/architecture.md](docs/architecture.md) · [docs/security.md](docs/security.md) ·
+[docs/operations.md](docs/operations.md)
 
-```
-Super Admin ──registers──▶ School (tenant)
-                              ├── School Admin ──▶ students, teachers, classes, fees, announcements
-                              ├── Teacher       ──▶ own classes: roster, attendance, grades, assignments
-                              ├── Student       ──▶ own grades, attendance, fees, submissions
-                              └── Parent        ──▶ linked children only
-```
-Shared PostgreSQL database with isolation via `school_id` (cost-efficient on serverless Postgres such as Neon).
+## 🚀 Getting started
 
-## 🛠️ Tech Stack
+Prerequisites: Node.js 22+, and PostgreSQL 16 — either a free [Neon](https://neon.tech)
+database or the bundled Docker Compose stack.
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, Vite, React Router, Tailwind CSS 4, Recharts, Axios, lucide-react |
-| Backend | Node.js, Express 4, `pg` (parameterized queries), Zod, helmet, express-rate-limit, PDFKit |
-| Database | PostgreSQL (Neon serverless), versioned forward-only migrations |
-| Auth | JWT (12 h, revocable via `token_version`) + bcrypt, role-based middleware |
-| Quality | Vitest + Supertest (embedded Postgres), ESLint, GitHub Actions |
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 20+ (22 recommended)
-- A PostgreSQL database. The easiest free option is **[Neon](https://neon.tech)** — create a project and copy the connection string.
-
-### 1. Backend
 ```bash
-cd backend
 npm install
-cp .env.example .env      # then set DATABASE_URL and JWT_SECRET (openssl rand -hex 32)
+cp apps/api/.env.example apps/api/.env   # set DATABASE_URL and JWT_SECRET (openssl rand -hex 32)
 
-npm run db:migrate        # apply migrations (safe to re-run; never drops data)
-npm run db:seed           # demo data — refuses if the database already has data
-npm run dev               # API on http://localhost:5000 (npm start in production)
+npm run db:migrate    # apply migrations (safe to re-run; never drops data)
+npm run db:seed       # demo data (refused in production and on a non-empty database)
+npm run dev           # API on http://localhost:5000, web app on http://localhost:3000
 ```
-`npm run db:reset` wipes the tenant tables and reseeds the demo data (refused when `NODE_ENV=production`).
 
-### 2. Frontend
-```bash
-cd frontend
-npm install
-npm run dev               # app on http://localhost:3000
-# optional: VITE_API_URL=http://localhost:5000/api (see .env.example)
-```
+No Postgres at hand? `docker compose up -d` starts Postgres (with pgvector), MinIO and
+Mailpit (catches every email at http://localhost:8025). Then use
+`DATABASE_URL=postgres://acadex:acadex@localhost:5432/acadex`, `DATABASE_SSL=false`,
+`MAIL_DRIVER=smtp`, `SMTP_URL=smtp://localhost:1025`.
+`docker compose --profile app up --build` also runs the API and the web app (http://localhost:8080).
+
+`npm run db:reset` wipes and reseeds the demo data (refused when `NODE_ENV=production`).
+In development, emails (invitations, reset links) are written to the API log unless
+`MAIL_DRIVER=smtp`.
 
 ### 🔑 Demo accounts (password: `Acadex@123`)
-Seeded demo accounts only. Accounts created in the app get a one-time password and must choose their own at first sign-in.
+Seeded demo accounts only. People added in the app receive an invitation and choose their
+own password.
 
 | Role | Email |
 |---|---|
-| Super Admin | `superadmin@acadex.com` |
-| School Admin | `admin@greenwood.edu` (second school: `admin@sunrise.edu`) |
+| Platform admin | `superadmin@acadex.com` |
+| Institute admin | `admin@greenwood.edu` (second institute: `admin@sunrise.edu`) |
 | Teacher | `ali.sheikh.t0@greenwood.edu` |
 | Student | `ali.butt.s0@greenwood.edu` |
 | Parent | `parent1@greenwood.edu` |
 
 ## 🧪 Tests & checks
 ```bash
-cd backend
-npm test          # API tests; starts a throwaway embedded Postgres (no setup needed)
+npm test          # API (embedded Postgres, no setup needed) and web unit tests
+npm run typecheck
 npm run lint
-cd ../frontend && npm run lint && npm run build
+npm run build
 ```
-Every access rule has a denial test (cross-role, cross-teacher and cross-school). To run the tests against an existing server instead, set `TEST_DATABASE_URL` to a **separate** database — the tests refuse to run against `DATABASE_URL`. CI runs all of this on every push and pull request.
+Every endpoint has denial tests (cross-role, cross-teacher, cross-institution), and the
+RLS suite checks isolation directly in the database as a non-superuser role. To use an
+existing server instead of the embedded one, set `TEST_DATABASE_URL` to a **separate**
+database. CI runs all of this plus a migrate-twice check, a backup-and-restore drill and
+the Docker image builds.
 
-## 📁 Project Structure
+## 📁 Project structure
 
 ```
-backend/
-  app.js              # builds the Express app (security middleware, routes, error handler)
-  server.js           # validates config, starts the server
-  config.js           # environment schema (fails fast on unsafe settings)
-  db/
-    migrations/       # NNNN_name.sql, applied once each, in order
-    migrate.js        # forward-only migration runner (checksums, advisory lock)
-    seed.js           # demo data (guarded)
-    pool.js, tx.js    # pg pool, transaction helper
-  lib/
-    access.js         # ownership checks (teaches class, can view student, ...)
-    errors.js         # HttpError + central error handler
-    validate.js       # shared Zod schemas
-    pagination.js     # page/pageSize + X-Total-Count
-    passwords.js      # one-time passwords, password policy
-    locale.js         # school timezone / currency formatting
-    router.js         # async-safe express.Router
-  middleware/auth.js  # JWT verify + live user/school check + requireRole
-  routes/             # auth, platform, school, me, parent, pdf
-  tests/              # Vitest + Supertest suites, two-tenant fixture
-frontend/
-  src/
-    ui.jsx            # Layout, shared components, usePaged + Pager
-    api.js            # axios instance + auth helpers
-    format.js         # money/date formatting in the school's locale
-    Login.jsx, ChangePassword.jsx
-    pages/            # platform / admin / teacher / student / parent
-docs/security.md      # access rules and security model
-CHANGELOG.md
+apps/
+  api/                 @acadex/api — Express 5 + TypeScript
+    src/
+      app.ts, server.ts, config.ts, openapi.ts
+      auth/            sessions, refresh tokens, invitations, password reset, 2FA
+      rbac/            permission catalogue, can(), requirePermission
+      db/              Drizzle schema, migration runner, request context (RLS), seed
+      lib/             access checks, audit, errors, mailer, pagination, locale, sentry
+      middleware/      authentication
+      routes/          auth, platform, school, roles, me, parent, pdf
+    drizzle/           migrations (generated, reviewed, forward-only)
+    tests/             Vitest + Supertest, two-tenant fixture
+  web/                 @acadex/web — React + Vite + TypeScript
+    src/
+      components/      design system (ui/), AppShell, dialogs
+      lib/             api client, auth, i18n, formatting, theme, queries
+      locales/         ur.json, ar.json
+      pages/           auth, account, platform, admin, teacher, student, parent
+packages/
+  shared/              @acadex/shared — Zod schemas, permissions, constants, types
+ops/                   backup / restore / restore-verification scripts
+docs/                  architecture, security, operations
 ```
-
-## 🗺️ Roadmap
-Acadex is being rebuilt into an AI-native LMS + institute platform in phases. Phase 0A (security & stability) is complete; see [CHANGELOG.md](CHANGELOG.md). Next: Phase 0B — TypeScript monorepo, Drizzle migrations, refresh tokens, invites, 2FA, RBAC with row-level security, i18n/RTL.
 
 ---
 

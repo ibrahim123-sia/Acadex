@@ -1,5 +1,62 @@
 # Changelog
 
+## Phase 0B — Foundation (2026-10-13)
+
+The platform underneath everything that follows. The demo data was reseeded (agreed data
+reset); existing databases migrate forward without loss.
+
+### Architecture
+- npm-workspaces monorepo: `apps/api`, `apps/web`, `packages/shared` (Zod schemas,
+  permissions, types shared by both). Root scripts: `dev`, `build`, `test`, `lint`,
+  `typecheck`, `db:migrate`, `db:seed`, `db:reset`.
+- API rewritten in strict TypeScript (ESM) on Express 5; pino structured logs with request
+  ids; graceful shutdown; bundled with tsup.
+- Drizzle schema with generated, reviewed, forward-only migrations (checksums, advisory
+  lock, destructive-statement guard); pre-0B databases adopt the baseline automatically.
+- Web app rewritten in TypeScript: TanStack Query, React Hook Form with the shared
+  schemas, React Router 7, a design system with light/dark themes, lazy-loaded portals.
+
+### Security
+- **Postgres row-level security** on every tenant table, driven by a per-request
+  transaction that sets the caller's school and user; tests run as a non-superuser role.
+- **RBAC**: permissions, built-in and custom roles, multiple roles per person, scoped role
+  assignments; every route declares the permission it needs; navigation follows permissions.
+- **Sessions**: 15-minute access tokens, rotating refresh tokens in an httpOnly cookie with
+  reuse detection, per-device session list and revoke, sign out everywhere.
+- **Invitations** replace one-time passwords: people set their own password from an
+  emailed (or shared) single-use link.
+- Password reset, email confirmation, authenticator-app **2FA** with recovery codes
+  (required for administrators in production).
+- Extra rate limits on 2FA, invitation, reset and confirmation endpoints.
+- Email outbox with `log` (development) and `smtp` drivers.
+
+### Added
+- Internationalisation: Urdu and Arabic (right-to-left) for the shell, sign-in and common
+  UI; language and theme switchers.
+- Security page (password, 2FA, recovery codes, signed-in devices), Roles & permissions
+  page, role assignment per person, resend invitation, school suspend / reactivate.
+- OpenAPI 3.1 generated from the Zod schemas at `/api/openapi.json`, browsable at
+  `/api/docs`; a test fails when a route is undocumented.
+- `/api/ready` readiness endpoint; Sentry error reporting for API and web (no request
+  bodies, cookies or tokens).
+- Docker Compose (Postgres + pgvector, MinIO, Mailpit; optional API + web), Dockerfiles,
+  nginx config.
+- `ops/backup.sh`, `ops/restore.sh`, `ops/verify-restore.sh`; CI runs a
+  backup-and-restore drill, migrate-twice + seed, web unit tests and image builds.
+- Docs: `docs/architecture.md`, `docs/operations.md`, updated `docs/security.md`.
+- 343 API tests, 10 web unit tests.
+
+### Removed
+- The JavaScript `backend/` and `frontend/` folders (replaced by `apps/`).
+
+### Known gaps (carried into Phase 1)
+- Sign-in, refresh-token reuse, session revocation and school changes are not yet in the
+  audit log; there is no school-facing audit screen.
+- One email can belong to only one institution.
+- PDFs do not render Urdu / Arabic yet.
+- Tables still use `school` naming; Phase 1 generalises to institutions.
+- No end-to-end browser tests yet.
+
 ## Phase 0A — Security & stability (2026-10-13)
 
 Fixes to the existing app with no big refactor. Every item has a regression test that
