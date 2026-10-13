@@ -13,7 +13,7 @@ const leaksInternals = (body) => /violates|constraint|relation|syntax|column|pg_
 describe('error handling', () => {
   it('a bad foreign key in a write returns 400, not a crash', async () => {
     const res = await as(f.tokens.t1).post('/api/me/teacher/grades', {
-      class_id: f.classes.A1.id,
+      section_id: f.sections.A1.id,
       assignment_name: 'Quiz',
       total_marks: 10,
       records: [{ student_id: 99999999, obtained_marks: 5 }],

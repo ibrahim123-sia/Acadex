@@ -73,7 +73,7 @@ interface InstitutionRow {
   status: string;
   students: number;
   teachers: number;
-  classes: number;
+  sections: number;
   currency: string;
 }
 

@@ -21,14 +21,14 @@ interface TeacherClass {
   code: string;
   students: number;
 }
-const useMyClasses = () => useQuery({ queryKey: ['my-classes'], queryFn: () => api.get<TeacherClass[]>('/me/teacher/classes') });
+const useMyClasses = () => useQuery({ queryKey: ['my-sections'], queryFn: () => api.get<TeacherClass[]>('/me/teacher/sections') });
 
 function TeacherDashboard() {
   const { t } = useTranslation();
   const q = useQuery({
     queryKey: ['teacher-overview'],
     queryFn: () =>
-      api.get<{ profile: { first_name: string } | null; classes: { id: number; name: string }[]; subjects: { id: number; subject: string; class_name: string }[]; studentCount: number }>(
+      api.get<{ profile: { first_name: string } | null; sections: { id: number; name: string }[]; subjects: { id: number; subject: string; section_name: string }[]; studentCount: number }>(
         '/me/teacher/overview'
       ),
   });
@@ -39,7 +39,7 @@ function TeacherDashboard() {
     <>
       <PageHeader title={t('teacher.welcome', 'Welcome, {{name}}', { name: d.profile?.first_name ?? '' })} subtitle={t('teacher.subtitle', 'Your teaching at a glance')} />
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label={t('teacher.myClasses', 'My classes')} value={d.classes.length} icon={BookOpen} />
+        <StatCard label={t('teacher.myClasses', 'My sections')} value={d.sections.length} icon={BookOpen} />
         <StatCard label={t('teacher.mySubjects', 'My subjects')} value={d.subjects.length} icon={ClipboardList} tone="warning" />
         <StatCard label={t('teacher.myStudents', 'My students')} value={d.studentCount} icon={Users} tone="success" />
       </div>
@@ -49,7 +49,7 @@ function TeacherDashboard() {
         empty={t('teacher.noSubjects', 'No subjects assigned yet. Ask your institution administrator.')}
         columns={[
           { key: 'subject', header: t('teacher.subject', 'Subject'), cell: (s) => <span className="font-medium">{s.subject}</span> },
-          { key: 'class', header: t('common.class', 'Class'), cell: (s) => s.class_name },
+          { key: 'class', header: t('common.class', 'Class'), cell: (s) => s.section_name },
         ]}
       />
     </>
@@ -65,15 +65,15 @@ const STATUS_KEY: Record<string, AttendanceStatus> = { p: 'Present', a: 'Absent'
 
 function ClassPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const { t } = useTranslation();
-  const classes = useMyClasses();
+  const sections = useMyClasses();
   useEffect(() => {
-    if (!value && classes.data?.[0]) onChange(String(classes.data[0].id));
-  }, [classes.data, value, onChange]);
+    if (!value && sections.data?.[0]) onChange(String(sections.data[0].id));
+  }, [sections.data, value, onChange]);
   return (
     <Field label={t('common.class', 'Class')}>
       {(a) => (
         <Select {...a} value={value} onChange={(e) => onChange(e.target.value)}>
-          {classes.data?.map((c) => (
+          {sections.data?.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
@@ -95,14 +95,14 @@ function TeacherAttendance() {
   const { t } = useTranslation();
   const toast = useToast();
   const qc = useQueryClient();
-  const [classId, setClassId] = useState('');
+  const [sectionId, setClassId] = useState('');
   const [date, setDate] = useState(todayISO);
   const [marks, setMarks] = useState<Record<number, AttendanceStatus>>({});
   const rows = useRef<(HTMLLIElement | null)[]>([]);
   const roster = useQuery({
-    queryKey: ['roster', classId, date],
-    queryFn: () => api.get<{ date: string; students: RosterStudent[] }>(`/me/teacher/class/${classId}/roster`, { date }),
-    enabled: !!classId,
+    queryKey: ['roster', sectionId, date],
+    queryFn: () => api.get<{ date: string; students: RosterStudent[] }>(`/me/teacher/class/${sectionId}/roster`, { date }),
+    enabled: !!sectionId,
   });
   useEffect(() => {
     if (roster.data) setMarks(Object.fromEntries(roster.data.students.filter((s) => s.status).map((s) => [s.id, s.status!])));
@@ -110,13 +110,13 @@ function TeacherAttendance() {
   const save = useMutation({
     mutationFn: () =>
       api.post('/me/teacher/attendance', {
-        class_id: Number(classId),
+        section_id: Number(sectionId),
         date,
         records: Object.entries(marks).map(([id, status]) => ({ student_id: Number(id), status })),
       }),
     onSuccess: () => {
       toast('success', t('teacher.attendanceSaved', 'Attendance saved'));
-      void qc.invalidateQueries({ queryKey: ['roster', classId, date] });
+      void qc.invalidateQueries({ queryKey: ['roster', sectionId, date] });
     },
     onError: (e) => toast('error', errorMessage(e)),
   });
@@ -128,13 +128,13 @@ function TeacherAttendance() {
     <>
       <PageHeader title={t('nav.attendance', 'Attendance')} subtitle={t('teacher.attendanceSubtitle', 'Tip: focus a student and press P, A or L')} />
       <Card className="mb-4 grid gap-4 p-4 sm:grid-cols-3 sm:items-end">
-        <ClassPicker value={classId} onChange={setClassId} />
+        <ClassPicker value={sectionId} onChange={setClassId} />
         <Field label={t('teacher.date', 'Date')}>{(a) => <Input {...a} type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} />}</Field>
         <Button variant="outline" disabled={!students.length} onClick={() => setMarks(Object.fromEntries(students.map((s) => [s.id, 'Present' as const])))}>
           {t('teacher.allPresent', 'Mark everyone present')}
         </Button>
       </Card>
-      {roster.isPending && classId ? (
+      {roster.isPending && sectionId ? (
         <Spinner />
       ) : roster.isError ? (
         <ErrorState error={roster.error} onRetry={() => roster.refetch()} />
@@ -197,24 +197,24 @@ function TeacherAttendance() {
 function TeacherGradebook() {
   const { t } = useTranslation();
   const toast = useToast();
-  const [classId, setClassId] = useState('');
+  const [sectionId, setClassId] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState<(typeof ASSESSMENT_TYPES)[number]>('Quiz');
   const [total, setTotal] = useState('100');
   const [marks, setMarks] = useState<Record<number, string>>({});
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const roster = useQuery({
-    queryKey: ['roster', classId, 'grades'],
-    queryFn: () => api.get<{ students: RosterStudent[] }>(`/me/teacher/class/${classId}/roster`),
-    enabled: !!classId,
+    queryKey: ['roster', sectionId, 'grades'],
+    queryFn: () => api.get<{ students: RosterStudent[] }>(`/me/teacher/class/${sectionId}/roster`),
+    enabled: !!sectionId,
   });
-  useEffect(() => setMarks({}), [classId]);
+  useEffect(() => setMarks({}), [sectionId]);
   const totalNum = Number(total);
   const invalid = Object.values(marks).some((m) => m !== '' && (Number(m) < 0 || Number(m) > totalNum || Number.isNaN(Number(m))));
   const save = useMutation({
     mutationFn: () =>
       api.post('/me/teacher/grades', {
-        class_id: Number(classId),
+        section_id: Number(sectionId),
         assignment_type: type,
         assignment_name: name,
         total_marks: totalNum,
@@ -234,7 +234,7 @@ function TeacherGradebook() {
     <>
       <PageHeader title={t('nav.gradebook', 'Gradebook')} subtitle={t('teacher.gradebookSubtitle', 'Enter marks for an assessment — Enter moves to the next student')} />
       <Card className="mb-4 grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <ClassPicker value={classId} onChange={setClassId} />
+        <ClassPicker value={sectionId} onChange={setClassId} />
         <Field label={t('teacher.assessment', 'Assessment')}>{(a) => <Input {...a} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('teacher.assessmentPh', 'e.g. Algebra quiz 1')} />}</Field>
         <Field label={t('teacher.type', 'Type')}>
           {(a) => (
@@ -249,7 +249,7 @@ function TeacherGradebook() {
         </Field>
         <Field label={t('teacher.totalMarks', 'Total marks')}>{(a) => <Input {...a} type="number" min={1} value={total} onChange={(e) => setTotal(e.target.value)} />}</Field>
       </Card>
-      {roster.isPending && classId ? (
+      {roster.isPending && sectionId ? (
         <Spinner />
       ) : roster.isError ? (
         <ErrorState error={roster.error} onRetry={() => roster.refetch()} />
@@ -318,7 +318,7 @@ interface AssignmentRow {
   title: string;
   description: string;
   due_date: string | null;
-  class_name: string;
+  section_name: string;
   subject: string | null;
   submissions: number;
 }
@@ -327,9 +327,9 @@ function TeacherAssignments() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const classes = useMyClasses();
+  const sections = useMyClasses();
   const list = usePagedList<AssignmentRow>('/me/teacher/assignments');
-  const form = useForm<z.input<typeof assignmentBody>>({ resolver: zodResolver(assignmentBody), defaultValues: { class_id: '' as unknown as number, title: '', description: '', due_date: '' } });
+  const form = useForm<z.input<typeof assignmentBody>>({ resolver: zodResolver(assignmentBody), defaultValues: { section_id: '' as unknown as number, title: '', description: '', due_date: '' } });
   const m = useMutation({
     mutationFn: (v: z.input<typeof assignmentBody>) => api.post('/me/teacher/assignments', v),
     onSuccess: () => {
@@ -359,7 +359,7 @@ function TeacherAssignments() {
         empty={t('teacher.noAssignments', 'No assignments yet')}
         columns={[
           { key: 'title', header: t('admin.title', 'Title'), cell: (a) => <span className="font-medium">{a.title}</span> },
-          { key: 'class', header: t('common.class', 'Class'), cell: (a) => a.class_name, hideOnMobile: true },
+          { key: 'class', header: t('common.class', 'Class'), cell: (a) => a.section_name, hideOnMobile: true },
           { key: 'due', header: t('teacher.due', 'Due'), cell: (a) => formatDate(a.due_date) },
           { key: 'subs', header: t('teacher.submissions', 'Submissions'), cell: (a) => <Badge>{a.submissions}</Badge> },
         ]}
@@ -367,11 +367,11 @@ function TeacherAssignments() {
       {list.data && <Pager page={list.page} pageSize={list.pageSize} total={list.data.total} onPage={list.setPage} />}
       <Dialog open={open} onClose={() => setOpen(false)} title={t('teacher.newAssignment', 'New assignment')}>
         <form className="space-y-4" noValidate onSubmit={form.handleSubmit((v) => m.mutate(v))}>
-          <Field label={t('common.class', 'Class')} error={e.class_id ? t('teacher.chooseClass', 'Choose a class') : undefined}>
+          <Field label={t('common.class', 'Class')} error={e.section_id ? t('teacher.chooseClass', 'Choose a class') : undefined}>
             {(a) => (
-              <Select {...a} {...form.register('class_id')}>
+              <Select {...a} {...form.register('section_id')}>
                 <option value="">{t('teacher.chooseClass', 'Choose a class')}…</option>
-                {classes.data?.map((c) => (
+                {sections.data?.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} ({t('teacher.studentsCount', '{{count}} students', { count: c.students })})
                   </option>

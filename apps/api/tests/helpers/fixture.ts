@@ -5,7 +5,8 @@ import { signAccessToken } from '../../src/auth/tokens';
 import { grantSystemRole, syncRbacCatalogue } from '../../src/rbac';
 
 /** Superuser connection (bypasses RLS): resets, setup inserts and assertions in tests. */
-export const pool = new pg.Pool({ connectionString: process.env.TEST_ADMIN_DATABASE_URL });
+// (fixture setup is not a user's change: the audit trigger is off on this connection)
+export const pool = new pg.Pool({ connectionString: process.env.TEST_ADMIN_DATABASE_URL, options: '-c app.audit=off' });
 
 export const PASSWORD = 'Test@Pass123';
 
@@ -78,22 +79,61 @@ export async function resetDb() {
     await grantSystemRole(pool, users[key].id, role, institution_id);
   };
 
-  const institution = (name: string, slug: string) =>
-    one(`INSERT INTO institutions (name, slug) VALUES ($1,$2) RETURNING *`, [name, slug]);
-  const klass = (sid: number, code: string) =>
-    one(`INSERT INTO classes (institution_id, code, name) VALUES ($1,$2,$3) RETURNING *`, [sid, code, `Class ${code}`]);
-  const subject = (sid: number, cid: number, code: string) =>
-    one(`INSERT INTO subjects (institution_id, class_id, code, name) VALUES ($1,$2,$3,$3) RETURNING *`, [sid, cid, code]);
+  /** An institution with its main campus, a current academic year + term and a grading scheme. */
+  const institution = async (name: string, slug: string) => {
+    const inst = await one(`INSERT INTO institutions (name, slug) VALUES ($1,$2) RETURNING *`, [name, slug]);
+    const campus = await one(
+      `INSERT INTO campuses (institution_id, name, code, is_main) VALUES ($1,'Main campus','MAIN',true) RETURNING *`,
+      [inst.id]
+    );
+    const year = await one(
+      `INSERT INTO academic_years (institution_id, name, starts_on, ends_on, is_current) VALUES ($1,'2026–27','2026-08-01','2027-07-31',true) RETURNING *`,
+      [inst.id]
+    );
+    const term = await one(
+      `INSERT INTO terms (institution_id, academic_year_id, name, starts_on, ends_on) VALUES ($1,$2,'Annual','2026-08-01','2027-07-31') RETURNING *`,
+      [inst.id, year.id]
+    );
+    const program = await one(`INSERT INTO programs (institution_id, name, code) VALUES ($1,'General','GEN') RETURNING *`, [inst.id]);
+    const level = await one(
+      `INSERT INTO program_levels (institution_id, program_id, name, sequence) VALUES ($1,$2,'Level 1',1) RETURNING *`,
+      [inst.id, program.id]
+    );
+    await pool.query(
+      `INSERT INTO grading_schemes (institution_id, name, kind, bands, pass_percent, is_default)
+       VALUES ($1,'Letter grades','letter','[{"min":80,"label":"A","passed":true},{"min":60,"label":"B","passed":true},{"min":40,"label":"C","passed":true},{"min":0,"label":"F","passed":false}]',40,true)`,
+      [inst.id]
+    );
+    return { ...inst, campus, year, term, program, level };
+  };
+  const klass = (inst: { id: number; campus: { id: number }; year: { id: number }; level: { id: number } }, code: string) =>
+    one(
+      `INSERT INTO sections (institution_id, code, name, campus_id, academic_year_id, program_level_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [inst.id, code, `Class ${code}`, inst.campus.id, inst.year.id, inst.level.id]
+    );
+  const courses: Record<string, any> = {};
+  /** A course (code = name) offered to one section in the current term. */
+  const subject = async (inst: { id: number; term: { id: number } }, cid: number, code: string) => {
+    const course = (courses[code] = await one(
+      `INSERT INTO courses (institution_id, code, name) VALUES ($1,$2,$2) RETURNING *`,
+      [inst.id, code]
+    ));
+    const offering = await one(
+      `INSERT INTO course_offerings (institution_id, section_id, course_id, term_id) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [inst.id, cid, course.id, inst.term.id]
+    );
+    return { ...offering, code, name: code };
+  };
   const teacher = (sid: number, fn: string, email: string) =>
     one(`INSERT INTO teachers (institution_id, first_name, last_name, email) VALUES ($1,$2,'T',$3) RETURNING *`, [sid, fn, email]);
   const student = (sid: number, cid: number, fn: string, email: string) =>
     one(
-      `INSERT INTO students (institution_id, class_id, roll_no, first_name, last_name, email)
+      `INSERT INTO students (institution_id, section_id, roll_no, first_name, last_name, email)
        VALUES ($1,$2,$3,$3,'S',$4) RETURNING *`,
       [sid, cid, fn, email]
     );
   const teaches = (sid: number, tid: number, subid: number, cid: number) =>
-    pool.query(`INSERT INTO teacher_subjects (institution_id, teacher_id, subject_id, class_id) VALUES ($1,$2,$3,$4)`, [sid, tid, subid, cid]);
+    pool.query(`INSERT INTO section_staff (institution_id, teacher_id, offering_id, section_id) VALUES ($1,$2,$3,$4)`, [sid, tid, subid, cid]);
   const fee = (sid: number, stid: number, receipt: string) =>
     one(
       `INSERT INTO tuition_fee (institution_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status)
@@ -102,16 +142,16 @@ export async function resetDb() {
     );
   const assignment = (sid: number, cid: number, subid: number, tid: number, title: string) =>
     one(
-      `INSERT INTO assignments (institution_id, class_id, subject_id, teacher_id, title) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      `INSERT INTO assignments (institution_id, section_id, offering_id, teacher_id, title) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [sid, cid, subid, tid, title]
     );
 
-  // ----- Institution A: two classes, each teacher on their own class -----
+  // ----- Institution A: two sections, each teacher on their own class -----
   const A = await institution('Alpha School', 'alpha');
-  const A1 = await klass(A.id, 'A1');
-  const A2 = await klass(A.id, 'A2');
-  const A1math = await subject(A.id, A1.id, 'A1-MATH');
-  const A2math = await subject(A.id, A2.id, 'A2-MATH');
+  const A1 = await klass(A, 'A1');
+  const A2 = await klass(A, 'A2');
+  const A1math = await subject(A, A1.id, 'A1-MATH');
+  const A2math = await subject(A, A2.id, 'A2-MATH');
   const T1 = await teacher(A.id, 'Tina', 't1@alpha.test');
   const T2 = await teacher(A.id, 'Tom', 't2@alpha.test');
   await teaches(A.id, T1.id, A1math.id, A1.id);
@@ -126,8 +166,8 @@ export async function resetDb() {
 
   // ----- Institution B: the other tenant -----
   const B = await institution('Beta School', 'beta');
-  const B1 = await klass(B.id, 'B1');
-  const B1math = await subject(B.id, B1.id, 'B1-MATH');
+  const B1 = await klass(B, 'B1');
+  const B1math = await subject(B, B1.id, 'B1-MATH');
   const TB = await teacher(B.id, 'Bob', 'tb@beta.test');
   await teaches(B.id, TB.id, B1math.id, B1.id);
   const SB = await student(B.id, B1.id, 'Bina', 'sb@beta.test');
@@ -145,11 +185,14 @@ export async function resetDb() {
   await user('s3', A.id, 'student', 's3@alpha.test', 'Saad S', S3.id);
   await user('sb', B.id, 'student', 'sb@beta.test', 'Bina S', SB.id);
   await user('p1', A.id, 'parent', 'p1@alpha.test', 'Parent of Sara');
-  await pool.query(`INSERT INTO parent_children (institution_id, parent_user_id, student_id) VALUES ($1,$2,$3)`, [
-    A.id,
-    users.p1.id,
-    S1.id,
-  ]);
+  const G1 = await one(
+    `INSERT INTO guardians (institution_id, user_id, first_name, last_name, email) VALUES ($1,$2,'Parent','of Sara','p1@alpha.test') RETURNING *`,
+    [A.id, users.p1.id]
+  );
+  await pool.query(
+    `INSERT INTO guardianships (institution_id, guardian_id, student_id, relationship, is_primary) VALUES ($1,$2,$3,'mother',true)`,
+    [A.id, G1.id, S1.id]
+  );
 
   const tokens: Record<string, string> = {};
   for (const [k, u] of Object.entries(users)) tokens[k] = await tokenFor(u);
@@ -158,8 +201,10 @@ export async function resetDb() {
     users,
     tokens,
     institutions: { A, B },
-    classes: { A1, A2, B1 },
+    sections: { A1, A2, B1 },
     subjects: { A1math, A2math, B1math },
+    courses,
+    guardians: { G1 },
     teachers: { T1, T2, TB },
     students: { S1, S2, S3, SB },
     fees: { F1, F3, FB },

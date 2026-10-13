@@ -18,6 +18,10 @@ interface DbStore {
   institutionId: number | null;
   userId: number | null;
   bypass: boolean;
+  /** show soft-deleted rows (recycle bin, restore, the delete itself) */
+  includeDeleted?: boolean;
+  /** request id recorded by the audit trigger */
+  requestId?: string;
   client?: pg.PoolClient;
   applied?: string; // settings currently applied on the client
   settled?: boolean;
@@ -26,7 +30,8 @@ interface DbStore {
 
 const als = new AsyncLocalStorage<DbStore>();
 
-const settingsKey = (s: DbStore) => `${s.bypass ? 'on' : 'off'}|${s.institutionId ?? ''}|${s.userId ?? ''}`;
+const settingsKey = (s: DbStore) =>
+  `${s.bypass ? 'on' : 'off'}|${s.institutionId ?? ''}|${s.userId ?? ''}|${s.includeDeleted ? 'on' : 'off'}|${s.requestId ?? ''}`;
 
 const intSetting = (v: number | null) => {
   if (v == null) return '';
@@ -34,11 +39,16 @@ const intSetting = (v: number | null) => {
   return String(v);
 };
 
-/** One statement setting all three values (only integers and on/off, so inlining is safe). */
+/**
+ * One statement applying every setting, so it can share a round trip with BEGIN. Inlining is
+ * safe: on/off flags, checked integers, and a request id reduced to [A-Za-z0-9_-].
+ */
 const settingsSql = (s: DbStore) =>
   `SELECT set_config('app.bypass_rls', '${s.bypass ? 'on' : 'off'}', true), ` +
   `set_config('app.institution_id', '${intSetting(s.institutionId)}', true), ` +
-  `set_config('app.user_id', '${intSetting(s.userId)}', true)`;
+  `set_config('app.user_id', '${intSetting(s.userId)}', true), ` +
+  `set_config('app.include_deleted', '${s.includeDeleted ? 'on' : 'off'}', true), ` +
+  `set_config('app.request_id', '${(s.requestId ?? '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100)}', true)`;
 
 async function clientFor(store: DbStore): Promise<pg.PoolClient> {
   if (store.settled) throw new Error('database context already finished (query after the response was sent?)');
@@ -87,7 +97,7 @@ export type Db = typeof db;
 
 /** Express middleware: one database context (and transaction) per request. */
 export const dbContext: RequestHandler = (req, res, next) => {
-  const store: DbStore = { institutionId: null, userId: null, bypass: false, savepoints: 0 };
+  const store: DbStore = { institutionId: null, userId: null, bypass: false, savepoints: 0, requestId: req.id ? String(req.id) : undefined };
   // Commit / roll back right before the response is finished.
   const end = res.end.bind(res) as (...args: unknown[]) => typeof res;
   res.end = ((...args: unknown[]) => {
@@ -143,6 +153,22 @@ export async function asSystem<T>(fn: () => Promise<T>): Promise<T> {
     }
   }
   return runAsSystem(fn);
+}
+
+/**
+ * Run fn with soft-deleted rows visible (the recycle bin, restoring, and soft-deleting itself —
+ * an UPDATE that hides a row must be allowed to see the result).
+ */
+export async function withDeleted<T>(fn: () => Promise<T>): Promise<T> {
+  const store = als.getStore();
+  if (!store) throw new Error('withDeleted() outside a database context');
+  const prev = store.includeDeleted;
+  store.includeDeleted = true;
+  try {
+    return await fn();
+  } finally {
+    store.includeDeleted = prev;
+  }
 }
 
 /** A standalone system transaction (scripts, background jobs). */

@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
 import { FileText, Megaphone, Plus, Wallet } from 'lucide-react';
-import { announcementBody, AUDIENCES, collectFeeBody, createClassBody } from '@acadex/shared';
+import { announcementBody, AUDIENCES, collectFeeBody, createSectionBody } from '@acadex/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDate, formatMoney } from '@/lib/format';
@@ -14,12 +14,12 @@ import { useDebounced, usePagedList } from '@/lib/queries';
 import { cn } from '@/lib/cn';
 import { Alert, Badge, Button, Card, DataTable, Dialog, EmptyState, ErrorState, Field, Input, PageHeader, Pager, Select, Spinner, StatCard, StatusBadge, Textarea, useToast } from '@/components/ui';
 
-// ---------------- classes ----------------
+// ---------------- sections ----------------
 interface ClassRow {
   id: number;
   code: string;
   name: string;
-  section: string;
+  label: string;
   students: number;
   subjects: number;
 }
@@ -29,12 +29,12 @@ export function AdminClasses() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const list = usePagedList<ClassRow>('/institution/classes', {}, 100);
-  const form = useForm<z.input<typeof createClassBody>>({ resolver: zodResolver(createClassBody), defaultValues: { code: '', name: '', section: 'A' } });
+  const list = usePagedList<ClassRow>('/institution/sections', {}, 100);
+  const form = useForm<z.input<typeof createSectionBody>>({ resolver: zodResolver(createSectionBody), defaultValues: { code: '', name: '', label: 'A' } });
   const m = useMutation({
-    mutationFn: (v: z.input<typeof createClassBody>) => api.post('/institution/classes', v),
+    mutationFn: (v: z.input<typeof createSectionBody>) => api.post('/institution/sections', v),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['/institution/classes'] });
+      void qc.invalidateQueries({ queryKey: ['/institution/sections'] });
       form.reset();
       setOpen(false);
     },
@@ -42,10 +42,10 @@ export function AdminClasses() {
   return (
     <>
       <PageHeader
-        title={t('nav.classes', 'Classes')}
+        title={t('nav.sections', 'Classes')}
         subtitle={t('admin.classesSubtitle', 'Sections and enrolment')}
         actions={
-          can('classes.manage') && (
+          can('sections.manage') && (
             <Button onClick={() => setOpen(true)}>
               <Plus className="size-4" /> {t('admin.createClass', 'Create a class')}
             </Button>
@@ -58,7 +58,7 @@ export function AdminClasses() {
         <ErrorState error={list.error} onRetry={() => list.refetch()} />
       ) : !list.data.rows.length ? (
         <Card>
-          <EmptyState title={t('admin.noClasses', 'No classes yet')} />
+          <EmptyState title={t('admin.noClasses', 'No sections yet')} />
         </Card>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -67,7 +67,7 @@ export function AdminClasses() {
               <Card className="p-5">
                 <div className="text-lg font-bold">{c.name}</div>
                 <div className="text-xs text-fg-muted">
-                  {t('admin.section', 'Section {{section}}', { section: c.section })} · {c.code}
+                  {t('admin.section', 'Section {{section}}', { section: c.label })} · {c.code}
                 </div>
                 <div className="mt-4 flex gap-6 text-sm">
                   <div>
@@ -90,7 +90,7 @@ export function AdminClasses() {
             <Field label={t('admin.classCode', 'Code')} error={form.formState.errors.code?.message}>
               {(a) => <Input {...a} placeholder="C6" dir="ltr" {...form.register('code')} />}
             </Field>
-            <Field label={t('admin.sectionLabel', 'Section')}>{(a) => <Input {...a} {...form.register('section')} />}</Field>
+            <Field label={t('admin.sectionLabel', 'Section')}>{(a) => <Input {...a} {...form.register('label')} />}</Field>
           </div>
           <Field label={t('common.name', 'Name')} error={form.formState.errors.name?.message}>
             {(a) => <Input {...a} placeholder="Class VI" {...form.register('name')} />}

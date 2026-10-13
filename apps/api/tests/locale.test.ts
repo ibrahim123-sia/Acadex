@@ -41,10 +41,10 @@ describe('institution settings', () => {
   it('the roster defaults to today in the institution timezone', async () => {
     // UTC+14 and UTC-11 are always on different calendar dates
     await q(`UPDATE institutions SET timezone='Pacific/Kiritimati' WHERE id=$1`, [f.institutions.A.id]);
-    const res = await as(f.tokens.t1).get(`/api/me/teacher/class/${f.classes.A1.id}/roster`);
+    const res = await as(f.tokens.t1).get(`/api/me/teacher/class/${f.sections.A1.id}/roster`);
     expect(res.body.date).toBe(todayIn('Pacific/Kiritimati'));
     await q(`UPDATE institutions SET timezone='Pacific/Pago_Pago' WHERE id=$1`, [f.institutions.A.id]);
-    const res2 = await as(f.tokens.t1).get(`/api/me/teacher/class/${f.classes.A1.id}/roster`);
+    const res2 = await as(f.tokens.t1).get(`/api/me/teacher/class/${f.sections.A1.id}/roster`);
     expect(res2.body.date).toBe(todayIn('Pacific/Pago_Pago'));
   });
 

@@ -61,7 +61,7 @@ export async function loadUserRow(userId: number, sessionId: string): Promise<Us
             COALESCE(ss.expires_at < now(), true) AS session_expired,
             COALESCE(ss.mfa_verified, false) AS session_mfa_verified,
             COALESCE((SELECT json_agg(DISTINCT jsonb_build_object('permission', rp.permission,
-                               'scopeType', ur.scope_type, 'scopeId', ur.scope_id))
+                               'scopeType', ur.scope_type, 'scopeId', ur.scope_id, 'institutionId', ur.institution_id))
                         FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
                        WHERE ur.user_id = u.id), '[]') AS grants
        FROM users u
@@ -141,7 +141,7 @@ export const authAllowingIncomplete = makeAuth({ allowIncomplete: true });
 
 /**
  * Allow the request only if the user holds `permission` for their institution (or platform-wide).
- * Relationship rules (own classes, own children) are checked separately in lib/access.
+ * Relationship rules (own sections, own children) are checked separately in lib/access.
  */
 export function requirePermission(permission: Permission, ctx?: (req: Request) => AccessContext): RequestHandler {
   return (req, res, next) => {
@@ -169,7 +169,13 @@ export const userCan = (req: Request, permission: Permission, ctx?: AccessContex
 export function effectivePermissions(user: Pick<AuthUser, 'institution_id' | 'grants'>): Permission[] {
   const set = new Set<Permission>();
   for (const g of user.grants) {
-    if (g.scopeType === 'platform' || (g.scopeType === 'institution' && g.scopeId === user.institution_id)) set.add(g.permission);
+    if (
+      g.scopeType === 'platform' ||
+      g.scopeType === 'group' ||
+      (g.scopeType === 'institution' && g.scopeId === user.institution_id) ||
+      (g.scopeType === 'campus' && g.institutionId === user.institution_id)
+    )
+      set.add(g.permission);
   }
   return [...set].sort();
 }

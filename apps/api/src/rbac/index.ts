@@ -5,57 +5,99 @@ import { db } from '../db/context';
 
 const defaultDb: Queryable = db;
 
+/** Where a role assignment applies. Campus grants are institution roles limited to one campus. */
+export type GrantScope = ScopeType | 'campus';
+
 export interface Grant {
   permission: Permission;
-  scopeType: ScopeType;
+  scopeType: GrantScope;
   scopeId: number | null;
+  /** the institution an institution / campus grant lives in */
+  institutionId: number | null;
 }
 
-/** What a permission check is about (defaults to the caller's own institution). */
+/** What a permission check is about (defaults to the caller's own institution, any campus). */
 export interface AccessContext {
   institutionId?: number | null;
+  /** a specific campus; omitted = "anywhere in the institution" (the data is then filtered by campusScope) */
+  campusId?: number | null;
+  groupId?: number | null;
 }
+
+type GrantHolder = { institution_id: number | null; grants: Grant[] };
 
 /**
  * True when one of the user's role assignments grants `permission` for the context:
- * a platform-scoped grant covers everything, an institution-scoped one only its institution.
+ * a platform grant covers everything, an institution grant its whole institution, a campus
+ * grant one campus of it, and a group grant the group.
  */
-export function can(
-  user: { institution_id: number | null; grants: Grant[] },
-  permission: Permission,
-  ctx: AccessContext = {}
-): boolean {
+export function can(user: GrantHolder, permission: Permission, ctx: AccessContext = {}): boolean {
   const institutionId = ctx.institutionId === undefined ? user.institution_id : ctx.institutionId;
-  return user.grants.some(
-    (g) => g.permission === permission && (g.scopeType === 'platform' || (g.scopeType === 'institution' && g.scopeId != null && g.scopeId === institutionId))
-  );
+  return user.grants.some((g) => {
+    if (g.permission !== permission) return false;
+    switch (g.scopeType) {
+      case 'platform':
+        return true;
+      case 'institution':
+        return g.scopeId != null && g.scopeId === institutionId;
+      case 'campus':
+        return g.institutionId != null && g.institutionId === institutionId && (ctx.campusId == null || g.scopeId === ctx.campusId);
+      case 'group':
+        return ctx.groupId != null && g.scopeId === ctx.groupId;
+      default:
+        return false;
+    }
+  });
+}
+
+/**
+ * The campuses a user may act on with `permission`: null = every campus (an institution-wide
+ * or platform grant), otherwise the campus ids of their campus grants (possibly none).
+ */
+export function campusScope(user: GrantHolder, permission: Permission, institutionId = user.institution_id): number[] | null {
+  const campuses = new Set<number>();
+  for (const g of user.grants) {
+    if (g.permission !== permission) continue;
+    if (g.scopeType === 'platform' || (g.scopeType === 'institution' && g.scopeId === institutionId)) return null;
+    if (g.scopeType === 'campus' && g.institutionId === institutionId && g.scopeId != null) campuses.add(g.scopeId);
+  }
+  return [...campuses];
+}
+
+/** Groups in which the user holds `permission`. */
+export function groupScope(user: GrantHolder, permission: Permission): number[] {
+  return [...new Set(user.grants.filter((g) => g.permission === permission && g.scopeType === 'group' && g.scopeId != null).map((g) => g.scopeId!))];
 }
 
 /** The user's effective permission grants (all roles, all scopes). */
 export async function loadGrants(userId: number, db: Queryable = defaultDb): Promise<Grant[]> {
-  const { rows } = await db.query<{ permission: Permission; scope_type: ScopeType; scope_id: number | null }>(
-    `SELECT DISTINCT rp.permission, ur.scope_type, ur.scope_id
+  const { rows } = await db.query<{ permission: Permission; scope_type: GrantScope; scope_id: number | null; institution_id: number | null }>(
+    `SELECT DISTINCT rp.permission, ur.scope_type, ur.scope_id, ur.institution_id
        FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
       WHERE ur.user_id = $1`,
     [userId]
   );
-  return rows.map((r) => ({ permission: r.permission, scopeType: r.scope_type, scopeId: r.scope_id }));
+  return rows.map((r) => ({ permission: r.permission, scopeType: r.scope_type, scopeId: r.scope_id, institutionId: r.institution_id }));
 }
 
-/** Assign a built-in role (e.g. when an account is created). */
+/**
+ * Assign a built-in role (e.g. when an account is created). `scopeId` is the institution for
+ * institution roles, the group for group roles, and ignored for platform roles.
+ */
 export async function grantSystemRole(
   db: Queryable,
   userId: number,
   roleKey: string,
-  institutionId: number | null,
+  scopeId: number | null,
   grantedBy: number | null = null
 ): Promise<void> {
   const { rowCount } = await db.query(
-    `INSERT INTO user_roles (user_id, role_id, scope_type, scope_id, granted_by)
-     SELECT $1, r.id, r.scope_type, CASE WHEN r.scope_type = 'platform' THEN NULL ELSE $3::int END, $4
+    `INSERT INTO user_roles (user_id, role_id, scope_type, scope_id, institution_id, granted_by)
+     SELECT $1, r.id, r.scope_type, CASE WHEN r.scope_type = 'platform' THEN NULL ELSE $3::int END,
+            CASE WHEN r.scope_type = 'institution' THEN $3::int END, $4
        FROM roles r WHERE r.key = $2 AND r.institution_id IS NULL AND r.is_system
      ON CONFLICT ON CONSTRAINT user_roles_user_role_scope_key DO NOTHING`,
-    [userId, roleKey, institutionId, grantedBy]
+    [userId, roleKey, scopeId, grantedBy]
   );
   if (rowCount === 0) {
     const exists = await db.query(`SELECT 1 FROM roles WHERE key = $1 AND institution_id IS NULL AND is_system`, [roleKey]);

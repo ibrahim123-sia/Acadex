@@ -62,7 +62,7 @@ describe('row-level security', () => {
   it("cannot write rows into another institution", async () => {
     await expect(
       inTx({ 'app.institution_id': String(f.institutions.A.id) }, (c) =>
-        c.query(`INSERT INTO classes (institution_id, code, name) VALUES ($1, 'X1', 'Sneaky')`, [f.institutions.B.id])
+        c.query(`INSERT INTO sections (institution_id, code, name) VALUES ($1, 'X1', 'Sneaky')`, [f.institutions.B.id])
       )
     ).rejects.toThrow(/row-level security/);
     // and cannot move an own row into another institution
@@ -99,7 +99,7 @@ describe('row-level security', () => {
       const del = await c.query(`DELETE FROM role_permissions WHERE role_id = (SELECT id FROM roles WHERE key='teacher')`);
       return { visible, updated: upd.rowCount, deleted: del.rowCount };
     });
-    expect(result.visible).toEqual(['institution_admin', 'parent', 'student', 'super_admin', 'teacher']);
+    expect(result.visible).toEqual(['group_admin', 'institution_admin', 'parent', 'student', 'super_admin', 'teacher']);
     expect(result.updated).toBe(0);
     expect(result.deleted).toBe(0);
   });
@@ -119,12 +119,12 @@ describe('row-level security', () => {
   });
 
   it('a failed request rolls back everything it wrote', async () => {
-    const before = Number((await fixture.pool.query(`SELECT count(*) FROM classes`)).rows[0].count);
+    const before = Number((await fixture.pool.query(`SELECT count(*) FROM sections`)).rows[0].count);
     // duplicate class code: the insert fails, the 409 response rolls the request back
-    const ok = await as(f.tokens.adminA).post('/api/institution/classes', { code: 'NEW1', name: 'New' });
+    const ok = await as(f.tokens.adminA).post('/api/institution/sections', { code: 'NEW1', name: 'New' });
     expect(ok.status).toBe(201);
-    const dup = await as(f.tokens.adminA).post('/api/institution/classes', { code: 'NEW1', name: 'Again' });
+    const dup = await as(f.tokens.adminA).post('/api/institution/sections', { code: 'NEW1', name: 'Again' });
     expect(dup.status).toBe(409);
-    expect(Number((await fixture.pool.query(`SELECT count(*) FROM classes`)).rows[0].count)).toBe(before + 1);
+    expect(Number((await fixture.pool.query(`SELECT count(*) FROM sections`)).rows[0].count)).toBe(before + 1);
   });
 });

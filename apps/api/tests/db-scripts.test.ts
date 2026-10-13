@@ -74,6 +74,6 @@ describe('seed', () => {
     const r = run('src/db/seed.ts', ['--reset']);
     expect(r.status, r.stderr + r.stdout).toBe(0);
     const { rows } = await fixture.pool.query('SELECT slug FROM institutions ORDER BY slug');
-    expect(rows.map((x) => x.slug)).toEqual(['greenwood', 'sunrise']);
+    expect(rows.map((x) => x.slug)).toEqual(['greenwood', 'northfield', 'skillforge', 'sunrise']);
   }, 120000);
 });

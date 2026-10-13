@@ -6,7 +6,7 @@ import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
 import * as schema from '../src/db/schema';
 import { pool } from './helpers/fixture';
 
-const tables = Object.values(schema).filter((v): v is PgTable => v instanceof PgTable).map((t) => getTableConfig(t));
+const tables = (Object.values(schema).filter((v) => v instanceof PgTable) as PgTable[]).map((t) => getTableConfig(t));
 
 describe('schema drift', () => {
   it('every table and column in the TypeScript schema exists with the same nullability', async () => {

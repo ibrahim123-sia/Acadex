@@ -15,10 +15,10 @@ beforeAll(async () => {
   const q = (sql: string, p?: unknown[]) => fixture.pool.query(sql, p);
   const { A, B } = f.institutions;
   const { S1 } = f.students;
-  await q(`INSERT INTO grades (institution_id, student_id, class_id, subject_id, assignment_type, assignment_name, obtained_marks, total_marks)
-           VALUES ($1,$2,$3,$4,'Quiz','A-only quiz',9,10)`, [A.id, S1.id, f.classes.A1.id, f.subjects.A1math.id]);
-  await q(`INSERT INTO student_attendance (institution_id, student_id, class_id, att_date, status) VALUES ($1,$2,$3,'2026-03-02','Present')`,
-    [A.id, S1.id, f.classes.A1.id]);
+  await q(`INSERT INTO grades (institution_id, student_id, section_id, offering_id, assignment_type, assignment_name, obtained_marks, total_marks)
+           VALUES ($1,$2,$3,$4,'Quiz','A-only quiz',9,10)`, [A.id, S1.id, f.sections.A1.id, f.subjects.A1math.id]);
+  await q(`INSERT INTO student_attendance (institution_id, student_id, section_id, att_date, status) VALUES ($1,$2,$3,'2026-03-02','Present')`,
+    [A.id, S1.id, f.sections.A1.id]);
 
   const mk = async (role, email, ref) => {
     const u = (await q(`INSERT INTO users (institution_id, role, email, password_hash, full_name, ref_id) VALUES ($1,$2,$3,'x','Cross',$4) RETURNING *`,
@@ -29,7 +29,9 @@ beforeAll(async () => {
   crossStudent = await fixture.tokenFor(await mk('student', 'cross.s@beta.test', S1.id));
   crossTeacher = await fixture.tokenFor(await mk('teacher', 'cross.t@beta.test', f.teachers.T1.id));
   const pB = await mk('parent', 'cross.p@beta.test', null);
-  await q(`INSERT INTO parent_children (institution_id, parent_user_id, student_id) VALUES ($1,$2,$3)`, [B.id, pB.id, S1.id]);
+  // an inconsistent row: a guardian in B linked to a student of A
+  const gB = (await q(`INSERT INTO guardians (institution_id, user_id, first_name) VALUES ($1,$2,'Cross') RETURNING id`, [B.id, pB.id])).rows[0];
+  await q(`INSERT INTO guardianships (institution_id, guardian_id, student_id) VALUES ($1,$2,$3)`, [B.id, gB.id, S1.id]);
   crossParent = await fixture.tokenFor(pB);
 });
 
@@ -48,14 +50,14 @@ describe('tenant scoping on self-service endpoints', () => {
     expect(res.body).toEqual([]);
   });
 
-  it('teacher overview / classes / students / assignments return nothing from another institution', async () => {
+  it('teacher overview / sections / students / assignments return nothing from another institution', async () => {
     const t = as(crossTeacher);
     const overview = (await t.get('/api/me/teacher/overview')).body;
     expect(overview.profile).toBeNull();
-    expect(overview.classes).toEqual([]);
+    expect(overview.sections).toEqual([]);
     expect(overview.subjects).toEqual([]);
     expect(overview.studentCount).toBe(0);
-    expect((await t.get('/api/me/teacher/classes')).body).toEqual([]);
+    expect((await t.get('/api/me/teacher/sections')).body).toEqual([]);
     expect((await t.get('/api/me/teacher/students')).body).toEqual([]);
     expect((await t.get('/api/me/teacher/assignments')).body).toEqual([]);
   });
@@ -71,7 +73,7 @@ describe('tenant scoping on self-service endpoints', () => {
     expect(s1.grades).toHaveLength(1);
     expect(s1.fee).not.toBeNull();
     const t1 = (await as(f.tokens.t1).get('/api/me/teacher/overview')).body;
-    expect(t1.classes).toHaveLength(1);
+    expect(t1.sections).toHaveLength(1);
     expect(t1.studentCount).toBe(2);
     expect((await as(f.tokens.p1).get('/api/parent/children')).body).toHaveLength(1);
     expect((await as(f.tokens.p1).get(`/api/parent/child/${f.students.S1.id}/overview`)).status).toBe(200);

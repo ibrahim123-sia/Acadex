@@ -3,15 +3,15 @@ import { ASSESSMENT_TYPES, ATTENDANCE_STATUSES } from '../constants';
 import { httpUrl, id, isoDate, optionalDate, optionalId, requiredText, text } from './common';
 
 export const attendanceBody = z.object({
-  class_id: id,
+  section_id: id,
   date: isoDate,
   records: z.array(z.object({ student_id: id, status: z.enum(ATTENDANCE_STATUSES) })).max(500),
 });
 
 export const gradesBody = z
   .object({
-    class_id: id,
-    subject_id: optionalId,
+    section_id: id,
+    offering_id: optionalId,
     assignment_type: z.enum(ASSESSMENT_TYPES).default('Quiz'),
     assignment_name: requiredText(120),
     total_marks: z.coerce.number().positive().max(10000).default(100),
@@ -23,8 +23,8 @@ export const gradesBody = z
   });
 
 export const assignmentBody = z.object({
-  class_id: id,
-  subject_id: optionalId,
+  section_id: id,
+  offering_id: optionalId,
   title: requiredText(200),
   description: text(5000).default(''),
   due_date: optionalDate,

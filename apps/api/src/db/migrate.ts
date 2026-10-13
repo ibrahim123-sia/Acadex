@@ -65,12 +65,18 @@ export function loadDrizzleMigrations(dir = DRIZZLE_DIR): Migration[] {
     });
 }
 
-export async function migrate(pool: pg.Pool, { log = console.log }: { log?: (msg: string) => void } = {}) {
+export async function migrate(
+  pool: pg.Pool,
+  { log = console.log, until }: { log?: (msg: string) => void; /** stop after this migration id (tests) */ until?: string } = {}
+) {
   const client = await pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock($1)', [LOCK_KEY]);
     // migrations and reference-data sync work across all tenants
     await client.query("SET app.bypass_rls = 'on'");
+    // migrations see soft-deleted rows too, so backfills never skip them
+    await client.query("SET app.include_deleted = 'on'");
+    await client.query("SET app.audit = 'off'"); // schema work is not a user's change
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
       id         TEXT PRIMARY KEY,
       checksum   TEXT NOT NULL,
@@ -125,13 +131,18 @@ export async function migrate(pool: pg.Pool, { log = console.log }: { log?: (msg
       }
     }
 
-    for (const m of drizzle) await run(m);
+    for (const m of drizzle) {
+      await run(m);
+      if (m.id === until) return ran;
+    }
 
     // reference data that must match the code: permission catalogue + built-in roles
     await syncRbacCatalogue(client);
     return ran;
   } finally {
     await client.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {});
+    // the session settings above must not leak to the next user of this pooled connection
+    await client.query('RESET app.bypass_rls; RESET app.include_deleted; RESET app.audit').catch(() => {});
     client.release();
   }
 }

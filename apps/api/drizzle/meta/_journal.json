@@ -43,6 +43,27 @@
       "when": 1791913612972,
       "tag": "0005_institutions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791914268364,
+      "tag": "0006_structure_renames",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791914660055,
+      "tag": "0007_structure_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791916344354,
+      "tag": "0008_structure_backfill",
+      "breakpoints": true
     }
   ]
 }

@@ -11,7 +11,7 @@ import { RequireAuth } from '@/components/RequireAuth';
 import { AnnouncementList } from '../admin/Office';
 
 export interface Overview {
-  profile: { id: number; first_name: string; last_name: string; roll_no: string | null; class_name: string | null } | null;
+  profile: { id: number; first_name: string; last_name: string; roll_no: string | null; section_name: string | null } | null;
   grades: { subject: string | null; assignment_type: string; assignment_name: string; obtained_marks: string; total_marks: string; percentage: string | null }[];
   attendance: { status: string; c: number }[];
   fee: { total_fee: string; paid_amount: string; remaining_balance: string; payment_status: string } | null;
@@ -73,7 +73,7 @@ function StudentDashboard() {
   const p = q.data.profile;
   return (
     <>
-      <PageHeader title={t('student.welcome', 'Hi, {{name}}', { name: p?.first_name ?? '' })} subtitle={p?.class_name ?? undefined} />
+      <PageHeader title={t('student.welcome', 'Hi, {{name}}', { name: p?.first_name ?? '' })} subtitle={p?.section_name ?? undefined} />
       <LearnerSummary
         data={q.data}
         onReportCard={() => p && api.download(`/pdf/report-card/${p.id}`, `report-card-${p.roll_no || p.id}.pdf`).catch((e) => toast('error', errorMessage(e)))}

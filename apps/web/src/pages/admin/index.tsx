@@ -12,7 +12,7 @@ export default function AdminRoutes() {
       <Route index element={<RequireAuth permission="institution.dashboard.read"><AdminDashboard /></RequireAuth>} />
       <Route path="students" element={<RequireAuth permission="students.read"><AdminStudents /></RequireAuth>} />
       <Route path="teachers" element={<RequireAuth permission="staff.read"><AdminTeachers /></RequireAuth>} />
-      <Route path="classes" element={<RequireAuth permission="classes.read"><AdminClasses /></RequireAuth>} />
+      <Route path="sections" element={<RequireAuth permission="sections.read"><AdminClasses /></RequireAuth>} />
       <Route path="fees" element={<RequireAuth permission="fees.read"><AdminFees /></RequireAuth>} />
       <Route path="announcements" element={<RequireAuth permission="announcements.read"><AdminAnnouncements /></RequireAuth>} />
       <Route path="roles" element={<RequireAuth permission="roles.manage"><AdminRoles /></RequireAuth>} />

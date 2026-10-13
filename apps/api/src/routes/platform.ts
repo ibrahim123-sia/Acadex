@@ -49,7 +49,7 @@ router.get('/institutions', requirePermission('platform.institutions.read'), asy
     `SELECT sc.*,
             (SELECT count(*) FROM students s WHERE s.institution_id=sc.id)::int students,
             (SELECT count(*) FROM teachers t WHERE t.institution_id=sc.id)::int teachers,
-            (SELECT count(*) FROM classes c WHERE c.institution_id=sc.id)::int classes,
+            (SELECT count(*) FROM sections c WHERE c.institution_id=sc.id)::int sections,
             count(*) OVER() _total
        FROM institutions sc ORDER BY sc.created_at DESC, sc.id DESC LIMIT $1 OFFSET $2`,
     [pg.limit, pg.offset]

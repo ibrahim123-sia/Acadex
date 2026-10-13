@@ -9,7 +9,7 @@ import { Card, EmptyState, ErrorState, PageHeader, Spinner, StatCard } from '@/c
 interface DashboardData {
   students: number;
   teachers: number;
-  classes: number;
+  sections: number;
   feeCollected: number;
   feeOutstanding: number;
   feeStatus: { payment_status: string; c: number }[];
@@ -33,7 +33,7 @@ export function AdminDashboard() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label={t('nav.students', 'Students')} value={d.students} icon={Users} />
         <StatCard label={t('nav.teachers', 'Teachers')} value={d.teachers} icon={GraduationCap} tone="warning" />
-        <StatCard label={t('nav.classes', 'Classes')} value={d.classes} icon={BookOpen} tone="success" />
+        <StatCard label={t('nav.sections', 'Classes')} value={d.sections} icon={BookOpen} tone="success" />
         <StatCard
           label={t('admin.feesCollected', 'Fees collected')}
           value={formatMoney(d.feeCollected)}
@@ -78,7 +78,7 @@ export function AdminDashboard() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <EmptyState title={t('admin.noClasses', 'No classes yet')} />
+            <EmptyState title={t('admin.noClasses', 'No sections yet')} />
           )}
         </Card>
       </div>

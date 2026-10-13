@@ -3,7 +3,7 @@ import { Router, type Request } from 'express';
 import {
   announcementBody,
   collectFeeBody,
-  createClassBody,
+  createSectionBody,
   createStudentBody,
   createTeacherBody,
   studentSearchQuery,
@@ -42,10 +42,10 @@ const auditAs = (req: Request, action: string, entity: string, detail: string) =
 router.get('/dashboard', requirePermission('institution.dashboard.read'), async (req, res) => {
   const s = institutionId(req);
   const today = todayIn(await institutionTimeZone(s));
-  const [students, teachers, classes, fees, feeStatus, attToday, topClasses, recent] = await Promise.all([
+  const [students, teachers, sections, fees, feeStatus, attToday, topClasses, recent] = await Promise.all([
     db.query<{ c: number }>(`SELECT count(*)::int c FROM students WHERE institution_id=$1`, [s]),
     db.query<{ c: number }>(`SELECT count(*)::int c FROM teachers WHERE institution_id=$1`, [s]),
-    db.query<{ c: number }>(`SELECT count(*)::int c FROM classes WHERE institution_id=$1`, [s]),
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM sections WHERE institution_id=$1`, [s]),
     db.query<{ collected: string; outstanding: string }>(
       `SELECT COALESCE(SUM(paid_amount),0)::numeric collected, COALESCE(SUM(remaining_balance),0)::numeric outstanding
          FROM tuition_fee WHERE institution_id=$1`,
@@ -57,7 +57,7 @@ router.get('/dashboard', requirePermission('institution.dashboard.read'), async 
       [s, today]
     ),
     db.query(
-      `SELECT c.name, count(st.id)::int students FROM classes c LEFT JOIN students st ON st.class_id=c.id
+      `SELECT c.name, count(st.id)::int students FROM sections c LEFT JOIN students st ON st.section_id=c.id
         WHERE c.institution_id=$1 GROUP BY c.id, c.name ORDER BY students DESC`,
       [s]
     ),
@@ -69,7 +69,7 @@ router.get('/dashboard', requirePermission('institution.dashboard.read'), async 
   res.json({
     students: students.rows[0]?.c ?? 0,
     teachers: teachers.rows[0]?.c ?? 0,
-    classes: classes.rows[0]?.c ?? 0,
+    sections: sections.rows[0]?.c ?? 0,
     feeCollected: Number(fees.rows[0]?.collected ?? 0),
     feeOutstanding: Number(fees.rows[0]?.outstanding ?? 0),
     feeStatus: feeStatus.rows,
@@ -86,12 +86,12 @@ router.get('/students', requirePermission('students.read'), async (req, res) => 
   const q = `%${search.toLowerCase()}%`;
   const { rows } = await db.query(
     `SELECT st.id, st.roll_no, st.first_name, st.last_name, st.email, st.gender, st.age, st.status,
-            c.name class_name,
+            c.name section_name,
             COALESCE((SELECT payment_status FROM tuition_fee f WHERE f.student_id=st.id AND f.institution_id=st.institution_id
                       ORDER BY id DESC LIMIT 1),'—') fee_status,
             u.id user_id, (u.id IS NOT NULL AND u.password_hash IS NULL) invite_pending,
             count(*) OVER() _total
-       FROM students st LEFT JOIN classes c ON c.id=st.class_id
+       FROM students st LEFT JOIN sections c ON c.id=st.section_id
        LEFT JOIN users u ON u.ref_id=st.id AND u.role='student' AND u.institution_id=st.institution_id
       WHERE st.institution_id=$1 AND (LOWER(st.first_name||' '||st.last_name) LIKE $2 OR LOWER(st.roll_no) LIKE $2)
       ORDER BY st.created_at DESC, st.id DESC LIMIT $3 OFFSET $4`,
@@ -105,7 +105,7 @@ router.get('/teachers', requirePermission('staff.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await db.query(
     `SELECT t.id, t.first_name, t.last_name, t.email, t.gender, t.phone, t.qualification,
-            (SELECT count(*) FROM teacher_subjects ts WHERE ts.teacher_id=t.id)::int subjects,
+            (SELECT count(*) FROM section_staff ts WHERE ts.teacher_id=t.id)::int subjects,
             u.id user_id, (u.id IS NOT NULL AND u.password_hash IS NULL) invite_pending,
             count(*) OVER() _total
        FROM teachers t LEFT JOIN users u ON u.ref_id=t.id AND u.role='teacher' AND u.institution_id=t.institution_id
@@ -116,14 +116,14 @@ router.get('/teachers', requirePermission('staff.read'), async (req, res) => {
 });
 
 // ---------- Classes & subjects ----------
-router.get('/classes', requirePermission('classes.read'), async (req, res) => {
+router.get('/sections', requirePermission('sections.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 }); // also feeds class dropdowns
   const { rows } = await db.query(
-    `SELECT c.id, c.code, c.name, c.section,
-            (SELECT count(*) FROM students s WHERE s.class_id=c.id)::int students,
-            (SELECT count(*) FROM subjects su WHERE su.class_id=c.id)::int subjects,
+    `SELECT c.id, c.code, c.name, c.label,
+            (SELECT count(*) FROM students s WHERE s.section_id=c.id)::int students,
+            (SELECT count(*) FROM course_offerings su WHERE su.section_id=c.id)::int subjects,
             count(*) OVER() _total
-       FROM classes c WHERE c.institution_id=$1 ORDER BY c.id LIMIT $2 OFFSET $3`,
+       FROM sections c WHERE c.institution_id=$1 ORDER BY c.id LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
@@ -156,11 +156,11 @@ router.get('/fees/summary', requirePermission('fees.read'), async (req, res) => 
 router.get('/grades', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await db.query(
-    `SELECT g.id, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name,
-            su.name subject, g.assignment_type, g.assignment_name, g.obtained_marks, g.total_marks,
+    `SELECT g.id, st.first_name||' '||st.last_name student, st.roll_no, c.name section_name,
+            co.name subject, g.assignment_type, g.assignment_name, g.obtained_marks, g.total_marks,
             ROUND(g.obtained_marks / NULLIF(g.total_marks,0) * 100, 1) percentage, count(*) OVER() _total
        FROM grades g JOIN students st ON st.id=g.student_id
-       LEFT JOIN classes c ON c.id=g.class_id LEFT JOIN subjects su ON su.id=g.subject_id
+       LEFT JOIN sections c ON c.id=g.section_id LEFT JOIN course_offerings su ON su.id=g.offering_id LEFT JOIN courses co ON co.id=su.course_id
       WHERE g.institution_id=$1 ORDER BY g.id DESC LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
@@ -171,9 +171,9 @@ router.get('/grades', requirePermission('academics.read'), async (req, res) => {
 router.get('/attendance', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await db.query(
-    `SELECT a.att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name, a.subject, a.status,
+    `SELECT a.att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name section_name, a.subject, a.status,
             count(*) OVER() _total
-       FROM student_attendance a JOIN students st ON st.id=a.student_id LEFT JOIN classes c ON c.id=a.class_id
+       FROM student_attendance a JOIN students st ON st.id=a.student_id LEFT JOIN sections c ON c.id=a.section_id
       WHERE a.institution_id=$1 ORDER BY a.att_date DESC, a.id DESC LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
@@ -184,9 +184,9 @@ router.get('/attendance', requirePermission('academics.read'), async (req, res) 
 router.get('/timetable', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 });
   const { rows } = await db.query(
-    `SELECT tt.day_of_week, tt.time_slot, tt.subject, c.name class_name,
+    `SELECT tt.day_of_week, tt.time_slot, tt.subject, c.name section_name,
             t.first_name||' '||t.last_name teacher, count(*) OVER() _total
-       FROM timetable tt JOIN classes c ON c.id=tt.class_id LEFT JOIN teachers t ON t.id=tt.teacher_id
+       FROM timetable tt JOIN sections c ON c.id=tt.section_id LEFT JOIN teachers t ON t.id=tt.teacher_id
       WHERE tt.institution_id=$1 ORDER BY c.id, tt.time_slot, tt.id LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
@@ -197,8 +197,8 @@ router.get('/timetable', requirePermission('academics.read'), async (req, res) =
 router.get('/exams', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 });
   const { rows } = await db.query(
-    `SELECT e.exam_name, e.subject, e.exam_date, e.time_slot, e.total_marks, c.name class_name, count(*) OVER() _total
-       FROM exam_schedule e LEFT JOIN classes c ON c.id=e.class_id
+    `SELECT e.exam_name, e.subject, e.exam_date, e.time_slot, e.total_marks, c.name section_name, count(*) OVER() _total
+       FROM exam_schedule e LEFT JOIN sections c ON c.id=e.section_id
       WHERE e.institution_id=$1 ORDER BY e.exam_date, e.id LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
@@ -225,22 +225,33 @@ router.post('/announcements', requirePermission('announcements.manage'), async (
   res.status(201).json(rows[0]);
 });
 
-// ---------- WRITE: admissions / faculty / classes / fees ----------
+// ---------- WRITE: admissions / faculty / sections / fees ----------
 
 // Admit a new student (creates the student record and an account, and emails an invitation)
 router.post('/students', requirePermission('students.manage'), async (req, res) => {
   const s = institutionId(req);
   const b = createStudentBody.parse(req.body);
-  if (b.class_id) await assertInInstitution('classes', b.class_id, s);
+  if (b.section_id) await assertInInstitution('sections', b.section_id, s);
   try {
     const st = await withTransaction(async (client) => {
       const row = (
         await client.query(
-          `INSERT INTO students (institution_id, roll_no, first_name, last_name, age, gender, email, dob, class_id, guardian_name, guardian_phone, city)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-          [s, b.roll_no, b.first_name, b.last_name, b.age, b.gender, b.email, b.dob, b.class_id, b.guardian_name, b.guardian_phone, b.city]
+          `INSERT INTO students (institution_id, roll_no, first_name, last_name, age, gender, email, dob, section_id, city)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+          [s, b.roll_no, b.first_name, b.last_name, b.age, b.gender, b.email, b.dob, b.section_id, b.city]
         )
       ).rows[0];
+      if (b.guardian_name) {
+        const [first, ...rest] = b.guardian_name.split(/\s+/);
+        const g = await client.query<{ id: number }>(
+          `INSERT INTO guardians (institution_id, first_name, last_name, phone) VALUES ($1,$2,$3,$4) RETURNING id`,
+          [s, first, rest.join(' '), b.guardian_phone]
+        );
+        await client.query(
+          `INSERT INTO guardianships (institution_id, guardian_id, student_id, relationship, is_primary) VALUES ($1,$2,$3,'guardian',true)`,
+          [s, g.rows[0]!.id, row.id]
+        );
+      }
       const userId = await createAccount(client, s, 'student', b.email, `${b.first_name} ${b.last_name}`, row.id);
       await grantSystemRole(client, userId, 'student', s, currentUser(req).id);
       return { row, userId };
@@ -298,18 +309,30 @@ router.post('/users/:userId/invite', async (req, res) => {
   res.json({ invite });
 });
 
-// Create a class
-router.post('/classes', requirePermission('classes.manage'), async (req, res) => {
-  const { code, name, section } = createClassBody.parse(req.body);
+// Create a section (a class, batch or cohort)
+router.post('/sections', requirePermission('sections.manage'), async (req, res) => {
+  const s = institutionId(req);
+  const b = createSectionBody.parse(req.body);
+  for (const [table, ref] of [
+    ['campuses', b.campus_id],
+    ['academic_years', b.academic_year_id],
+    ['program_levels', b.program_level_id],
+    ['teachers', b.homeroom_teacher_id],
+  ] as const) {
+    if (ref) await assertInInstitution(table, ref, s);
+  }
   try {
     const { rows } = await db.query(
-      `INSERT INTO classes (institution_id, code, name, section) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [institutionId(req), code, name, section]
+      `INSERT INTO sections (institution_id, code, name, label, capacity, homeroom_teacher_id, program_level_id, campus_id, academic_year_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,
+               COALESCE($8, (SELECT id FROM campuses WHERE institution_id=$1 AND is_main LIMIT 1)),
+               COALESCE($9, (SELECT id FROM academic_years WHERE institution_id=$1 AND is_current LIMIT 1)))
+       RETURNING *`,
+      [s, b.code, b.name, b.label, b.capacity, b.homeroom_teacher_id, b.program_level_id, b.campus_id, b.academic_year_id]
     );
-    await auditAs(req, 'create_class', 'Class', name);
     res.status(201).json(rows[0]);
   } catch (e) {
-    if (isUniqueViolation(e)) throw conflict('Class code already exists');
+    if (isUniqueViolation(e)) throw conflict('A section with this code already exists');
     throw e;
   }
 });

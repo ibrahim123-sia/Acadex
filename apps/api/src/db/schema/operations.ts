@@ -6,6 +6,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   serial,
@@ -14,7 +15,8 @@ import {
   unique,
 } from 'drizzle-orm/pg-core';
 import { institutions, users } from './core';
-import { classes, students, teachers } from './academics';
+import { sections, students, teachers } from './academics';
+import { guardians } from './people';
 
 export const studentAttendance = pgTable(
   'student_attendance',
@@ -22,7 +24,7 @@ export const studentAttendance = pgTable(
     id: serial('id').primaryKey(),
     institutionId: integer('institution_id').notNull(),
     studentId: integer('student_id').notNull(),
-    classId: integer('class_id'),
+    sectionId: integer('section_id'),
     subject: text('subject').default(''),
     attDate: date('att_date').notNull(),
     status: text('status').notNull(),
@@ -31,7 +33,7 @@ export const studentAttendance = pgTable(
     index('idx_satt_institution').on(t.institutionId),
     foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'student_attendance_institution_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.studentId], foreignColumns: [students.id], name: 'student_attendance_student_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.classId], foreignColumns: [classes.id], name: 'student_attendance_class_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.sectionId], foreignColumns: [sections.id], name: 'student_attendance_section_id_fkey' }).onDelete('cascade'),
     check('student_attendance_status_check', sql`${t.status} = ANY (ARRAY['Present'::text, 'Absent'::text, 'Leave'::text])`),
   ]
 );
@@ -114,20 +116,27 @@ export const notifications = pgTable(
   ]
 );
 
-export const parentChildren = pgTable(
-  'parent_children',
+export const guardianships = pgTable(
+  'guardianships',
   {
     id: serial('id').primaryKey(),
     institutionId: integer('institution_id').notNull(),
-    parentUserId: integer('parent_user_id').notNull(),
+    guardianId: integer('guardian_id').notNull(),
     studentId: integer('student_id').notNull(),
+    relationship: text('relationship').notNull().default('guardian'),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    canViewGrades: boolean('can_view_grades').notNull().default(true),
+    canViewFees: boolean('can_view_fees').notNull().default(true),
+    canMessage: boolean('can_message').notNull().default(true),
+    isEmergencyContact: boolean('is_emergency_contact').notNull().default(false),
   },
   (t) => [
-    index('idx_pc_parent').on(t.parentUserId),
-    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'parent_children_institution_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.parentUserId], foreignColumns: [users.id], name: 'parent_children_parent_user_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.studentId], foreignColumns: [students.id], name: 'parent_children_student_id_fkey' }).onDelete('cascade'),
-    unique('parent_children_parent_user_id_student_id_key').on(t.parentUserId, t.studentId),
+    index('idx_guardianships_student').on(t.studentId),
+    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'guardianships_institution_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.guardianId], foreignColumns: [guardians.id], name: 'guardianships_guardian_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.studentId], foreignColumns: [students.id], name: 'guardianships_student_id_fkey' }).onDelete('cascade'),
+    unique('guardianships_guardian_id_student_id_key').on(t.guardianId, t.studentId),
+    check('guardianships_relationship_check', sql`${t.relationship} IN ('father', 'mother', 'guardian', 'grandparent', 'sibling', 'other')`),
   ]
 );
 
@@ -142,9 +151,15 @@ export const auditLog = pgTable(
     entity: text('entity').default(''),
     detail: text('detail').default(''),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    entityId: text('entity_id'),
+    /** changed fields: { field: [before, after] } (masked for restricted tables) */
+    changes: jsonb('changes'),
+    ip: text('ip'),
+    requestId: text('request_id'),
   },
   (t) => [
     index('idx_audit_institution').on(t.institutionId),
+    index('idx_audit_entity').on(t.entity, t.entityId),
     foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'audit_log_institution_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.userId], foreignColumns: [users.id], name: 'audit_log_user_id_fkey' }).onDelete('set null'),
   ]

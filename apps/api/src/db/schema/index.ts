@@ -2,6 +2,7 @@
 // `npm run db:generate -- --name <what_changed>` to create the next migration in drizzle/.
 export * from './core';
 export * from './academics';
+export * from './people';
 export * from './learning';
 export * from './operations';
 export * from './identity';

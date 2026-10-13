@@ -27,7 +27,7 @@ export const roles = pgTable(
   (t) => [
     foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'roles_institution_id_fkey' }).onDelete('cascade'),
     unique('roles_institution_id_key_key').on(t.institutionId, t.key).nullsNotDistinct(),
-    check('roles_scope_type_check', sql`${t.scopeType} IN ('platform', 'institution')`),
+    check('roles_scope_type_check', sql`${t.scopeType} IN ('platform', 'group', 'institution')`),
     check('roles_system_has_no_institution', sql`NOT ${t.isSystem} OR ${t.institutionId} IS NULL`),
   ]
 );
@@ -56,6 +56,8 @@ export const userRoles = pgTable(
     scopeType: text('scope_type').notNull(),
     /** The institution id for scope_type 'institution'; NULL for 'platform'. */
     scopeId: integer('scope_id'),
+    /** the institution the grant lives in (institution and campus scopes); RLS keys on it */
+    institutionId: integer('institution_id'),
     grantedBy: integer('granted_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -64,7 +66,11 @@ export const userRoles = pgTable(
     foreignKey({ columns: [t.userId], foreignColumns: [users.id], name: 'user_roles_user_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.roleId], foreignColumns: [roles.id], name: 'user_roles_role_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.grantedBy], foreignColumns: [users.id], name: 'user_roles_granted_by_fkey' }).onDelete('set null'),
+    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'user_roles_institution_id_fkey' }).onDelete('cascade'),
     unique('user_roles_user_role_scope_key').on(t.userId, t.roleId, t.scopeType, t.scopeId).nullsNotDistinct(),
-    check('user_roles_scope_check', sql`(${t.scopeType} = 'platform' AND ${t.scopeId} IS NULL) OR (${t.scopeType} = 'institution' AND ${t.scopeId} IS NOT NULL)`),
+    check(
+      'user_roles_scope_check',
+      sql`(${t.scopeType} = 'platform' AND ${t.scopeId} IS NULL AND ${t.institutionId} IS NULL) OR (${t.scopeType} = 'group' AND ${t.scopeId} IS NOT NULL AND ${t.institutionId} IS NULL) OR (${t.scopeType} IN ('institution', 'campus') AND ${t.scopeId} IS NOT NULL AND ${t.institutionId} IS NOT NULL)`
+    ),
   ]
 );

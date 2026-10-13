@@ -12,7 +12,7 @@ interface Child {
   id: number;
   roll_no: string | null;
   name: string;
-  class_name: string | null;
+  section_name: string | null;
   fee_status: string;
 }
 
@@ -57,7 +57,7 @@ function ParentDashboard() {
             >
               <div className="font-semibold">{c.name}</div>
               <div className="text-xs text-fg-muted">
-                {c.class_name ?? '—'} · {c.roll_no ?? '—'}
+                {c.section_name ?? '—'} · {c.roll_no ?? '—'}
               </div>
               <div className="mt-2">
                 <StatusBadge value={c.fee_status} label={t(`status.${c.fee_status}`, c.fee_status)} />

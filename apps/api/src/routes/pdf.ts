@@ -19,10 +19,10 @@ const pdfSafe = (s: string) => s.replace(/[\u202F\u00A0]/g, ' ');
 router.get('/report-card/:studentId', async (req, res) => {
   const s = institutionId(req);
   const { studentId } = idParam('studentId').parse(req.params);
-  await assertCanViewStudent(currentUser(req), studentId, { allowTeachers: true });
+  await assertCanViewStudent(currentUser(req), studentId, { allowTeachers: true, guardian: 'grades' });
   const stu = (
     await db.query(
-      `SELECT st.*, c.name class_name FROM students st LEFT JOIN classes c ON c.id=st.class_id WHERE st.id=$1 AND st.institution_id=$2`,
+      `SELECT st.*, c.name section_name FROM students st LEFT JOIN sections c ON c.id=st.section_id WHERE st.id=$1 AND st.institution_id=$2`,
       [studentId, s]
     )
   ).rows[0];
@@ -30,10 +30,10 @@ router.get('/report-card/:studentId', async (req, res) => {
   if (!stu || !institution) throw notFound('Student not found');
   const grades = (
     await db.query<{ subject: string | null; assignment_name: string; obtained_marks: string; total_marks: string; pct: string | null }>(
-      `SELECT su.name subject, g.assignment_name, g.obtained_marks, g.total_marks,
+      `SELECT co.name subject, g.assignment_name, g.obtained_marks, g.total_marks,
               ROUND(g.obtained_marks/NULLIF(g.total_marks,0)*100,1) pct
-         FROM grades g LEFT JOIN subjects su ON su.id=g.subject_id
-        WHERE g.student_id=$1 AND g.institution_id=$2 ORDER BY su.name`,
+         FROM grades g LEFT JOIN course_offerings su ON su.id=g.offering_id LEFT JOIN courses co ON co.id=su.course_id
+        WHERE g.student_id=$1 AND g.institution_id=$2 ORDER BY co.name`,
       [studentId, s]
     )
   ).rows;
@@ -62,7 +62,7 @@ router.get('/report-card/:studentId', async (req, res) => {
   const y0 = 120;
   doc.text(`Name: ${stu.first_name} ${stu.last_name}`, 50, y0);
   doc.text(`Roll No: ${stu.roll_no || '—'}`, 320, y0);
-  doc.text(`Class: ${stu.class_name || '—'}`, 50, y0 + 18);
+  doc.text(`Class: ${stu.section_name || '—'}`, 50, y0 + 18);
   doc.text(`Gender: ${stu.gender || '—'}`, 320, y0 + 18);
 
   doc.moveTo(50, y0 + 48).lineTo(545, y0 + 48).strokeColor('#e5e7eb').stroke();
@@ -106,14 +106,14 @@ router.get('/fee-voucher/:feeId', async (req, res) => {
   const { feeId } = idParam('feeId').parse(req.params);
   const f = (
     await db.query(
-      `SELECT f.*, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name
-         FROM tuition_fee f JOIN students st ON st.id=f.student_id LEFT JOIN classes c ON c.id=st.class_id
+      `SELECT f.*, st.first_name||' '||st.last_name student, st.roll_no, c.name section_name
+         FROM tuition_fee f JOIN students st ON st.id=f.student_id LEFT JOIN sections c ON c.id=st.section_id
         WHERE f.id=$1 AND f.institution_id=$2`,
       [feeId, s]
     )
   ).rows[0];
   if (!f) throw notFound('Fee record not found');
-  await assertCanViewStudent(currentUser(req), f.student_id, { allowTeachers: false });
+  await assertCanViewStudent(currentUser(req), f.student_id, { allowTeachers: false, guardian: 'fees' });
   const institution = await institutionSettings(s);
   if (!institution) throw notFound('Fee record not found');
   const accent = institution.primary_color || '#4F46E5';
@@ -138,7 +138,7 @@ router.get('/fee-voucher/:feeId', async (req, res) => {
   doc.text(`Student: ${f.student}`, 50, y);
   doc.text(`Roll No: ${f.roll_no || '—'}`, 350, y);
   y += 20;
-  doc.text(`Class: ${f.class_name || '—'}`, 50, y);
+  doc.text(`Class: ${f.section_name || '—'}`, 50, y);
   y += 30;
 
   doc.moveTo(50, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();

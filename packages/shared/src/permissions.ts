@@ -1,7 +1,7 @@
 /**
  * Permission catalogue. Permissions are granted through roles; a role assignment has a
  * scope (platform or an institution today; group / campus / department / section later).
- * Resource rules that depend on relationships (a teacher's own classes, a parent's own
+ * Resource rules that depend on relationships (a teacher's own sections, a parent's own
  * children) are enforced on top of these by the API's access checks.
  */
 export const PERMISSIONS = {
@@ -10,28 +10,43 @@ export const PERMISSIONS = {
   'platform.institutions.manage': 'Register, suspend and change the plan of institutions',
   'platform.audit.read': 'View the platform audit log',
 
+  // institution groups (school chains, university systems)
+  'group.read': 'View every institution in your group',
+
   // institution administration
   'institution.dashboard.read': 'View the institution dashboard',
   'students.read': 'View the student directory',
   'students.manage': 'Admit and edit students',
   'staff.read': 'View the staff directory',
   'staff.manage': 'Add and edit staff',
-  'classes.read': 'View classes',
-  'classes.manage': 'Create and edit classes',
+  'sections.read': 'View sections',
+  'sections.manage': 'Create and edit sections',
   'fees.read': 'View fees and receipts',
   'fees.manage': 'Record fee payments',
   'academics.read': 'View institution-wide grades, attendance, timetable and exams',
   'announcements.read': 'View all announcements of the institution',
   'announcements.manage': 'Publish announcements',
   'roles.manage': 'Create custom roles and assign roles to people',
+  'settings.manage': 'Change institution settings, terminology, grading schemes and custom fields',
+  'structure.read': 'View campuses, departments, programs, the calendar and the course catalog',
+  'structure.manage': 'Set up campuses, departments, programs, levels, academic years, terms, holidays and courses',
+  'enrollments.manage': 'Enrol students in courses and manage waitlists',
+  'guardians.read': 'View guardians and their links to students',
+  'guardians.manage': 'Add and edit guardians and what each may see',
+  'students.medical.read': 'View medical and emergency information',
+  'students.medical.manage': 'Edit medical and emergency information',
+  'documents.issue': 'Issue ID cards, certificates and letters',
+  'imports.run': 'Bulk import and update people, courses and enrolments',
+  'year_end.manage': 'Promote, graduate and archive at the end of the year',
+  'recycle_bin.manage': 'Restore or permanently delete deleted records',
   'records.read_any': "Download any student's report card or fee voucher in the institution",
   'audit.read': "View the institution's audit log",
 
-  // teaching (limited to the teacher's own classes)
-  'teaching.access': 'Use the teacher workspace for assigned classes',
-  'attendance.mark': 'Mark attendance for assigned classes',
-  'grades.enter': 'Enter grades for assigned classes',
-  'assignments.manage': 'Create assignments for assigned classes',
+  // teaching (limited to the teacher's own sections)
+  'teaching.access': 'Use the teacher workspace for assigned sections',
+  'attendance.mark': 'Mark attendance for assigned sections',
+  'grades.enter': 'Enter grades for assigned sections',
+  'assignments.manage': 'Create assignments for assigned sections',
 
   // learners and families
   'learner.access': 'Use the student workspace',
@@ -46,9 +61,10 @@ export type Permission = keyof typeof PERMISSIONS;
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 
 /** Permissions an institution may put into its own custom roles (never platform ones). */
-export const INSTITUTION_ASSIGNABLE_PERMISSIONS = ALL_PERMISSIONS.filter((p) => !p.startsWith('platform.'));
+export const INSTITUTION_ASSIGNABLE_PERMISSIONS = ALL_PERMISSIONS.filter((p) => !p.startsWith('platform.') && !p.startsWith('group.'));
 
-export type ScopeType = 'platform' | 'institution';
+/** Where a role can be granted: platform-wide, a group of institutions, or an institution (or one of its campuses). */
+export type ScopeType = 'platform' | 'group' | 'institution';
 
 export interface SystemRoleDef {
   key: string;
@@ -63,8 +79,8 @@ const INSTITUTION_ADMIN: Permission[] = [
   'students.manage',
   'staff.read',
   'staff.manage',
-  'classes.read',
-  'classes.manage',
+  'sections.read',
+  'sections.manage',
   'fees.read',
   'fees.manage',
   'academics.read',
@@ -73,6 +89,18 @@ const INSTITUTION_ADMIN: Permission[] = [
   'roles.manage',
   'records.read_any',
   'audit.read',
+  'settings.manage',
+  'structure.read',
+  'structure.manage',
+  'enrollments.manage',
+  'guardians.read',
+  'guardians.manage',
+  'students.medical.read',
+  'students.medical.manage',
+  'documents.issue',
+  'imports.run',
+  'year_end.manage',
+  'recycle_bin.manage',
 ];
 
 /** Built-in roles. Their keys match the users.role "primary role" values. */
@@ -83,12 +111,13 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     scope: 'platform',
     permissions: ['platform.institutions.read', 'platform.institutions.manage', 'platform.audit.read'],
   },
+  { key: 'group_admin', name: 'Group administrator', scope: 'group', permissions: ['group.read'] },
   { key: 'institution_admin', name: 'Institution administrator', scope: 'institution', permissions: INSTITUTION_ADMIN },
   {
     key: 'teacher',
     name: 'Teacher',
     scope: 'institution',
-    permissions: ['teaching.access', 'attendance.mark', 'grades.enter', 'assignments.manage', 'announcements.view'],
+    permissions: ['teaching.access', 'attendance.mark', 'grades.enter', 'assignments.manage', 'announcements.view', 'structure.read'],
   },
   { key: 'student', name: 'Student', scope: 'institution', permissions: ['learner.access', 'submissions.create', 'announcements.view'] },
   { key: 'parent', name: 'Parent / guardian', scope: 'institution', permissions: ['guardian.access', 'announcements.view'] },

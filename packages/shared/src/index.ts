@@ -7,3 +7,4 @@ export * from './schemas/teaching';
 export * from './schemas/platform';
 export * from './schemas/roles';
 export * from './types';
+export * from './academics';

@@ -18,7 +18,7 @@ interface Role {
 }
 
 const GROUPS: { title: string; prefixes: string[] }[] = [
-  { title: 'Institution office', prefixes: ['institution.', 'students.', 'staff.', 'classes.', 'academics.', 'announcements.', 'roles.', 'records.', 'audit.'] },
+  { title: 'Institution office', prefixes: ['institution.', 'students.', 'staff.', 'sections.', 'academics.', 'announcements.', 'roles.', 'records.', 'audit.'] },
   { title: 'Finance', prefixes: ['fees.'] },
   { title: 'Teaching', prefixes: ['teaching.', 'attendance.', 'grades.', 'assignments.'] },
   { title: 'Learners & families', prefixes: ['learner.', 'submissions.', 'guardian.'] },

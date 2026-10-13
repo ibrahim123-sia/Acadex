@@ -35,6 +35,7 @@ import { NotificationBell } from './NotificationBell';
 
 const ROLE_LABEL: Record<Role, string> = {
   super_admin: 'Platform',
+  group_admin: 'Group',
   institution_admin: 'Administrator',
   teacher: 'Teacher',
   student: 'Student',
@@ -67,7 +68,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/admin', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'institution.dashboard.read', end: true },
         { to: '/admin/students', label: t('nav.students', 'Students'), icon: Users, permission: 'students.read' },
         { to: '/admin/teachers', label: t('nav.teachers', 'Teachers'), icon: GraduationCap, permission: 'staff.read' },
-        { to: '/admin/classes', label: t('nav.classes', 'Classes'), icon: BookOpen, permission: 'classes.read' },
+        { to: '/admin/sections', label: t('nav.sections', 'Classes'), icon: BookOpen, permission: 'sections.read' },
         { to: '/admin/fees', label: t('nav.fees', 'Fees'), icon: Wallet, permission: 'fees.read' },
         { to: '/admin/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, permission: 'announcements.read' },
         { to: '/admin/roles', label: t('nav.roles', 'Roles & permissions'), icon: UserCog, permission: 'roles.manage' },

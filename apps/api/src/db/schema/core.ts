@@ -1,7 +1,19 @@
 // Tenants and accounts. Constraint names match the pre-Drizzle schema so migrations work on
 // databases created by the legacy SQL files too.
 import { sql } from 'drizzle-orm';
-import { boolean, check, foreignKey, index, integer, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { boolean, check, foreignKey, index, integer, jsonb, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
+
+/** School chains and university systems: several institutions under one umbrella. */
+export const institutionGroups = pgTable(
+  'institution_groups',
+  {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique('institution_groups_slug_key').on(t.slug)]
+);
 
 export const institutions = pgTable(
   'institutions',
@@ -20,11 +32,23 @@ export const institutions = pgTable(
     currency: text('currency').default('PKR').notNull(),
     timezone: text('timezone').default('Asia/Karachi').notNull(),
     locale: text('locale').default('en-PK').notNull(),
+    /** school | chain | college | university | academy | training_center — drives the defaults */
+    type: text('type').default('school').notNull(),
+    groupId: integer('group_id'),
+    country: text('country').default('PK').notNull(),
+    /** terminology overrides, working days, storage quota, … (validated by @acadex/shared) */
+    settings: jsonb('settings').default(sql`'{}'::jsonb`).notNull(),
+    onboardedAt: timestamp('onboarded_at', { withTimezone: true }),
   },
   (t) => [
     unique('institutions_slug_key').on(t.slug),
     check('institutions_currency_iso', sql`${t.currency} ~ '^[A-Z]{3}$'::text`),
     check('institutions_plan_check', sql`${t.plan} = ANY (ARRAY['free'::text, 'pro'::text, 'enterprise'::text])`),
+    foreignKey({ columns: [t.groupId], foreignColumns: [institutionGroups.id], name: 'institutions_group_id_fkey' }).onDelete('set null'),
+    check(
+      'institutions_type_check',
+      sql`${t.type} IN ('school', 'chain', 'college', 'university', 'academy', 'training_center')`
+    ),
     check('institutions_status_check', sql`${t.status} = ANY (ARRAY['active'::text, 'suspended'::text])`),
   ]
 );
@@ -55,7 +79,35 @@ export const users = pgTable(
     unique('users_email_key').on(t.email),
     check(
       'users_role_check',
-      sql`${t.role} = ANY (ARRAY['super_admin'::text, 'institution_admin'::text, 'teacher'::text, 'student'::text, 'parent'::text])`
+      sql`${t.role} = ANY (ARRAY['super_admin'::text, 'group_admin'::text, 'institution_admin'::text, 'teacher'::text, 'student'::text, 'parent'::text])`
     ),
+  ]
+);
+
+/** Uploaded files (photos, documents, imports). Bytes live in the storage driver (local / S3). */
+export const files = pgTable(
+  'files',
+  {
+    id: serial('id').primaryKey(),
+    institutionId: integer('institution_id').notNull(),
+    storageKey: text('storage_key').notNull(),
+    originalName: text('original_name').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    sha256: text('sha256').notNull(),
+    purpose: text('purpose').notNull(),
+    scanStatus: text('scan_status').notNull().default('clean'),
+    createdBy: integer('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedBy: integer('deleted_by'),
+  },
+  (t) => [
+    index('idx_files_institution').on(t.institutionId),
+    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'files_institution_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.createdBy], foreignColumns: [users.id], name: 'files_created_by_fkey' }).onDelete('set null'),
+    unique('files_storage_key_key').on(t.storageKey),
+    check('files_purpose_check', sql`${t.purpose} IN ('photo', 'document', 'import', 'logo')`),
+    check('files_scan_status_check', sql`${t.scanStatus} IN ('pending', 'clean', 'infected', 'skipped')`),
   ]
 );

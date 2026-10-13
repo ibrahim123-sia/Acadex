@@ -22,7 +22,7 @@ interface StudentRow {
   email: string;
   gender: string | null;
   status: string;
-  class_name: string | null;
+  section_name: string | null;
   fee_status: string;
   user_id: number | null;
   invite_pending: boolean;
@@ -54,10 +54,10 @@ function AdmitStudentDialog({ open, onClose }: { open: boolean; onClose: () => v
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [invite, setInvite] = useState<{ name: string; invite: Invite } | null>(null);
-  const classes = useQuery({ queryKey: ['classes-all'], queryFn: () => api.get<{ id: number; name: string }[]>('/institution/classes', { pageSize: 100 }), enabled: open });
+  const sections = useQuery({ queryKey: ['sections-all'], queryFn: () => api.get<{ id: number; name: string }[]>('/institution/sections', { pageSize: 100 }), enabled: open });
   const form = useForm<z.input<typeof createStudentBody>, unknown, z.output<typeof createStudentBody>>({
     resolver: zodResolver(createStudentBody),
-    defaultValues: { first_name: '', last_name: '', email: '', gender: 'Male', age: '', class_id: '', guardian_name: '', guardian_phone: '', roll_no: '' },
+    defaultValues: { first_name: '', last_name: '', email: '', gender: 'Male', age: '', section_id: '', guardian_name: '', guardian_phone: '', roll_no: '' },
   });
   const m = useMutation({
     mutationFn: (v: z.output<typeof createStudentBody>) => api.post<{ first_name: string; last_name: string; invite: Invite }>('/institution/students', v),
@@ -104,9 +104,9 @@ function AdmitStudentDialog({ open, onClose }: { open: boolean; onClose: () => v
             </Field>
             <Field label={t('common.class', 'Class')} optional>
               {(a) => (
-                <Select {...a} {...form.register('class_id')}>
+                <Select {...a} {...form.register('section_id')}>
                   <option value="">—</option>
-                  {classes.data?.map((c) => (
+                  {sections.data?.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
@@ -190,7 +190,7 @@ export function AdminStudents() {
               </div>
             ),
           },
-          { key: 'class', header: t('common.class', 'Class'), cell: (s) => s.class_name ?? '—' },
+          { key: 'class', header: t('common.class', 'Class'), cell: (s) => s.section_name ?? '—' },
           { key: 'fee', header: t('nav.fees', 'Fees'), cell: (s) => <StatusBadge value={s.fee_status} label={t(`status.${s.fee_status}`, s.fee_status)} />, hideOnMobile: true },
           {
             key: 'actions',

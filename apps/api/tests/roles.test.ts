@@ -15,7 +15,7 @@ const ENDPOINTS: Endpoint[] = [
   ['get', '/api/institution/dashboard', ['adminA']],
   ['get', '/api/institution/students', ['adminA']],
   ['get', '/api/institution/teachers', ['adminA']],
-  ['get', '/api/institution/classes', ['adminA']],
+  ['get', '/api/institution/sections', ['adminA']],
   ['get', '/api/institution/fees', ['adminA']],
   ['get', '/api/institution/grades', ['adminA']],
   ['get', '/api/institution/attendance', ['adminA']],
@@ -23,16 +23,16 @@ const ENDPOINTS: Endpoint[] = [
   ['get', '/api/institution/exams', ['adminA']],
   ['get', '/api/institution/announcements', ['adminA']],
   ['post', '/api/institution/announcements', ['adminA'], () => ({ title: 'x', description: 'y' })],
-  ['post', '/api/institution/classes', ['adminA'], () => ({ code: 'ZZ', name: 'Z' })],
+  ['post', '/api/institution/sections', ['adminA'], () => ({ code: 'ZZ', name: 'Z' })],
 
   ['get', '/api/me/teacher/overview', ['t1']],
   ['get', '/api/me/teacher/students', ['t1']],
-  ['get', '/api/me/teacher/classes', ['t1']],
+  ['get', '/api/me/teacher/sections', ['t1']],
   ['get', '/api/me/teacher/class/{A1}/roster', ['t1']],
   ['get', '/api/me/teacher/assignments', ['t1']],
-  ['post', '/api/me/teacher/attendance', ['t1'], () => ({ class_id: f.classes.A1.id, date: '2026-01-05', records: [] })],
-  ['post', '/api/me/teacher/grades', ['t1'], () => ({ class_id: f.classes.A1.id, assignment_name: 'Q', records: [] })],
-  ['post', '/api/me/teacher/assignments', ['t1'], () => ({ class_id: f.classes.A1.id, title: 'role test' })],
+  ['post', '/api/me/teacher/attendance', ['t1'], () => ({ section_id: f.sections.A1.id, date: '2026-01-05', records: [] })],
+  ['post', '/api/me/teacher/grades', ['t1'], () => ({ section_id: f.sections.A1.id, assignment_name: 'Q', records: [] })],
+  ['post', '/api/me/teacher/assignments', ['t1'], () => ({ section_id: f.sections.A1.id, title: 'role test' })],
 
   ['get', '/api/me/student/overview', ['s1']],
   ['get', '/api/me/student/assignments', ['s1']],
@@ -53,7 +53,7 @@ describe('role guards', () => {
     for (const who of ALL_ROLES) {
       const expectAllowed = allowed.includes(who);
       it(`${method.toUpperCase()} ${path} as ${who} → ${expectAllowed ? 'allowed' : '403'}`, async () => {
-        const url = path.replace('{A1}', f.classes.A1.id);
+        const url = path.replace('{A1}', f.sections.A1.id);
         const res = await as(f.tokens[who])[method](url, body?.());
         if (expectAllowed) expect(res.status, JSON.stringify(res.body)).toBeLessThan(400);
         else expect(res.status, JSON.stringify(res.body)).toBe(403);

@@ -135,7 +135,7 @@ router.post('/users/:userId/roles', ...guard, async (req, res) => {
   const user = await findInstitutionUser(req, id.parse(req.params.userId));
   const role = await findRole(req, assignRoleBody.parse(req.body).role_id);
   await db.query(
-    `INSERT INTO user_roles (user_id, role_id, scope_type, scope_id, granted_by) VALUES ($1,$2,'institution',$3,$4)
+    `INSERT INTO user_roles (user_id, role_id, scope_type, scope_id, institution_id, granted_by) VALUES ($1,$2,'institution',$3,$3,$4)
      ON CONFLICT ON CONSTRAINT user_roles_user_role_scope_key DO NOTHING`,
     [user.id, role.id, institutionId(req), currentUser(req).id]
   );

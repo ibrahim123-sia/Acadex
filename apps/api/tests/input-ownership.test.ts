@@ -9,10 +9,10 @@ beforeEach(async () => {
 });
 
 const count = async (table) => Number((await fixture.pool.query(`SELECT count(*) FROM ${table}`)).rows[0].count);
-const attendance = (records, extra = {}) => ({ class_id: f.classes.A1.id, date: '2026-03-02', records, ...extra });
+const attendance = (records, extra = {}) => ({ section_id: f.sections.A1.id, date: '2026-03-02', records, ...extra });
 const grades = (records, extra = {}) => ({
-  class_id: f.classes.A1.id,
-  subject_id: f.subjects.A1math.id,
+  section_id: f.sections.A1.id,
+  offering_id: f.subjects.A1math.id,
   assignment_name: 'Quiz',
   total_marks: 10,
   records,
@@ -118,7 +118,7 @@ describe('admin writes', () => {
       first_name: 'New',
       last_name: 'Kid',
       email: 'new.kid@alpha.test',
-      class_id: f.classes.B1.id,
+      section_id: f.sections.B1.id,
     });
     expect(res.status).toBe(400);
     expect(await count('students')).toBe(4);

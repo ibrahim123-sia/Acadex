@@ -18,7 +18,7 @@ export const createStudentBody = z.object({
     .union([z.coerce.number().int().min(1).max(120), z.literal(''), z.null()])
     .optional()
     .transform((v) => (v === '' || v == null ? null : v)),
-  class_id: optionalId,
+  section_id: optionalId,
   guardian_name: text(120).default(''),
   guardian_phone: text(30).default(''),
   city: text(80).default(''),
@@ -34,12 +34,21 @@ export const createTeacherBody = z.object({
   qualification: text(120).default(''),
 });
 
-export const createClassBody = z.object({
+export const createSectionBody = z.object({
   code: requiredText(20),
   name: requiredText(80),
-  section: text(20)
+  label: text(20)
     .optional()
     .transform((v) => v || 'A'),
+  /** defaults: the main campus and the current academic year */
+  campus_id: optionalId,
+  academic_year_id: optionalId,
+  program_level_id: optionalId,
+  homeroom_teacher_id: optionalId,
+  capacity: z
+    .union([z.coerce.number().int().min(1).max(10000), z.literal(''), z.null()])
+    .optional()
+    .transform((v) => (v === '' || v == null ? null : v)),
 });
 
 export const collectFeeBody = z

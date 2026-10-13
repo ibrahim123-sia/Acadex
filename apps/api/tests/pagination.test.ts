@@ -8,9 +8,9 @@ beforeAll(async () => {
   f = await fixture.resetDb();
   const q = (sql: string, p?: unknown[]) => fixture.pool.query(sql, p);
   // 120 more students in institution A (3 already exist) and 40 unread notifications for t1
-  await q(`INSERT INTO students (institution_id, class_id, roll_no, first_name, last_name, email)
+  await q(`INSERT INTO students (institution_id, section_id, roll_no, first_name, last_name, email)
            SELECT $1, $2, 'R' || g, 'Bulk', 'Student ' || g, 'bulk' || g || '@alpha.test' FROM generate_series(1, 120) g`,
-    [f.institutions.A.id, f.classes.A1.id]);
+    [f.institutions.A.id, f.sections.A1.id]);
   await q(`INSERT INTO notifications (institution_id, user_id, title) SELECT $1, $2, 'N' || g FROM generate_series(1, 40) g`,
     [f.institutions.A.id, f.users.t1.id]);
   await q(`INSERT INTO audit_log (institution_id, actor, action) SELECT $1, 'x', 'act' || g FROM generate_series(1, 75) g`, [f.institutions.A.id]);
@@ -67,7 +67,7 @@ describe('pagination', () => {
   });
 
   for (const path of ['/api/institution/teachers', '/api/institution/fees', '/api/institution/grades', '/api/institution/attendance',
-    '/api/institution/classes', '/api/institution/announcements', '/api/institution/timetable', '/api/institution/exams']) {
+    '/api/institution/sections', '/api/institution/announcements', '/api/institution/timetable', '/api/institution/exams']) {
     it(`${path} is paginated`, async () => {
       const res = await as(f.tokens.adminA).get(`${path}?pageSize=1`);
       expect(res.status).toBe(200);

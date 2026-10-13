@@ -30,7 +30,7 @@ describe('can()', () => {
   it('every fixture account holds the permissions of its built-in role', async () => {
     const perms = async (key) => (await loadGrants(f.users[key].id, fixture.pool)).map((g) => g.permission).sort();
     expect(await perms('adminA')).toContain('roles.manage');
-    expect(await perms('t1')).toEqual(['announcements.view', 'assignments.manage', 'attendance.mark', 'grades.enter', 'teaching.access']);
+    expect(await perms('t1')).toEqual(['announcements.view', 'assignments.manage', 'attendance.mark', 'grades.enter', 'structure.read', 'teaching.access']);
     expect(await perms('s1')).toEqual(['announcements.view', 'learner.access', 'submissions.create']);
     expect(await perms('super')).toEqual(['platform.audit.read', 'platform.institutions.manage', 'platform.institutions.read']);
   });
@@ -57,7 +57,7 @@ describe('custom roles', () => {
     expect((await t1.get('/api/institution/fees')).status).toBe(200);
     expect((await t1.post('/api/institution/fees', { student_id: f.students.S1.id, total_fee: 100 })).status).toBe(201);
     expect((await t1.get('/api/institution/students')).status).toBe(403); // not part of the role
-    expect((await t1.get('/api/me/teacher/classes')).status).toBe(200); // still a teacher
+    expect((await t1.get('/api/me/teacher/sections')).status).toBe(200); // still a teacher
 
     const revoke = await as(f.tokens.adminA).delete(`/api/institution/users/${f.users.t1.id}/roles/${roleId}`);
     expect(revoke.status).toBe(200);
