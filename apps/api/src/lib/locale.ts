@@ -1,4 +1,4 @@
-// Per-school locale helpers: the school's timezone decides what "today" is, and its
+// Per-institution locale helpers: the institution's timezone decides what "today" is, and its
 // currency/locale decide how money is printed (PDFs, emails).
 export { isValidCurrency, isValidLocale, isValidTimeZone } from '@acadex/shared';
 

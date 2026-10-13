@@ -1,12 +1,12 @@
 import { date, foreignKey, index, integer, numeric, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
-import { schools } from './core';
+import { institutions } from './core';
 import { classes, students, subjects, teachers } from './academics';
 
 export const assignments = pgTable(
   'assignments',
   {
     id: serial('id').primaryKey(),
-    schoolId: integer('school_id').notNull(),
+    institutionId: integer('institution_id').notNull(),
     classId: integer('class_id'),
     subjectId: integer('subject_id'),
     teacherId: integer('teacher_id'),
@@ -16,7 +16,7 @@ export const assignments = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => [
-    foreignKey({ columns: [t.schoolId], foreignColumns: [schools.id], name: 'assignments_school_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'assignments_institution_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.classId], foreignColumns: [classes.id], name: 'assignments_class_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.subjectId], foreignColumns: [subjects.id], name: 'assignments_subject_id_fkey' }).onDelete('set null'),
     foreignKey({ columns: [t.teacherId], foreignColumns: [teachers.id], name: 'assignments_teacher_id_fkey' }).onDelete('set null'),
@@ -27,7 +27,7 @@ export const submissions = pgTable(
   'submissions',
   {
     id: serial('id').primaryKey(),
-    schoolId: integer('school_id').notNull(),
+    institutionId: integer('institution_id').notNull(),
     assignmentId: integer('assignment_id').notNull(),
     studentId: integer('student_id').notNull(),
     title: text('title').default(''),
@@ -36,7 +36,7 @@ export const submissions = pgTable(
     submittedDate: timestamp('submitted_date', { withTimezone: true }).defaultNow(),
   },
   (t) => [
-    foreignKey({ columns: [t.schoolId], foreignColumns: [schools.id], name: 'submissions_school_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'submissions_institution_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.assignmentId], foreignColumns: [assignments.id], name: 'submissions_assignment_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.studentId], foreignColumns: [students.id], name: 'submissions_student_id_fkey' }).onDelete('cascade'),
   ]
@@ -46,7 +46,7 @@ export const grades = pgTable(
   'grades',
   {
     id: serial('id').primaryKey(),
-    schoolId: integer('school_id').notNull(),
+    institutionId: integer('institution_id').notNull(),
     studentId: integer('student_id').notNull(),
     classId: integer('class_id'),
     subjectId: integer('subject_id'),
@@ -57,8 +57,8 @@ export const grades = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => [
-    index('idx_grades_school').on(t.schoolId),
-    foreignKey({ columns: [t.schoolId], foreignColumns: [schools.id], name: 'grades_school_id_fkey' }).onDelete('cascade'),
+    index('idx_grades_institution').on(t.institutionId),
+    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'grades_institution_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.studentId], foreignColumns: [students.id], name: 'grades_student_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.classId], foreignColumns: [classes.id], name: 'grades_class_id_fkey' }).onDelete('set null'),
     foreignKey({ columns: [t.subjectId], foreignColumns: [subjects.id], name: 'grades_subject_id_fkey' }).onDelete('set null'),

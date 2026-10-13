@@ -9,7 +9,7 @@ import {
   studentSearchQuery,
 } from '@acadex/shared';
 import { db, withTransaction } from '../db/context';
-import { assertInSchool } from '../lib/access';
+import { assertInInstitution } from '../lib/access';
 import { badRequest, forbidden, notFound } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { conflict } from '../lib/errors';
@@ -17,52 +17,52 @@ import { id } from '@acadex/shared';
 import { todayIn } from '../lib/locale';
 import { parsePage, sendPage } from '../lib/pagination';
 import { inviteUser } from '../auth/invites';
-import { schoolTimeZone } from '../lib/school';
-import { auth, currentUser, requirePermission, schoolId, userCan } from '../middleware/auth';
+import { institutionTimeZone } from '../lib/institution';
+import { auth, currentUser, requirePermission, institutionId, userCan } from '../middleware/auth';
 import { grantSystemRole } from '../rbac';
 
 const router = Router();
-// School administration: each route requires its own permission (school admins hold all of
+// Institution administration: each route requires its own permission (institution admins hold all of
 // them; custom roles such as "Accountant" can hold a subset).
 router.use(auth);
 
-/** A school account with no password yet: the person sets one through the invitation. */
-const createAccount = async (client: typeof db, schoolIdValue: number, role: string, email: string, fullName: string, refId: number | null) =>
+/** An institution account with no password yet: the person sets one through the invitation. */
+const createAccount = async (client: typeof db, institutionIdValue: number, role: string, email: string, fullName: string, refId: number | null) =>
   (
     await client.query<{ id: number }>(
-      `INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,$2,$3,NULL,$4,$5) RETURNING id`,
-      [schoolIdValue, role, email, fullName, refId]
+      `INSERT INTO users (institution_id, role, email, password_hash, full_name, ref_id) VALUES ($1,$2,$3,NULL,$4,$5) RETURNING id`,
+      [institutionIdValue, role, email, fullName, refId]
     )
   ).rows[0]!.id;
 const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === '23505';
 const auditAs = (req: Request, action: string, entity: string, detail: string) =>
-  audit({ schoolId: schoolId(req), userId: currentUser(req).id, actor: currentUser(req).name, action, entity, detail });
+  audit({ institutionId: institutionId(req), userId: currentUser(req).id, actor: currentUser(req).name, action, entity, detail });
 
 // ---------- Admin dashboard ----------
-router.get('/dashboard', requirePermission('school.dashboard.read'), async (req, res) => {
-  const s = schoolId(req);
-  const today = todayIn(await schoolTimeZone(s));
+router.get('/dashboard', requirePermission('institution.dashboard.read'), async (req, res) => {
+  const s = institutionId(req);
+  const today = todayIn(await institutionTimeZone(s));
   const [students, teachers, classes, fees, feeStatus, attToday, topClasses, recent] = await Promise.all([
-    db.query<{ c: number }>(`SELECT count(*)::int c FROM students WHERE school_id=$1`, [s]),
-    db.query<{ c: number }>(`SELECT count(*)::int c FROM teachers WHERE school_id=$1`, [s]),
-    db.query<{ c: number }>(`SELECT count(*)::int c FROM classes WHERE school_id=$1`, [s]),
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM students WHERE institution_id=$1`, [s]),
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM teachers WHERE institution_id=$1`, [s]),
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM classes WHERE institution_id=$1`, [s]),
     db.query<{ collected: string; outstanding: string }>(
       `SELECT COALESCE(SUM(paid_amount),0)::numeric collected, COALESCE(SUM(remaining_balance),0)::numeric outstanding
-         FROM tuition_fee WHERE school_id=$1`,
+         FROM tuition_fee WHERE institution_id=$1`,
       [s]
     ),
-    db.query(`SELECT payment_status, count(*)::int c FROM tuition_fee WHERE school_id=$1 GROUP BY payment_status`, [s]),
+    db.query(`SELECT payment_status, count(*)::int c FROM tuition_fee WHERE institution_id=$1 GROUP BY payment_status`, [s]),
     db.query(
-      `SELECT status, count(*)::int c FROM student_attendance WHERE school_id=$1 AND att_date >= $2::date - 7 GROUP BY status`,
+      `SELECT status, count(*)::int c FROM student_attendance WHERE institution_id=$1 AND att_date >= $2::date - 7 GROUP BY status`,
       [s, today]
     ),
     db.query(
       `SELECT c.name, count(st.id)::int students FROM classes c LEFT JOIN students st ON st.class_id=c.id
-        WHERE c.school_id=$1 GROUP BY c.id, c.name ORDER BY students DESC`,
+        WHERE c.institution_id=$1 GROUP BY c.id, c.name ORDER BY students DESC`,
       [s]
     ),
     db.query(
-      `SELECT id, first_name, last_name, roll_no, created_at FROM students WHERE school_id=$1 ORDER BY created_at DESC LIMIT 6`,
+      `SELECT id, first_name, last_name, roll_no, created_at FROM students WHERE institution_id=$1 ORDER BY created_at DESC LIMIT 6`,
       [s]
     ),
   ]);
@@ -87,15 +87,15 @@ router.get('/students', requirePermission('students.read'), async (req, res) => 
   const { rows } = await db.query(
     `SELECT st.id, st.roll_no, st.first_name, st.last_name, st.email, st.gender, st.age, st.status,
             c.name class_name,
-            COALESCE((SELECT payment_status FROM tuition_fee f WHERE f.student_id=st.id AND f.school_id=st.school_id
+            COALESCE((SELECT payment_status FROM tuition_fee f WHERE f.student_id=st.id AND f.institution_id=st.institution_id
                       ORDER BY id DESC LIMIT 1),'—') fee_status,
             u.id user_id, (u.id IS NOT NULL AND u.password_hash IS NULL) invite_pending,
             count(*) OVER() _total
        FROM students st LEFT JOIN classes c ON c.id=st.class_id
-       LEFT JOIN users u ON u.ref_id=st.id AND u.role='student' AND u.school_id=st.school_id
-      WHERE st.school_id=$1 AND (LOWER(st.first_name||' '||st.last_name) LIKE $2 OR LOWER(st.roll_no) LIKE $2)
+       LEFT JOIN users u ON u.ref_id=st.id AND u.role='student' AND u.institution_id=st.institution_id
+      WHERE st.institution_id=$1 AND (LOWER(st.first_name||' '||st.last_name) LIKE $2 OR LOWER(st.roll_no) LIKE $2)
       ORDER BY st.created_at DESC, st.id DESC LIMIT $3 OFFSET $4`,
-    [schoolId(req), q, pg.limit, pg.offset]
+    [institutionId(req), q, pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
@@ -108,9 +108,9 @@ router.get('/teachers', requirePermission('staff.read'), async (req, res) => {
             (SELECT count(*) FROM teacher_subjects ts WHERE ts.teacher_id=t.id)::int subjects,
             u.id user_id, (u.id IS NOT NULL AND u.password_hash IS NULL) invite_pending,
             count(*) OVER() _total
-       FROM teachers t LEFT JOIN users u ON u.ref_id=t.id AND u.role='teacher' AND u.school_id=t.school_id
-      WHERE t.school_id=$1 ORDER BY t.created_at DESC, t.id DESC LIMIT $2 OFFSET $3`,
-    [schoolId(req), pg.limit, pg.offset]
+       FROM teachers t LEFT JOIN users u ON u.ref_id=t.id AND u.role='teacher' AND u.institution_id=t.institution_id
+      WHERE t.institution_id=$1 ORDER BY t.created_at DESC, t.id DESC LIMIT $2 OFFSET $3`,
+    [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
@@ -123,8 +123,8 @@ router.get('/classes', requirePermission('classes.read'), async (req, res) => {
             (SELECT count(*) FROM students s WHERE s.class_id=c.id)::int students,
             (SELECT count(*) FROM subjects su WHERE su.class_id=c.id)::int subjects,
             count(*) OVER() _total
-       FROM classes c WHERE c.school_id=$1 ORDER BY c.id LIMIT $2 OFFSET $3`,
-    [schoolId(req), pg.limit, pg.offset]
+       FROM classes c WHERE c.institution_id=$1 ORDER BY c.id LIMIT $2 OFFSET $3`,
+    [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
@@ -136,18 +136,18 @@ router.get('/fees', requirePermission('fees.read'), async (req, res) => {
     `SELECT f.id, f.receipt_id, f.total_fee, f.paid_amount, f.remaining_balance, f.payment_status, f.payment_date,
             st.first_name||' '||st.last_name student, st.roll_no, count(*) OVER() _total
        FROM tuition_fee f JOIN students st ON st.id=f.student_id
-      WHERE f.school_id=$1 ORDER BY f.id DESC LIMIT $2 OFFSET $3`,
-    [schoolId(req), pg.limit, pg.offset]
+      WHERE f.institution_id=$1 ORDER BY f.id DESC LIMIT $2 OFFSET $3`,
+    [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
 
-// Fee totals for the whole school (the fees list is paginated, so the UI can't add it up)
+// Fee totals for the whole institution (the fees list is paginated, so the UI can't add it up)
 router.get('/fees/summary', requirePermission('fees.read'), async (req, res) => {
   const { rows } = await db.query(
     `SELECT COALESCE(SUM(paid_amount),0)::float8 collected, COALESCE(SUM(remaining_balance),0)::float8 outstanding
-       FROM tuition_fee WHERE school_id=$1`,
-    [schoolId(req)]
+       FROM tuition_fee WHERE institution_id=$1`,
+    [institutionId(req)]
   );
   res.json(rows[0]);
 });
@@ -161,8 +161,8 @@ router.get('/grades', requirePermission('academics.read'), async (req, res) => {
             ROUND(g.obtained_marks / NULLIF(g.total_marks,0) * 100, 1) percentage, count(*) OVER() _total
        FROM grades g JOIN students st ON st.id=g.student_id
        LEFT JOIN classes c ON c.id=g.class_id LEFT JOIN subjects su ON su.id=g.subject_id
-      WHERE g.school_id=$1 ORDER BY g.id DESC LIMIT $2 OFFSET $3`,
-    [schoolId(req), pg.limit, pg.offset]
+      WHERE g.institution_id=$1 ORDER BY g.id DESC LIMIT $2 OFFSET $3`,
+    [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
@@ -174,8 +174,8 @@ router.get('/attendance', requirePermission('academics.read'), async (req, res) 
     `SELECT a.att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name, a.subject, a.status,
             count(*) OVER() _total
        FROM student_attendance a JOIN students st ON st.id=a.student_id LEFT JOIN classes c ON c.id=a.class_id
-      WHERE a.school_id=$1 ORDER BY a.att_date DESC, a.id DESC LIMIT $2 OFFSET $3`,
-    [schoolId(req), pg.limit, pg.offset]
+      WHERE a.institution_id=$1 ORDER BY a.att_date DESC, a.id DESC LIMIT $2 OFFSET $3`,
+    [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
@@ -187,8 +187,8 @@ router.get('/timetable', requirePermission('academics.read'), async (req, res) =
     `SELECT tt.day_of_week, tt.time_slot, tt.subject, c.name class_name,
             t.first_name||' '||t.last_name teacher, count(*) OVER() _total
        FROM timetable tt JOIN classes c ON c.id=tt.class_id LEFT JOIN teachers t ON t.id=tt.teacher_id
-      WHERE tt.school_id=$1 ORDER BY c.id, tt.time_slot, tt.id LIMIT $2 OFFSET $3`,
-    [schoolId(req), pg.limit, pg.offset]
+      WHERE tt.institution_id=$1 ORDER BY c.id, tt.time_slot, tt.id LIMIT $2 OFFSET $3`,
+    [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
@@ -199,8 +199,8 @@ router.get('/exams', requirePermission('academics.read'), async (req, res) => {
   const { rows } = await db.query(
     `SELECT e.exam_name, e.subject, e.exam_date, e.time_slot, e.total_marks, c.name class_name, count(*) OVER() _total
        FROM exam_schedule e LEFT JOIN classes c ON c.id=e.class_id
-      WHERE e.school_id=$1 ORDER BY e.exam_date, e.id LIMIT $2 OFFSET $3`,
-    [schoolId(req), pg.limit, pg.offset]
+      WHERE e.institution_id=$1 ORDER BY e.exam_date, e.id LIMIT $2 OFFSET $3`,
+    [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
@@ -210,8 +210,8 @@ router.get('/announcements', requirePermission('announcements.read'), async (req
   const pg = parsePage(req.query);
   const { rows } = await db.query(
     `SELECT id, title, target_audience, description, start_date, end_date, created_at, count(*) OVER() _total
-       FROM announcements WHERE school_id=$1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
-    [schoolId(req), pg.limit, pg.offset]
+       FROM announcements WHERE institution_id=$1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
+    [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
 });
@@ -219,8 +219,8 @@ router.get('/announcements', requirePermission('announcements.read'), async (req
 router.post('/announcements', requirePermission('announcements.manage'), async (req, res) => {
   const { title, target_audience, description, end_date } = announcementBody.parse(req.body);
   const { rows } = await db.query(
-    `INSERT INTO announcements (school_id, title, target_audience, description, end_date) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [schoolId(req), title, target_audience, description, end_date]
+    `INSERT INTO announcements (institution_id, title, target_audience, description, end_date) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [institutionId(req), title, target_audience, description, end_date]
   );
   res.status(201).json(rows[0]);
 });
@@ -229,14 +229,14 @@ router.post('/announcements', requirePermission('announcements.manage'), async (
 
 // Admit a new student (creates the student record and an account, and emails an invitation)
 router.post('/students', requirePermission('students.manage'), async (req, res) => {
-  const s = schoolId(req);
+  const s = institutionId(req);
   const b = createStudentBody.parse(req.body);
-  if (b.class_id) await assertInSchool('classes', b.class_id, s);
+  if (b.class_id) await assertInInstitution('classes', b.class_id, s);
   try {
     const st = await withTransaction(async (client) => {
       const row = (
         await client.query(
-          `INSERT INTO students (school_id, roll_no, first_name, last_name, age, gender, email, dob, class_id, guardian_name, guardian_phone, city)
+          `INSERT INTO students (institution_id, roll_no, first_name, last_name, age, gender, email, dob, class_id, guardian_name, guardian_phone, city)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
           [s, b.roll_no, b.first_name, b.last_name, b.age, b.gender, b.email, b.dob, b.class_id, b.guardian_name, b.guardian_phone, b.city]
         )
@@ -256,13 +256,13 @@ router.post('/students', requirePermission('students.manage'), async (req, res) 
 
 // Add a teacher (creates the staff record and an account, and emails an invitation)
 router.post('/teachers', requirePermission('staff.manage'), async (req, res) => {
-  const s = schoolId(req);
+  const s = institutionId(req);
   const b = createTeacherBody.parse(req.body);
   try {
     const t = await withTransaction(async (client) => {
       const row = (
         await client.query(
-          `INSERT INTO teachers (school_id, first_name, last_name, gender, dob, email, phone, cnic, qualification)
+          `INSERT INTO teachers (institution_id, first_name, last_name, gender, dob, email, phone, cnic, qualification)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
           [s, b.first_name, b.last_name, b.gender, b.dob, b.email, b.phone, b.cnic, b.qualification]
         )
@@ -285,8 +285,8 @@ router.post('/teachers', requirePermission('staff.manage'), async (req, res) => 
 router.post('/users/:userId/invite', async (req, res) => {
   const userId = id.parse(req.params.userId);
   const { rows } = await db.query<{ id: number; role: string; password_hash: string | null }>(
-    `SELECT id, role, password_hash FROM users WHERE id=$1 AND school_id=$2`,
-    [userId, schoolId(req)]
+    `SELECT id, role, password_hash FROM users WHERE id=$1 AND institution_id=$2`,
+    [userId, institutionId(req)]
   );
   const u = rows[0];
   if (!u) throw notFound('User not found');
@@ -303,8 +303,8 @@ router.post('/classes', requirePermission('classes.manage'), async (req, res) =>
   const { code, name, section } = createClassBody.parse(req.body);
   try {
     const { rows } = await db.query(
-      `INSERT INTO classes (school_id, code, name, section) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [schoolId(req), code, name, section]
+      `INSERT INTO classes (institution_id, code, name, section) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [institutionId(req), code, name, section]
     );
     await auditAs(req, 'create_class', 'Class', name);
     res.status(201).json(rows[0]);
@@ -316,15 +316,15 @@ router.post('/classes', requirePermission('classes.manage'), async (req, res) =>
 
 // Collect a fee
 router.post('/fees', requirePermission('fees.manage'), async (req, res) => {
-  const s = schoolId(req);
+  const s = institutionId(req);
   const { student_id, total_fee: total, paid_amount: paid } = collectFeeBody.parse(req.body);
-  await assertInSchool('students', student_id, s);
+  await assertInInstitution('students', student_id, s);
   const remaining = total - paid;
   const status = remaining <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending';
   const receipt = 'RCP-' + crypto.randomBytes(5).toString('hex').toUpperCase();
-  const paidOn = todayIn(await schoolTimeZone(s));
+  const paidOn = todayIn(await institutionTimeZone(s));
   const { rows } = await db.query(
-    `INSERT INTO tuition_fee (school_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status, payment_date)
+    `INSERT INTO tuition_fee (institution_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status, payment_date)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     [s, receipt, student_id, total, paid, remaining, status, paidOn]
   );

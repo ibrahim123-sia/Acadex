@@ -9,7 +9,7 @@ export interface AccessClaims {
   tv: number;
   /** sessions.id */
   sid: string;
-  school_id: number | null;
+  institution_id: number | null;
 }
 
 const ACCESS_AUDIENCE = 'acadex:access';
@@ -36,7 +36,7 @@ export function verifyAccessToken(token: string): AccessClaims | null {
   try {
     const p = jwt.verify(token, getConfig().jwtSecret, { algorithms: ['HS256'], audience: ACCESS_AUDIENCE }) as jwt.JwtPayload;
     if (!Number.isInteger(p.id) || !Number.isInteger(p.tv) || typeof p.sid !== 'string') return null;
-    return { id: p.id, tv: p.tv, sid: p.sid, school_id: Number.isInteger(p.school_id) ? p.school_id : null };
+    return { id: p.id, tv: p.tv, sid: p.sid, institution_id: Number.isInteger(p.institution_id) ? p.institution_id : null };
   } catch {
     return null;
   }

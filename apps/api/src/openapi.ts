@@ -11,7 +11,7 @@ import {
   collectFeeBody,
   createClassBody,
   createRoleBody,
-  createSchoolBody,
+  createInstitutionBody,
   createStudentBody,
   createTeacherBody,
   gradesBody,
@@ -27,7 +27,7 @@ import {
   studentSearchQuery,
   submissionBody,
   updateRoleBody,
-  updateSchoolBody,
+  updateInstitutionBody,
   verifyEmailBody,
   type Permission,
 } from '@acadex/shared';
@@ -37,7 +37,7 @@ type Auth = 'public' | 'session' | 'incomplete' | 'cookie';
 
 export interface RouteDoc {
   method: Method;
-  path: string; // Express style (/schools/:id)
+  path: string; // Express style (/institutions/:id)
   tag: string;
   summary: string;
   auth: Auth;
@@ -67,7 +67,7 @@ export const ROUTES: RouteDoc[] = [
   r('post', '/api/auth/refresh', 'Auth', 'Exchange the refresh cookie for a new access token (rotates the cookie)', 'cookie'),
   r('post', '/api/auth/logout', 'Auth', 'Sign out this device', 'cookie'),
   r('post', '/api/auth/logout-all', 'Auth', 'Sign out on every device', 'session'),
-  r('get', '/api/auth/me', 'Auth', 'The signed-in user and school', 'incomplete'),
+  r('get', '/api/auth/me', 'Auth', 'The signed-in user and institution', 'incomplete'),
   r('post', '/api/auth/change-password', 'Auth', 'Change password (other devices are signed out)', 'incomplete', { body: changePasswordBody }),
   r('get', '/api/auth/sessions', 'Auth', 'Signed-in devices', 'session'),
   r('delete', '/api/auth/sessions/:id', 'Auth', 'Sign out one device', 'session'),
@@ -85,40 +85,40 @@ export const ROUTES: RouteDoc[] = [
   r('post', '/api/auth/mfa/recovery-codes', 'Auth', 'New recovery codes', 'session', { body: z.object({ code: mfaCode }) }),
 
   // ---------- platform ----------
-  r('get', '/api/platform/stats', 'Platform', 'Platform KPIs', 'session', { permission: 'platform.schools.read' }),
-  r('get', '/api/platform/schools', 'Platform', 'All schools', 'session', { permission: 'platform.schools.read', query: page, paginated: true }),
-  r('post', '/api/platform/schools', 'Platform', 'Register a school (invites its administrator)', 'session', { permission: 'platform.schools.manage', body: createSchoolBody }),
-  r('patch', '/api/platform/schools/:id', 'Platform', 'Change plan, status or locale', 'session', { permission: 'platform.schools.manage', body: updateSchoolBody }),
+  r('get', '/api/platform/stats', 'Platform', 'Platform KPIs', 'session', { permission: 'platform.institutions.read' }),
+  r('get', '/api/platform/institutions', 'Platform', 'All institutions', 'session', { permission: 'platform.institutions.read', query: page, paginated: true }),
+  r('post', '/api/platform/institutions', 'Platform', 'Register an institution (invites its administrator)', 'session', { permission: 'platform.institutions.manage', body: createInstitutionBody }),
+  r('patch', '/api/platform/institutions/:id', 'Platform', 'Change plan, status or locale', 'session', { permission: 'platform.institutions.manage', body: updateInstitutionBody }),
   r('get', '/api/platform/audit', 'Platform', 'Platform audit log', 'session', { permission: 'platform.audit.read', query: page, paginated: true }),
 
-  // ---------- school office ----------
-  r('get', '/api/school/dashboard', 'School', 'Dashboard', 'session', { permission: 'school.dashboard.read' }),
-  r('get', '/api/school/students', 'School', 'Student directory', 'session', { permission: 'students.read', query: page.extend(studentSearchQuery.shape), paginated: true }),
-  r('post', '/api/school/students', 'School', 'Admit a student (emails an invitation)', 'session', { permission: 'students.manage', body: createStudentBody }),
-  r('get', '/api/school/teachers', 'School', 'Staff directory', 'session', { permission: 'staff.read', query: page, paginated: true }),
-  r('post', '/api/school/teachers', 'School', 'Add a teacher (emails an invitation)', 'session', { permission: 'staff.manage', body: createTeacherBody }),
-  r('post', '/api/school/users/:userId/invite', 'School', 'Send a new invitation', 'session', { permission: 'staff.manage' }),
-  r('get', '/api/school/classes', 'School', 'Classes', 'session', { permission: 'classes.read', query: page, paginated: true }),
-  r('post', '/api/school/classes', 'School', 'Create a class', 'session', { permission: 'classes.manage', body: createClassBody }),
-  r('get', '/api/school/fees', 'School', 'Fee records', 'session', { permission: 'fees.read', query: page, paginated: true }),
-  r('get', '/api/school/fees/summary', 'School', 'Fee totals', 'session', { permission: 'fees.read' }),
-  r('post', '/api/school/fees', 'School', 'Record a fee payment', 'session', { permission: 'fees.manage', body: collectFeeBody }),
-  r('get', '/api/school/grades', 'School', 'All grades', 'session', { permission: 'academics.read', query: page, paginated: true }),
-  r('get', '/api/school/attendance', 'School', 'All attendance', 'session', { permission: 'academics.read', query: page, paginated: true }),
-  r('get', '/api/school/timetable', 'School', 'Timetable', 'session', { permission: 'academics.read', query: page, paginated: true }),
-  r('get', '/api/school/exams', 'School', 'Exam schedule', 'session', { permission: 'academics.read', query: page, paginated: true }),
-  r('get', '/api/school/announcements', 'School', 'Announcements', 'session', { permission: 'announcements.read', query: page, paginated: true }),
-  r('post', '/api/school/announcements', 'School', 'Publish an announcement', 'session', { permission: 'announcements.manage', body: announcementBody }),
+  // ---------- institution office ----------
+  r('get', '/api/institution/dashboard', 'Institution', 'Dashboard', 'session', { permission: 'institution.dashboard.read' }),
+  r('get', '/api/institution/students', 'Institution', 'Student directory', 'session', { permission: 'students.read', query: page.extend(studentSearchQuery.shape), paginated: true }),
+  r('post', '/api/institution/students', 'Institution', 'Admit a student (emails an invitation)', 'session', { permission: 'students.manage', body: createStudentBody }),
+  r('get', '/api/institution/teachers', 'Institution', 'Staff directory', 'session', { permission: 'staff.read', query: page, paginated: true }),
+  r('post', '/api/institution/teachers', 'Institution', 'Add a teacher (emails an invitation)', 'session', { permission: 'staff.manage', body: createTeacherBody }),
+  r('post', '/api/institution/users/:userId/invite', 'Institution', 'Send a new invitation', 'session', { permission: 'staff.manage' }),
+  r('get', '/api/institution/classes', 'Institution', 'Classes', 'session', { permission: 'classes.read', query: page, paginated: true }),
+  r('post', '/api/institution/classes', 'Institution', 'Create a class', 'session', { permission: 'classes.manage', body: createClassBody }),
+  r('get', '/api/institution/fees', 'Institution', 'Fee records', 'session', { permission: 'fees.read', query: page, paginated: true }),
+  r('get', '/api/institution/fees/summary', 'Institution', 'Fee totals', 'session', { permission: 'fees.read' }),
+  r('post', '/api/institution/fees', 'Institution', 'Record a fee payment', 'session', { permission: 'fees.manage', body: collectFeeBody }),
+  r('get', '/api/institution/grades', 'Institution', 'All grades', 'session', { permission: 'academics.read', query: page, paginated: true }),
+  r('get', '/api/institution/attendance', 'Institution', 'All attendance', 'session', { permission: 'academics.read', query: page, paginated: true }),
+  r('get', '/api/institution/timetable', 'Institution', 'Timetable', 'session', { permission: 'academics.read', query: page, paginated: true }),
+  r('get', '/api/institution/exams', 'Institution', 'Exam schedule', 'session', { permission: 'academics.read', query: page, paginated: true }),
+  r('get', '/api/institution/announcements', 'Institution', 'Announcements', 'session', { permission: 'announcements.read', query: page, paginated: true }),
+  r('post', '/api/institution/announcements', 'Institution', 'Publish an announcement', 'session', { permission: 'announcements.manage', body: announcementBody }),
 
   // ---------- roles ----------
-  r('get', '/api/school/permissions', 'Roles', 'Permissions a school role can hold', 'session', { permission: 'roles.manage' }),
-  r('get', '/api/school/roles', 'Roles', 'Built-in and custom roles', 'session', { permission: 'roles.manage' }),
-  r('post', '/api/school/roles', 'Roles', 'Create a custom role', 'session', { permission: 'roles.manage', body: createRoleBody }),
-  r('patch', '/api/school/roles/:id', 'Roles', 'Edit a custom role', 'session', { permission: 'roles.manage', body: updateRoleBody }),
-  r('delete', '/api/school/roles/:id', 'Roles', 'Delete a custom role', 'session', { permission: 'roles.manage' }),
-  r('get', '/api/school/users/:userId/roles', 'Roles', "A person's roles", 'session', { permission: 'roles.manage' }),
-  r('post', '/api/school/users/:userId/roles', 'Roles', 'Grant a role', 'session', { permission: 'roles.manage', body: assignRoleBody }),
-  r('delete', '/api/school/users/:userId/roles/:roleId', 'Roles', 'Revoke a role', 'session', { permission: 'roles.manage' }),
+  r('get', '/api/institution/permissions', 'Roles', 'Permissions an institution role can hold', 'session', { permission: 'roles.manage' }),
+  r('get', '/api/institution/roles', 'Roles', 'Built-in and custom roles', 'session', { permission: 'roles.manage' }),
+  r('post', '/api/institution/roles', 'Roles', 'Create a custom role', 'session', { permission: 'roles.manage', body: createRoleBody }),
+  r('patch', '/api/institution/roles/:id', 'Roles', 'Edit a custom role', 'session', { permission: 'roles.manage', body: updateRoleBody }),
+  r('delete', '/api/institution/roles/:id', 'Roles', 'Delete a custom role', 'session', { permission: 'roles.manage' }),
+  r('get', '/api/institution/users/:userId/roles', 'Roles', "A person's roles", 'session', { permission: 'roles.manage' }),
+  r('post', '/api/institution/users/:userId/roles', 'Roles', 'Grant a role', 'session', { permission: 'roles.manage', body: assignRoleBody }),
+  r('delete', '/api/institution/users/:userId/roles/:roleId', 'Roles', 'Revoke a role', 'session', { permission: 'roles.manage' }),
 
   // ---------- teaching ----------
   r('get', '/api/me/teacher/overview', 'Teaching', 'Teacher home', 'session', { permission: 'teaching.access' }),

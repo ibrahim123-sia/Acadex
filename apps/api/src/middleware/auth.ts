@@ -8,7 +8,7 @@ import { verifyAccessToken } from '../auth/tokens';
 export interface AuthUser {
   id: number;
   role: Role;
-  school_id: number | null;
+  institution_id: number | null;
   ref_id: number | null;
   name: string;
   email: string;
@@ -34,7 +34,7 @@ const deny = (res: Response, status: number, error: string, code: string) => res
 export interface UserRow {
   id: number;
   role: Role;
-  school_id: number | null;
+  institution_id: number | null;
   ref_id: number | null;
   full_name: string;
   email: string;
@@ -43,7 +43,7 @@ export interface UserRow {
   must_change_password: boolean;
   mfa_enabled: boolean;
   email_verified_at: Date | null;
-  school_status: string | null;
+  institution_status: string | null;
   session_found: boolean;
   session_revoked: boolean;
   session_expired: boolean;
@@ -51,11 +51,11 @@ export interface UserRow {
   grants: Grant[];
 }
 
-/** The account, its school status, the given session's state and all role grants. */
+/** The account, its institution status, the given session's state and all role grants. */
 export async function loadUserRow(userId: number, sessionId: string): Promise<UserRow | undefined> {
   const { rows } = await db.query<UserRow>(
-    `SELECT u.id, u.role, u.school_id, u.ref_id, u.full_name, u.email, u.is_active, u.token_version,
-            u.must_change_password, u.mfa_enabled, u.email_verified_at, s.status AS school_status,
+    `SELECT u.id, u.role, u.institution_id, u.ref_id, u.full_name, u.email, u.is_active, u.token_version,
+            u.must_change_password, u.mfa_enabled, u.email_verified_at, s.status AS institution_status,
             ss.id IS NOT NULL AS session_found,
             ss.revoked_at IS NOT NULL AS session_revoked,
             COALESCE(ss.expires_at < now(), true) AS session_expired,
@@ -65,7 +65,7 @@ export async function loadUserRow(userId: number, sessionId: string): Promise<Us
                         FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
                        WHERE ur.user_id = u.id), '[]') AS grants
        FROM users u
-       LEFT JOIN schools s ON s.id = u.school_id
+       LEFT JOIN institutions s ON s.id = u.institution_id
        LEFT JOIN sessions ss ON ss.id = $2::uuid AND ss.user_id = u.id
       WHERE u.id = $1`,
     [userId, sessionId]
@@ -86,14 +86,14 @@ const makeAuth = ({ allowIncomplete = false } = {}): RequestHandler =>
     const claims = verifyAccessToken(header.slice(7));
     if (!claims) return void deny(res, 401, 'Invalid or expired session', 'TOKEN_INVALID');
 
-    // The lookup runs in the context the (signed) token claims — its own user row, school row,
+    // The lookup runs in the context the (signed) token claims — its own user row, institution row,
     // session and role assignments are visible there without bypassing RLS — and every claim is
     // verified against the database below. Every later query in the request stays in it.
-    setTenant(claims.school_id, claims.id);
+    setTenant(claims.institution_id, claims.id);
     const u = await loadUserRow(claims.id, claims.sid);
     // token_version is bumped on password change / logout-everywhere; a token issued for
-    // another school than the account's current one is stale; the session must be live
-    if (!u || !u.is_active || u.token_version !== claims.tv || u.school_id !== claims.school_id) {
+    // another institution than the account's current one is stale; the session must be live
+    if (!u || !u.is_active || u.token_version !== claims.tv || u.institution_id !== claims.institution_id) {
       return void deny(res, 401, 'Invalid or expired session', 'SESSION_INVALID');
     }
     if (!u.session_found || u.session_revoked || u.session_expired) {
@@ -102,8 +102,8 @@ const makeAuth = ({ allowIncomplete = false } = {}): RequestHandler =>
     if (u.mfa_enabled && !u.session_mfa_verified) {
       return void deny(res, 401, 'Two-factor verification is required. Please sign in again.', 'MFA_REQUIRED');
     }
-    if (u.school_id && u.school_status !== 'active') {
-      return void deny(res, 403, 'This school account is currently suspended.', 'SCHOOL_SUSPENDED');
+    if (u.institution_id && u.institution_status !== 'active') {
+      return void deny(res, 403, 'This institution account is currently suspended.', 'INSTITUTION_SUSPENDED');
     }
     const enrollmentRequired = mfaEnrollmentRequired(u.role, u.mfa_enabled);
     if (!allowIncomplete) {
@@ -122,7 +122,7 @@ export function toAuthUser(u: UserRow, sessionId: string): AuthUser {
   return {
     id: u.id,
     role: u.role,
-    school_id: u.school_id,
+    institution_id: u.institution_id,
     ref_id: u.ref_id,
     name: u.full_name,
     email: u.email,
@@ -140,7 +140,7 @@ export const auth = makeAuth();
 export const authAllowingIncomplete = makeAuth({ allowIncomplete: true });
 
 /**
- * Allow the request only if the user holds `permission` for their school (or platform-wide).
+ * Allow the request only if the user holds `permission` for their institution (or platform-wide).
  * Relationship rules (own classes, own children) are checked separately in lib/access.
  */
 export function requirePermission(permission: Permission, ctx?: (req: Request) => AccessContext): RequestHandler {
@@ -153,23 +153,23 @@ export function requirePermission(permission: Permission, ctx?: (req: Request) =
   };
 }
 
-/** For routes that only make sense inside a school (platform staff have none). */
-export const requireSchoolUser: RequestHandler = (req, res, next) => {
-  if (!req.user?.school_id) {
-    res.status(403).json({ error: 'This is only available inside a school', code: 'FORBIDDEN' });
+/** For routes that only make sense inside an institution (platform staff have none). */
+export const requireInstitutionUser: RequestHandler = (req, res, next) => {
+  if (!req.user?.institution_id) {
+    res.status(403).json({ error: 'This is only available inside an institution', code: 'FORBIDDEN' });
     return;
   }
   next();
 };
 
-/** True when the signed-in user holds `permission` (for their school by default). */
+/** True when the signed-in user holds `permission` (for their institution by default). */
 export const userCan = (req: Request, permission: Permission, ctx?: AccessContext) => !!req.user && can(req.user, permission, ctx);
 
-/** Permissions that apply to the user's own school (or platform-wide), for the UI. */
-export function effectivePermissions(user: Pick<AuthUser, 'school_id' | 'grants'>): Permission[] {
+/** Permissions that apply to the user's own institution (or platform-wide), for the UI. */
+export function effectivePermissions(user: Pick<AuthUser, 'institution_id' | 'grants'>): Permission[] {
   const set = new Set<Permission>();
   for (const g of user.grants) {
-    if (g.scopeType === 'platform' || (g.scopeType === 'school' && g.scopeId === user.school_id)) set.add(g.permission);
+    if (g.scopeType === 'platform' || (g.scopeType === 'institution' && g.scopeId === user.institution_id)) set.add(g.permission);
   }
   return [...set].sort();
 }
@@ -179,7 +179,7 @@ export function toSessionUser(user: AuthUser): SessionUser {
   return {
     id: user.id,
     role: user.role,
-    school_id: user.school_id,
+    institution_id: user.institution_id,
     full_name: user.name,
     email: user.email,
     ref_id: user.ref_id,
@@ -196,9 +196,9 @@ export function currentUser(req: Request): AuthUser {
   return req.user;
 }
 
-/** The caller's school id; every school-scoped route has one. */
-export function schoolId(req: Request): number {
-  const sid = currentUser(req).school_id;
-  if (!sid) throw new Error('school-scoped route reached without a school');
+/** The caller's institution id; every institution-scoped route has one. */
+export function institutionId(req: Request): number {
+  const sid = currentUser(req).institution_id;
+  if (!sid) throw new Error('institution-scoped route reached without an institution');
   return sid;
 }

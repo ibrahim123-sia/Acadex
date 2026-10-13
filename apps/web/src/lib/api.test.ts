@@ -4,7 +4,7 @@ import { api, ApiError, errorMessage, onSessionEnded, tokenStore } from './api';
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 
-const session = (token: string) => ({ access_token: token, expires_in: 900, user: {}, school: null });
+const session = (token: string) => ({ access_token: token, expires_in: 900, user: {}, institution: null });
 
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {

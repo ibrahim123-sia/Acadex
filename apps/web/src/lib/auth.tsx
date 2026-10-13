@@ -2,16 +2,16 @@
 // renews the access token shortly before it expires, and keeps tabs in sync.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { AuthResponse, MfaChallengeResponse, Permission, SchoolSummary, SessionUser } from '@acadex/shared';
+import type { AuthResponse, MfaChallengeResponse, Permission, InstitutionSummary, SessionUser } from '@acadex/shared';
 import { api, onSessionEnded, refreshSession, tokenStore } from './api';
-import { setFormatSchool } from './format';
+import { setFormatInstitution } from './format';
 
 type Status = 'loading' | 'anonymous' | 'authenticated';
 
 interface AuthState {
   status: Status;
   user: SessionUser | null;
-  school: SchoolSummary | null;
+  institution: InstitutionSummary | null;
 }
 
 interface AuthApi extends AuthState {
@@ -29,22 +29,22 @@ const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [state, setState] = useState<AuthState>({ status: 'loading', user: null, school: null });
+  const [state, setState] = useState<AuthState>({ status: 'loading', user: null, institution: null });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const signedOut = useCallback(() => {
     clearTimeout(timer.current);
     tokenStore.set(null);
-    setFormatSchool(null);
+    setFormatInstitution(null);
     queryClient.clear();
-    setState({ status: 'anonymous', user: null, school: null });
+    setState({ status: 'anonymous', user: null, institution: null });
   }, [queryClient]);
 
   const applySession = useCallback(
     (res: AuthResponse) => {
       tokenStore.set(res.access_token);
-      setFormatSchool(res.school);
-      setState({ status: 'authenticated', user: res.user, school: res.school });
+      setFormatInstitution(res.institution);
+      setState({ status: 'authenticated', user: res.user, institution: res.institution });
       clearTimeout(timer.current);
       // renew a minute before expiry
       timer.current = setTimeout(async () => {

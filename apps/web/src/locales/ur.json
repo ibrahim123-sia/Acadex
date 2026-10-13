@@ -29,7 +29,7 @@
   },
   "nav": {
     "dashboard": "ڈیش بورڈ",
-    "schools": "ادارے",
+    "institutions": "ادارے",
     "audit": "آڈٹ لاگ",
     "students": "طلبہ",
     "teachers": "اساتذہ",
@@ -52,7 +52,7 @@
   "roles": {
     "label": {
       "super_admin": "پلیٹ فارم",
-      "school_admin": "منتظم",
+      "institution_admin": "منتظم",
       "teacher": "استاد",
       "student": "طالب علم",
       "parent": "والدین"
@@ -82,7 +82,7 @@
     "passwordHint": "کم از کم 10 حروف، جن میں حروف اور ہندسے دونوں ہوں۔",
     "passwordsDontMatch": "دونوں پاس ورڈ ایک جیسے نہیں",
     "inviteTitle": "اپنا اکاؤنٹ فعال کریں",
-    "inviteSubtitle": "{{name}}، {{school}} میں شامل ہونے کے لیے پاس ورڈ بنائیں۔",
+    "inviteSubtitle": "{{name}}، {{institution}} میں شامل ہونے کے لیے پاس ورڈ بنائیں۔",
     "inviteInvalid": "یہ دعوتی لنک درست نہیں یا اس کی مدت ختم ہو گئی ہے۔ اپنے ادارے سے نیا لنک مانگیں۔",
     "activate": "اکاؤنٹ فعال کریں",
     "forgotTitle": "پاس ورڈ ری سیٹ کریں",

@@ -33,7 +33,7 @@ describe('teacher class scope', () => {
   });
 
   for (const who of ['t2', 'tb']) {
-    const label = who === 't2' ? 'another teacher in the same school' : 'a teacher from another school';
+    const label = who === 't2' ? 'another teacher in the same institution' : 'a teacher from another institution';
 
     it(`${label} cannot read the roster`, async () => {
       const res = await as(f.tokens[who]).get(`/api/me/teacher/class/${f.classes.A1.id}/roster`);

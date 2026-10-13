@@ -40,7 +40,7 @@ describe('error handling', () => {
   });
 
   it('a duplicate email when admitting a student returns 409 without internals', async () => {
-    const res = await as(f.tokens.adminA).post('/api/school/students', {
+    const res = await as(f.tokens.adminA).post('/api/institution/students', {
       first_name: 'Dup',
       last_name: 'Licate',
       email: 's1@alpha.test',

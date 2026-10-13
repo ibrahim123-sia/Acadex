@@ -15,7 +15,7 @@ export interface EmailMessage {
   html?: string;
   template?: string;
   userId?: number | null;
-  schoolId?: number | null;
+  institutionId?: number | null;
 }
 
 /** Queue an email as part of the current transaction. */
@@ -24,9 +24,9 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
   await asSystem(() =>
     withTransaction((tx) =>
       tx.query(
-        `INSERT INTO email_outbox (to_email, subject, text_body, html_body, template, user_id, school_id, sent_at)
+        `INSERT INTO email_outbox (to_email, subject, text_body, html_body, template, user_id, institution_id, sent_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [msg.to, msg.subject, msg.text, msg.html ?? '', msg.template ?? '', msg.userId ?? null, msg.schoolId ?? null, logOnly ? new Date() : null]
+        [msg.to, msg.subject, msg.text, msg.html ?? '', msg.template ?? '', msg.userId ?? null, msg.institutionId ?? null, logOnly ? new Date() : null]
       )
     )
   );

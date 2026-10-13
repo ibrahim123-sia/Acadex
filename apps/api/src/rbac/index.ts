@@ -11,23 +11,23 @@ export interface Grant {
   scopeId: number | null;
 }
 
-/** What a permission check is about (defaults to the caller's own school). */
+/** What a permission check is about (defaults to the caller's own institution). */
 export interface AccessContext {
-  schoolId?: number | null;
+  institutionId?: number | null;
 }
 
 /**
  * True when one of the user's role assignments grants `permission` for the context:
- * a platform-scoped grant covers everything, a school-scoped one only its school.
+ * a platform-scoped grant covers everything, an institution-scoped one only its institution.
  */
 export function can(
-  user: { school_id: number | null; grants: Grant[] },
+  user: { institution_id: number | null; grants: Grant[] },
   permission: Permission,
   ctx: AccessContext = {}
 ): boolean {
-  const schoolId = ctx.schoolId === undefined ? user.school_id : ctx.schoolId;
+  const institutionId = ctx.institutionId === undefined ? user.institution_id : ctx.institutionId;
   return user.grants.some(
-    (g) => g.permission === permission && (g.scopeType === 'platform' || (g.scopeType === 'school' && g.scopeId != null && g.scopeId === schoolId))
+    (g) => g.permission === permission && (g.scopeType === 'platform' || (g.scopeType === 'institution' && g.scopeId != null && g.scopeId === institutionId))
   );
 }
 
@@ -47,18 +47,18 @@ export async function grantSystemRole(
   db: Queryable,
   userId: number,
   roleKey: string,
-  schoolId: number | null,
+  institutionId: number | null,
   grantedBy: number | null = null
 ): Promise<void> {
   const { rowCount } = await db.query(
     `INSERT INTO user_roles (user_id, role_id, scope_type, scope_id, granted_by)
      SELECT $1, r.id, r.scope_type, CASE WHEN r.scope_type = 'platform' THEN NULL ELSE $3::int END, $4
-       FROM roles r WHERE r.key = $2 AND r.school_id IS NULL AND r.is_system
+       FROM roles r WHERE r.key = $2 AND r.institution_id IS NULL AND r.is_system
      ON CONFLICT ON CONSTRAINT user_roles_user_role_scope_key DO NOTHING`,
-    [userId, roleKey, schoolId, grantedBy]
+    [userId, roleKey, institutionId, grantedBy]
   );
   if (rowCount === 0) {
-    const exists = await db.query(`SELECT 1 FROM roles WHERE key = $1 AND school_id IS NULL AND is_system`, [roleKey]);
+    const exists = await db.query(`SELECT 1 FROM roles WHERE key = $1 AND institution_id IS NULL AND is_system`, [roleKey]);
     if (!exists.rowCount) throw new Error(`Unknown system role "${roleKey}" — has the database been migrated?`);
   }
 }
@@ -79,8 +79,8 @@ export async function syncRbacCatalogue(client: Queryable): Promise<void> {
   await client.query(`DELETE FROM permissions WHERE NOT (key = ANY($1::text[]))`, [keys]);
   for (const role of SYSTEM_ROLES) {
     const { rows } = await client.query<{ id: number }>(
-      `INSERT INTO roles (school_id, key, name, is_system, scope_type) VALUES (NULL, $1, $2, true, $3)
-       ON CONFLICT ON CONSTRAINT roles_school_id_key_key DO UPDATE SET name = EXCLUDED.name, scope_type = EXCLUDED.scope_type
+      `INSERT INTO roles (institution_id, key, name, is_system, scope_type) VALUES (NULL, $1, $2, true, $3)
+       ON CONFLICT ON CONSTRAINT roles_institution_id_key_key DO UPDATE SET name = EXCLUDED.name, scope_type = EXCLUDED.scope_type
        RETURNING id`,
       [role.key, role.name, role.scope]
     );

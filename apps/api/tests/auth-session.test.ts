@@ -1,4 +1,4 @@
-// Bug #9 (+ G): tokens must stop working when a user is deactivated, a school is
+// Bug #9 (+ G): tokens must stop working when a user is deactivated, an institution is
 // suspended, or the user logs out; login is rate-limited; CORS is an allow-list.
 import { describe, it, expect, beforeEach } from 'vitest';
 import jwt from 'jsonwebtoken';
@@ -14,15 +14,15 @@ beforeEach(async () => {
 const q = (sql: string, p?: unknown[]) => fixture.pool.query(sql, p);
 
 describe('token validity is re-checked on every request', () => {
-  it('a suspended school locks out its users immediately', async () => {
-    expect((await as(f.tokens.adminA).get('/api/school/students')).status).toBe(200);
-    const patch = await as(f.tokens.super).patch(`/api/platform/schools/${f.schools.A.id}`, { status: 'suspended' });
+  it('a suspended institution locks out its users immediately', async () => {
+    expect((await as(f.tokens.adminA).get('/api/institution/students')).status).toBe(200);
+    const patch = await as(f.tokens.super).patch(`/api/platform/institutions/${f.institutions.A.id}`, { status: 'suspended' });
     expect(patch.status).toBe(200);
-    const res = await as(f.tokens.adminA).get('/api/school/students');
+    const res = await as(f.tokens.adminA).get('/api/institution/students');
     expect(res.status).toBe(403);
     expect((await as(f.tokens.s1).get('/api/me/student/overview')).status).toBe(403);
-    // the other school is unaffected
-    expect((await as(f.tokens.adminB).get('/api/school/students')).status).toBe(200);
+    // the other institution is unaffected
+    expect((await as(f.tokens.adminB).get('/api/institution/students')).status).toBe(200);
   });
 
   it('a deactivated user is rejected', async () => {
@@ -49,26 +49,26 @@ describe('token validity is re-checked on every request', () => {
   });
 
   it('a token signed with another secret is rejected', async () => {
-    const forged = jwt.sign({ id: f.users.adminA.id, school_id: f.schools.A.id, tv: 0, sid: '00000000-0000-0000-0000-000000000000' }, 'wrong-secret-wrong-secret-wrong-secret', { audience: 'acadex:access' });
-    expect((await as(forged).get('/api/school/students')).status).toBe(401);
+    const forged = jwt.sign({ id: f.users.adminA.id, institution_id: f.institutions.A.id, tv: 0, sid: '00000000-0000-0000-0000-000000000000' }, 'wrong-secret-wrong-secret-wrong-secret', { audience: 'acadex:access' });
+    expect((await as(forged).get('/api/institution/students')).status).toBe(401);
   });
 
-  it('a token claiming another school than the account belongs to is rejected', async () => {
+  it('a token claiming another institution than the account belongs to is rejected', async () => {
     const { rows } = await q(`INSERT INTO sessions (user_id, expires_at, mfa_verified) VALUES ($1, now() + interval '1 day', true) RETURNING id`, [f.users.adminA.id]);
-    const forged = signAccessToken({ id: f.users.adminA.id, tv: 0, sid: rows[0].id, school_id: f.schools.B.id });
-    expect((await as(forged).get('/api/school/students')).status).toBe(401);
-    // and an account moved to another school can't keep using its old token
-    await q(`UPDATE users SET school_id=$1 WHERE id=$2`, [f.schools.B.id, f.users.t2.id]);
+    const forged = signAccessToken({ id: f.users.adminA.id, tv: 0, sid: rows[0].id, institution_id: f.institutions.B.id });
+    expect((await as(forged).get('/api/institution/students')).status).toBe(401);
+    // and an account moved to another institution can't keep using its old token
+    await q(`UPDATE users SET institution_id=$1 WHERE id=$2`, [f.institutions.B.id, f.users.t2.id]);
     expect((await as(f.tokens.t2).get('/api/me/notifications')).status).toBe(401);
   });
 
   it('an old-format token without a version is rejected', async () => {
-    const old = jwt.sign({ id: f.users.adminA.id, role: 'school_admin', school_id: f.schools.A.id }, process.env.JWT_SECRET!, { audience: 'acadex:access' });
-    expect((await as(old).get('/api/school/students')).status).toBe(401);
+    const old = jwt.sign({ id: f.users.adminA.id, role: 'institution_admin', institution_id: f.institutions.A.id }, process.env.JWT_SECRET!, { audience: 'acadex:access' });
+    expect((await as(old).get('/api/institution/students')).status).toBe(401);
   });
 
   it('a raw token without the Bearer prefix is rejected', async () => {
-    const res = await request(app).get('/api/school/students').set('Authorization', f.tokens.adminA);
+    const res = await request(app).get('/api/institution/students').set('Authorization', f.tokens.adminA);
     expect(res.status).toBe(401);
   });
 
@@ -85,8 +85,8 @@ describe('token validity is re-checked on every request', () => {
     expect(cookie).toMatch(/SameSite=Strict/i);
   });
 
-  it('login is refused for a suspended school', async () => {
-    await q(`UPDATE schools SET status='suspended' WHERE id=$1`, [f.schools.A.id]);
+  it('login is refused for a suspended institution', async () => {
+    await q(`UPDATE institutions SET status='suspended' WHERE id=$1`, [f.institutions.A.id]);
     const res = await request(app).post('/api/auth/login').send({ email: 'admin@alpha.test', password: f.PASSWORD });
     expect(res.status).toBe(403);
   });

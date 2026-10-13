@@ -2,7 +2,7 @@ export * from './constants';
 export * from './permissions';
 export * from './schemas/common';
 export * from './schemas/auth';
-export * from './schemas/school';
+export * from './schemas/institution';
 export * from './schemas/teaching';
 export * from './schemas/platform';
 export * from './schemas/roles';

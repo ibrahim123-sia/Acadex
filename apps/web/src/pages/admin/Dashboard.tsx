@@ -22,14 +22,14 @@ const tooltipStyle = { background: 'var(--surface)', border: '1px solid var(--bo
 
 export function AdminDashboard() {
   const { t } = useTranslation();
-  const q = useQuery({ queryKey: ['school-dashboard'], queryFn: () => api.get<DashboardData>('/school/dashboard') });
+  const q = useQuery({ queryKey: ['institution-dashboard'], queryFn: () => api.get<DashboardData>('/institution/dashboard') });
   if (q.isPending) return <Spinner />;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
   const d = q.data;
   const feePie = d.feeStatus.map((f) => ({ name: t(`status.${f.payment_status}`, f.payment_status), key: f.payment_status, value: f.c }));
   return (
     <>
-      <PageHeader title={t('nav.dashboard', 'Dashboard')} subtitle={t('admin.dashboardSubtitle', 'Your school at a glance')} />
+      <PageHeader title={t('nav.dashboard', 'Dashboard')} subtitle={t('admin.dashboardSubtitle', 'Your institution at a glance')} />
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label={t('nav.students', 'Students')} value={d.students} icon={Users} />
         <StatCard label={t('nav.teachers', 'Teachers')} value={d.teachers} icon={GraduationCap} tone="warning" />

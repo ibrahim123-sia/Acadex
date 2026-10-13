@@ -58,7 +58,7 @@ export function LoginPage() {
           <p className="mb-6 mt-1 text-sm text-fg-muted">{t('auth.signInSubtitle', 'Enter your details to continue')}</p>
           <form onSubmit={onCredentials} className="space-y-4" noValidate>
             <Field label={t('auth.email', 'Email')} error={creds.formState.errors.email?.message}>
-              {(a) => <Input {...a} type="email" autoComplete="username" placeholder="you@school.edu" {...creds.register('email')} />}
+              {(a) => <Input {...a} type="email" autoComplete="username" placeholder="you@institution.edu" {...creds.register('email')} />}
             </Field>
             <Field label={t('auth.password', 'Password')} error={creds.formState.errors.password?.message}>
               {(a) => <PasswordInput {...a} autoComplete="current-password" {...creds.register('password')} />}

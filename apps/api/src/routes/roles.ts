@@ -1,20 +1,20 @@
-// Roles & permissions for a school: built-in roles plus the school's own custom roles
+// Roles & permissions for an institution: built-in roles plus the institution's own custom roles
 // ("Exam Controller", "Accountant", ...), and who holds which role.
 import { Router, type Request } from 'express';
-import { PERMISSIONS, SCHOOL_ASSIGNABLE_PERMISSIONS, assignRoleBody, createRoleBody, id, updateRoleBody } from '@acadex/shared';
+import { PERMISSIONS, INSTITUTION_ASSIGNABLE_PERMISSIONS, assignRoleBody, createRoleBody, id, updateRoleBody } from '@acadex/shared';
 import { db, withTransaction } from '../db/context';
 import { audit } from '../lib/audit';
 import { badRequest, conflict, notFound } from '../lib/errors';
-import { auth, currentUser, requirePermission, schoolId } from '../middleware/auth';
+import { auth, currentUser, requirePermission, institutionId } from '../middleware/auth';
 
 const router = Router();
-// Mounted under /api/school next to other routers, so the guard is per route (a router-level
-// use() would also run for every other /api/school request).
+// Mounted under /api/institution next to other routers, so the guard is per route (a router-level
+// use() would also run for every other /api/institution request).
 const guard = [auth, requirePermission('roles.manage')];
 
 interface RoleRow {
   id: number;
-  school_id: number | null;
+  institution_id: number | null;
   key: string;
   name: string;
   description: string;
@@ -23,22 +23,22 @@ interface RoleRow {
 }
 
 const auditAs = (req: Request, action: string, detail: string) =>
-  audit({ schoolId: schoolId(req), userId: currentUser(req).id, actor: currentUser(req).name, action, entity: 'Role', detail });
+  audit({ institutionId: institutionId(req), userId: currentUser(req).id, actor: currentUser(req).name, action, entity: 'Role', detail });
 
-/** A role this school may see and assign: a built-in school role, or one of its own. */
+/** A role this institution may see and assign: a built-in institution role, or one of its own. */
 async function findRole(req: Request, roleId: number): Promise<RoleRow> {
   const { rows } = await db.query<RoleRow>(
-    `SELECT * FROM roles WHERE id=$1 AND ((school_id IS NULL AND is_system AND scope_type='school') OR school_id=$2)`,
-    [roleId, schoolId(req)]
+    `SELECT * FROM roles WHERE id=$1 AND ((institution_id IS NULL AND is_system AND scope_type='institution') OR institution_id=$2)`,
+    [roleId, institutionId(req)]
   );
   if (!rows[0]) throw notFound('Role not found');
   return rows[0];
 }
 
-async function findSchoolUser(req: Request, userId: number) {
+async function findInstitutionUser(req: Request, userId: number) {
   const { rows } = await db.query<{ id: number; full_name: string; role: string }>(
-    `SELECT id, full_name, role FROM users WHERE id=$1 AND school_id=$2`,
-    [userId, schoolId(req)]
+    `SELECT id, full_name, role FROM users WHERE id=$1 AND institution_id=$2`,
+    [userId, institutionId(req)]
   );
   if (!rows[0]) throw notFound('User not found');
   return rows[0];
@@ -52,33 +52,33 @@ const slugify = (name: string) =>
     .replace(/^_+|_+$/g, '')
     .slice(0, 40) || 'role';
 
-// The permissions a school role can hold, with descriptions (for the role editor).
+// The permissions an institution role can hold, with descriptions (for the role editor).
 router.get('/permissions', ...guard, (_req, res) => {
-  res.json(SCHOOL_ASSIGNABLE_PERMISSIONS.map((key) => ({ key, description: PERMISSIONS[key] })));
+  res.json(INSTITUTION_ASSIGNABLE_PERMISSIONS.map((key) => ({ key, description: PERMISSIONS[key] })));
 });
 
 router.get('/roles', ...guard, async (req, res) => {
   const { rows } = await db.query(
     `SELECT r.id, r.key, r.name, r.description, r.is_system,
             COALESCE(array_agg(rp.permission ORDER BY rp.permission) FILTER (WHERE rp.permission IS NOT NULL), '{}') permissions,
-            (SELECT count(*) FROM user_roles ur WHERE ur.role_id = r.id AND ur.scope_type='school' AND ur.scope_id=$1)::int members
+            (SELECT count(*) FROM user_roles ur WHERE ur.role_id = r.id AND ur.scope_type='institution' AND ur.scope_id=$1)::int members
        FROM roles r LEFT JOIN role_permissions rp ON rp.role_id = r.id
-      WHERE (r.school_id IS NULL AND r.is_system AND r.scope_type='school') OR r.school_id=$1
+      WHERE (r.institution_id IS NULL AND r.is_system AND r.scope_type='institution') OR r.institution_id=$1
       GROUP BY r.id ORDER BY r.is_system DESC, r.name`,
-    [schoolId(req)]
+    [institutionId(req)]
   );
   res.json(rows);
 });
 
 router.post('/roles', ...guard, async (req, res) => {
   const b = createRoleBody.parse(req.body);
-  const s = schoolId(req);
+  const s = institutionId(req);
   const key = `custom_${slugify(b.name)}`;
   try {
     const role = await withTransaction(async (client) => {
       const r = (
         await client.query<RoleRow>(
-          `INSERT INTO roles (school_id, key, name, description, is_system, scope_type) VALUES ($1,$2,$3,$4,false,'school') RETURNING *`,
+          `INSERT INTO roles (institution_id, key, name, description, is_system, scope_type) VALUES ($1,$2,$3,$4,false,'institution') RETURNING *`,
           [s, key, b.name, b.description]
         )
       ).rows[0]!;
@@ -122,42 +122,42 @@ router.delete('/roles/:id', ...guard, async (req, res) => {
 
 // ---------- who holds which role ----------
 router.get('/users/:userId/roles', ...guard, async (req, res) => {
-  const user = await findSchoolUser(req, id.parse(req.params.userId));
+  const user = await findInstitutionUser(req, id.parse(req.params.userId));
   const { rows } = await db.query(
     `SELECT r.id, r.key, r.name, r.is_system FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-      WHERE ur.user_id=$1 AND ur.scope_type='school' AND ur.scope_id=$2 ORDER BY r.name`,
-    [user.id, schoolId(req)]
+      WHERE ur.user_id=$1 AND ur.scope_type='institution' AND ur.scope_id=$2 ORDER BY r.name`,
+    [user.id, institutionId(req)]
   );
   res.json(rows);
 });
 
 router.post('/users/:userId/roles', ...guard, async (req, res) => {
-  const user = await findSchoolUser(req, id.parse(req.params.userId));
+  const user = await findInstitutionUser(req, id.parse(req.params.userId));
   const role = await findRole(req, assignRoleBody.parse(req.body).role_id);
   await db.query(
-    `INSERT INTO user_roles (user_id, role_id, scope_type, scope_id, granted_by) VALUES ($1,$2,'school',$3,$4)
+    `INSERT INTO user_roles (user_id, role_id, scope_type, scope_id, granted_by) VALUES ($1,$2,'institution',$3,$4)
      ON CONFLICT ON CONSTRAINT user_roles_user_role_scope_key DO NOTHING`,
-    [user.id, role.id, schoolId(req), currentUser(req).id]
+    [user.id, role.id, institutionId(req), currentUser(req).id]
   );
   await auditAs(req, 'grant_role', `${role.name} → ${user.full_name}`);
   res.status(201).json({ ok: true });
 });
 
 router.delete('/users/:userId/roles/:roleId', ...guard, async (req, res) => {
-  const user = await findSchoolUser(req, id.parse(req.params.userId));
+  const user = await findInstitutionUser(req, id.parse(req.params.userId));
   const role = await findRole(req, id.parse(req.params.roleId));
-  if (role.key === 'school_admin') {
+  if (role.key === 'institution_admin') {
     const { rows } = await db.query<{ n: number }>(
       `SELECT count(*)::int n FROM user_roles ur JOIN roles r ON r.id=ur.role_id
-        WHERE r.key='school_admin' AND r.is_system AND ur.scope_type='school' AND ur.scope_id=$1 AND ur.user_id <> $2`,
-      [schoolId(req), user.id]
+        WHERE r.key='institution_admin' AND r.is_system AND ur.scope_type='institution' AND ur.scope_id=$1 AND ur.user_id <> $2`,
+      [institutionId(req), user.id]
     );
-    if (!rows[0]?.n) throw badRequest('A school needs at least one administrator.');
+    if (!rows[0]?.n) throw badRequest('An institution needs at least one administrator.');
   }
-  await db.query(`DELETE FROM user_roles WHERE user_id=$1 AND role_id=$2 AND scope_type='school' AND scope_id=$3`, [
+  await db.query(`DELETE FROM user_roles WHERE user_id=$1 AND role_id=$2 AND scope_type='institution' AND scope_id=$3`, [
     user.id,
     role.id,
-    schoolId(req),
+    institutionId(req),
   ]);
   await auditAs(req, 'revoke_role', `${role.name} ✕ ${user.full_name}`);
   res.json({ ok: true });

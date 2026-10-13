@@ -1,5 +1,5 @@
 // Invitation-based onboarding: accounts are created without a password; the person sets one
-// through a single-use emailed link (also shown to the admin, for schools that hand out links
+// through a single-use emailed link (also shown to the admin, for institutions that hand out links
 // on paper or by WhatsApp).
 import { asSystem, db } from '../db/context';
 import { createEmailToken } from './email-tokens';
@@ -14,8 +14,8 @@ export interface InviteInfo {
 /** Issue (or re-issue) an invitation for an account and email it. */
 export async function inviteUser(userId: number, invitedBy: { id: number | null; name: string }): Promise<InviteInfo> {
   const { rows } = await asSystem(() =>
-    db.query<{ email: string; full_name: string; school_id: number | null; school_name: string | null }>(
-      `SELECT u.email, u.full_name, u.school_id, s.name AS school_name FROM users u LEFT JOIN schools s ON s.id = u.school_id WHERE u.id = $1`,
+    db.query<{ email: string; full_name: string; institution_id: number | null; institution_name: string | null }>(
+      `SELECT u.email, u.full_name, u.institution_id, s.name AS institution_name FROM users u LEFT JOIN institutions s ON s.id = u.institution_id WHERE u.id = $1`,
       [userId]
     )
   );
@@ -25,11 +25,11 @@ export async function inviteUser(userId: number, invitedBy: { id: number | null;
   await sendInviteEmail({
     to: u.email,
     name: u.full_name,
-    schoolName: u.school_name ?? 'Acadex',
+    institutionName: u.institution_name ?? 'Acadex',
     inviter: invitedBy.name,
     token,
     userId,
-    schoolId: u.school_id,
+    institutionId: u.institution_id,
   });
   return { email: u.email, url: inviteUrl(token), expires_at: expiresAt.toISOString() };
 }

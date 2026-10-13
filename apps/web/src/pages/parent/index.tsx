@@ -37,7 +37,7 @@ function ParentDashboard() {
       <>
         <PageHeader title={t('nav.children', 'My children')} />
         <Card>
-          <EmptyState title={t('parent.none', 'No children are linked to your account yet')} description={t('parent.noneHelp', 'Ask the school office to link your children.')} />
+          <EmptyState title={t('parent.none', 'No children are linked to your account yet')} description={t('parent.noneHelp', 'Ask the institution office to link your children.')} />
         </Card>
       </>
     );

@@ -19,7 +19,7 @@ function run(script: string, args: string[] = [], env: Record<string, string> = 
     timeout: 120000,
   });
 }
-const schoolCount = async () => Number((await fixture.pool.query('SELECT count(*) FROM schools')).rows[0].count);
+const institutionCount = async () => Number((await fixture.pool.query('SELECT count(*) FROM institutions')).rows[0].count);
 
 beforeEach(async () => {
   await fixture.resetDb();
@@ -40,11 +40,11 @@ describe('npm scripts', () => {
 
 describe('migrate', () => {
   it('keeps existing data when run again', async () => {
-    const before = await schoolCount();
+    const before = await institutionCount();
     expect(before).toBe(2);
     const r = run('src/db/migrate.ts');
     expect(r.status, r.stderr + r.stdout).toBe(0);
-    expect(await schoolCount()).toBe(before);
+    expect(await institutionCount()).toBe(before);
   });
 
   it('records applied migrations and is idempotent', async () => {
@@ -61,19 +61,19 @@ describe('seed', () => {
   it('refuses to run on a database that already has data', async () => {
     const r = run('src/db/seed.ts');
     expect(r.status).not.toBe(0);
-    expect(await schoolCount()).toBe(2);
+    expect(await institutionCount()).toBe(2);
   });
 
   it('refuses to run in production even with --reset', async () => {
     const r = run('src/db/seed.ts', ['--reset'], { NODE_ENV: 'production' });
     expect(r.status).not.toBe(0);
-    expect(await schoolCount()).toBe(2);
+    expect(await institutionCount()).toBe(2);
   });
 
   it('replaces data when --reset is given', async () => {
     const r = run('src/db/seed.ts', ['--reset']);
     expect(r.status, r.stderr + r.stdout).toBe(0);
-    const { rows } = await fixture.pool.query('SELECT slug FROM schools ORDER BY slug');
+    const { rows } = await fixture.pool.query('SELECT slug FROM institutions ORDER BY slug');
     expect(rows.map((x) => x.slug)).toEqual(['greenwood', 'sunrise']);
   }, 120000);
 });

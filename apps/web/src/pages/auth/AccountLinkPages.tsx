@@ -22,7 +22,7 @@ export function AcceptInvitePage() {
   const [error, setError] = useState('');
   const invite = useQuery({
     queryKey: ['invite', token],
-    queryFn: () => api.get<{ email: string; full_name: string; school_name: string | null }>(`/auth/invites/${token}`),
+    queryFn: () => api.get<{ email: string; full_name: string; institution_name: string | null }>(`/auth/invites/${token}`),
     enabled: !!token,
     retry: false,
   });
@@ -32,14 +32,14 @@ export function AcceptInvitePage() {
       <h2 className="text-2xl font-bold">{t('auth.inviteTitle', 'Activate your account')}</h2>
       {!token || invite.isError ? (
         <Alert tone="danger" className="mt-4">
-          {t('auth.inviteInvalid', 'This invitation link is invalid or has expired. Ask your school for a new one.')}
+          {t('auth.inviteInvalid', 'This invitation link is invalid or has expired. Ask your institution for a new one.')}
         </Alert>
       ) : invite.isPending ? (
         <Spinner />
       ) : (
         <>
           <p className="mb-6 mt-1 text-sm text-fg-muted">
-            {t('auth.inviteSubtitle', '{{name}}, set a password to join {{school}}.', { name: invite.data.full_name, school: invite.data.school_name ?? 'Acadex' })}
+            {t('auth.inviteSubtitle', '{{name}}, set a password to join {{institution}}.', { name: invite.data.full_name, institution: invite.data.institution_name ?? 'Acadex' })}
           </p>
           <p className="mb-4 rounded-lg bg-surface-2 px-3 py-2 text-sm">{invite.data.email}</p>
           <NewPasswordForm

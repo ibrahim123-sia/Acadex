@@ -4,7 +4,7 @@ import pg from 'pg';
 const { Pool, types } = pg;
 
 // DATE columns stay 'YYYY-MM-DD' strings. The default parser turns them into a JS Date at
-// server-local midnight, which shifts the day when the server and school timezones differ.
+// server-local midnight, which shifts the day when the server and institution timezones differ.
 types.setTypeParser(types.builtins.DATE, (v: string) => v);
 
 // DATABASE_SSL: "false" for local Postgres, "no-verify" to skip cert checks,

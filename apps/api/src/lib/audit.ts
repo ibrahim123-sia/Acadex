@@ -5,7 +5,7 @@ import { logger } from './logger';
 const defaultDb: Queryable = db;
 
 export interface AuditEntry {
-  schoolId: number | null;
+  institutionId: number | null;
   userId?: number | null;
   actor: string;
   action: string;
@@ -17,8 +17,8 @@ export interface AuditEntry {
 export async function audit(entry: AuditEntry, db: Queryable = defaultDb): Promise<void> {
   const insert = (q: Queryable) =>
     q.query(
-      `INSERT INTO audit_log (school_id, user_id, actor, action, entity, detail) VALUES ($1,$2,$3,$4,$5,$6)`,
-      [entry.schoolId, entry.userId ?? null, entry.actor, entry.action, entry.entity ?? '', entry.detail ?? '']
+      `INSERT INTO audit_log (institution_id, user_id, actor, action, entity, detail) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [entry.institutionId, entry.userId ?? null, entry.actor, entry.action, entry.entity ?? '', entry.detail ?? '']
     );
   try {
     // in a savepoint, so a failed audit write never aborts the caller's transaction

@@ -1,7 +1,7 @@
 import type { Role } from './constants';
 import type { Permission } from './permissions';
 
-export interface SchoolSummary {
+export interface InstitutionSummary {
   id: number;
   name: string;
   slug: string;
@@ -17,7 +17,7 @@ export interface SchoolSummary {
 export interface SessionUser {
   id: number;
   role: Role;
-  school_id: number | null;
+  institution_id: number | null;
   full_name: string;
   email: string;
   ref_id: number | null;
@@ -32,7 +32,7 @@ export interface AuthResponse {
   access_token: string;
   expires_in: number;
   user: SessionUser;
-  school: SchoolSummary | null;
+  institution: InstitutionSummary | null;
 }
 
 export interface MfaChallengeResponse {

@@ -10,8 +10,8 @@ const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src')
 const MOUNTS: Record<string, string> = {
   'auth.ts': '/api/auth',
   'platform.ts': '/api/platform',
-  'school.ts': '/api/school',
-  'roles.ts': '/api/school',
+  'institution.ts': '/api/institution',
+  'roles.ts': '/api/institution',
   'me.ts': '/api/me',
   'parent.ts': '/api/parent',
   'pdf.ts': '/api/pdf',
@@ -40,7 +40,7 @@ describe('OpenAPI', () => {
     expect(res.body.openapi).toBe('3.1.0');
     const login = res.body.paths['/api/auth/login'].post;
     expect(login.requestBody.content['application/json'].schema.properties).toHaveProperty('email');
-    expect(res.body.paths['/api/platform/schools/{id}'].patch.description).toContain('platform.schools.manage');
+    expect(res.body.paths['/api/platform/institutions/{id}'].patch.description).toContain('platform.institutions.manage');
     expect(Object.keys(buildOpenApi().paths).length).toBeGreaterThan(50);
   });
 

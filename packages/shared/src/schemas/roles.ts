@@ -1,19 +1,19 @@
 import { z } from 'zod';
-import { SCHOOL_ASSIGNABLE_PERMISSIONS, type Permission } from '../permissions';
+import { INSTITUTION_ASSIGNABLE_PERMISSIONS, type Permission } from '../permissions';
 import { id, requiredText, text } from './common';
 
-const assignable = new Set<string>(SCHOOL_ASSIGNABLE_PERMISSIONS);
+const assignable = new Set<string>(INSTITUTION_ASSIGNABLE_PERMISSIONS);
 
-export const schoolPermission = z
+export const institutionPermission = z
   .string()
-  .refine((p) => assignable.has(p), { message: 'Unknown permission, or one a school role cannot hold' })
+  .refine((p) => assignable.has(p), { message: 'Unknown permission, or one an institution role cannot hold' })
   .transform((p) => p as Permission);
 
 export const createRoleBody = z.object({
   name: requiredText(80),
   description: text(300).default(''),
   permissions: z
-    .array(schoolPermission)
+    .array(institutionPermission)
     .min(1, 'Choose at least one permission')
     .max(100)
     .transform((ps) => [...new Set(ps)]),

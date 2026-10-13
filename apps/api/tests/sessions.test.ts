@@ -35,7 +35,7 @@ describe('refresh tokens', () => {
     const next = cookieFrom(res);
     expect(next).toBeTruthy();
     expect(next).not.toBe(s.cookie);
-    expect((await as(res.body.access_token).get('/api/school/students')).status).toBe(200);
+    expect((await as(res.body.access_token).get('/api/institution/students')).status).toBe(200);
   });
 
   it('reusing a spent refresh token revokes the whole session (theft detection)', async () => {
@@ -45,7 +45,7 @@ describe('refresh tokens', () => {
     expect(stolenReplay.status).toBe(401);
     // the legitimate holder's newer token and access token stop working too
     expect((await refresh(cookieFrom(first))).status).toBe(401);
-    expect((await as(first.body.access_token).get('/api/school/students')).status).toBe(401);
+    expect((await as(first.body.access_token).get('/api/institution/students')).status).toBe(401);
   });
 
   it('require the client header (no cross-site form posts)', async () => {
@@ -63,11 +63,11 @@ describe('refresh tokens', () => {
     expect((await refresh(s.cookie)).status).toBe(401);
   });
 
-  it('stop working when the school is suspended or the user deactivated', async () => {
+  it('stop working when the institution is suspended or the user deactivated', async () => {
     const s = await signIn();
-    await fixture.pool.query(`UPDATE schools SET status='suspended' WHERE id=$1`, [f.schools.A.id]);
+    await fixture.pool.query(`UPDATE institutions SET status='suspended' WHERE id=$1`, [f.institutions.A.id]);
     expect((await refresh(s.cookie)).status).toBe(403);
-    await fixture.pool.query(`UPDATE schools SET status='active' WHERE id=$1`, [f.schools.A.id]);
+    await fixture.pool.query(`UPDATE institutions SET status='active' WHERE id=$1`, [f.institutions.A.id]);
     const s2 = await signIn();
     await fixture.pool.query(`UPDATE users SET is_active=false WHERE id=$1`, [f.users.adminA.id]);
     expect((await refresh(s2.cookie)).status).toBe(401);
@@ -88,7 +88,7 @@ describe('logout and devices', () => {
     const out = await request(app).post('/api/auth/logout').set('X-Acadex-Client', 'web').set('Authorization', `Bearer ${s.access}`).set('Cookie', s.cookie);
     expect(out.status).toBe(200);
     expect(String(out.headers['set-cookie'])).toMatch(/acadex_rt=;/);
-    expect((await as(s.access).get('/api/school/students')).status).toBe(401);
+    expect((await as(s.access).get('/api/institution/students')).status).toBe(401);
     expect((await refresh(s.cookie)).status).toBe(401);
   });
 
@@ -103,16 +103,16 @@ describe('logout and devices', () => {
 
     const phoneId = mine.find((x) => x.user_agent === 'Phone').id;
     expect((await as(laptop.access).delete(`/api/auth/sessions/${phoneId}`)).status).toBe(200);
-    expect((await as(phone.access).get('/api/school/students')).status).toBe(401);
+    expect((await as(phone.access).get('/api/institution/students')).status).toBe(401);
     expect((await refresh(phone.cookie)).status).toBe(401);
-    expect((await as(laptop.access).get('/api/school/students')).status).toBe(200);
+    expect((await as(laptop.access).get('/api/institution/students')).status).toBe(200);
   });
 
   it("cannot sign out someone else's session", async () => {
     const other = await signIn('admin@beta.test');
     const { rows } = await fixture.pool.query(`SELECT id FROM sessions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1`, [f.users.adminB.id]);
     expect((await as(f.tokens.adminA).delete(`/api/auth/sessions/${rows[0].id}`)).status).toBe(404);
-    expect((await as(other.access).get('/api/school/students')).status).toBe(200);
+    expect((await as(other.access).get('/api/institution/students')).status).toBe(200);
   });
 
   it('"sign out other devices" keeps only the current one', async () => {
@@ -121,16 +121,16 @@ describe('logout and devices', () => {
     const res = await as(a.access).post('/api/auth/sessions/revoke-others');
     expect(res.status).toBe(200);
     expect(res.body.revoked).toBeGreaterThanOrEqual(1);
-    expect((await as(b.access).get('/api/school/students')).status).toBe(401);
-    expect((await as(a.access).get('/api/school/students')).status).toBe(200);
+    expect((await as(b.access).get('/api/institution/students')).status).toBe(401);
+    expect((await as(a.access).get('/api/institution/students')).status).toBe(200);
   });
 
   it('logout everywhere ends every session at once', async () => {
     const a = await signIn();
     const b = await signIn();
     expect((await as(a.access).post('/api/auth/logout-all')).status).toBe(200);
-    expect((await as(a.access).get('/api/school/students')).status).toBe(401);
-    expect((await as(b.access).get('/api/school/students')).status).toBe(401);
+    expect((await as(a.access).get('/api/institution/students')).status).toBe(401);
+    expect((await as(b.access).get('/api/institution/students')).status).toBe(401);
   });
 });
 
@@ -140,8 +140,8 @@ describe('password change and reset', () => {
     const elsewhere = await signIn();
     const res = await as(here.access).post('/api/auth/change-password', { current_password: f.PASSWORD, new_password: 'BrandNewPassw0rd' });
     expect(res.status).toBe(200);
-    expect((await as(res.body.access_token).get('/api/school/students')).status).toBe(200);
-    expect((await as(elsewhere.access).get('/api/school/students')).status).toBe(401);
+    expect((await as(res.body.access_token).get('/api/institution/students')).status).toBe(200);
+    expect((await as(elsewhere.access).get('/api/institution/students')).status).toBe(401);
     expect((await refresh(elsewhere.cookie)).status).toBe(401);
     const mails = await fixture.outbox('admin@alpha.test');
     expect(mails.some((m) => m.template === 'security_notice')).toBe(true);

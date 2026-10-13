@@ -12,23 +12,23 @@ interface Role {
   is_system: boolean;
 }
 
-/** Which roles one person holds in the school, with add/remove. */
+/** Which roles one person holds in the institution, with add/remove. */
 export function UserRolesDialog({ userId, name, onClose }: { userId: number | null; name: string; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [pick, setPick] = useState('');
   const held = useQuery({
     queryKey: ['user-roles', userId],
-    queryFn: () => api.get<Role[]>(`/school/users/${userId}/roles`),
+    queryFn: () => api.get<Role[]>(`/institution/users/${userId}/roles`),
     enabled: userId != null,
   });
-  const all = useQuery({ queryKey: ['roles'], queryFn: () => api.get<Role[]>('/school/roles'), enabled: userId != null });
+  const all = useQuery({ queryKey: ['roles'], queryFn: () => api.get<Role[]>('/institution/roles'), enabled: userId != null });
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['user-roles', userId] });
     void qc.invalidateQueries({ queryKey: ['roles'] });
   };
-  const add = useMutation({ mutationFn: (roleId: number) => api.post(`/school/users/${userId}/roles`, { role_id: roleId }), onSuccess: () => (setPick(''), invalidate()) });
-  const remove = useMutation({ mutationFn: (roleId: number) => api.delete(`/school/users/${userId}/roles/${roleId}`), onSuccess: invalidate });
+  const add = useMutation({ mutationFn: (roleId: number) => api.post(`/institution/users/${userId}/roles`, { role_id: roleId }), onSuccess: () => (setPick(''), invalidate()) });
+  const remove = useMutation({ mutationFn: (roleId: number) => api.delete(`/institution/users/${userId}/roles/${roleId}`), onSuccess: invalidate });
 
   const available = (all.data ?? []).filter((r) => !held.data?.some((h) => h.id === r.id));
   return (

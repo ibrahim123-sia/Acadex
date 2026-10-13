@@ -5,11 +5,11 @@ import { AdminStudents, AdminTeachers } from './People';
 import { AdminAnnouncements, AdminClasses, AdminFees } from './Office';
 import { AdminRoles } from './Roles';
 
-/** School-office pages; each one needs its own permission (custom roles may hold a subset). */
+/** Institution-office pages; each one needs its own permission (custom roles may hold a subset). */
 export default function AdminRoutes() {
   return (
     <Routes>
-      <Route index element={<RequireAuth permission="school.dashboard.read"><AdminDashboard /></RequireAuth>} />
+      <Route index element={<RequireAuth permission="institution.dashboard.read"><AdminDashboard /></RequireAuth>} />
       <Route path="students" element={<RequireAuth permission="students.read"><AdminStudents /></RequireAuth>} />
       <Route path="teachers" element={<RequireAuth permission="staff.read"><AdminTeachers /></RequireAuth>} />
       <Route path="classes" element={<RequireAuth permission="classes.read"><AdminClasses /></RequireAuth>} />

@@ -1,6 +1,6 @@
 // Turning a verified identity into a session: access token + refresh cookie + user profile.
 import type { Request, Response } from 'express';
-import type { AuthResponse, SchoolSummary } from '@acadex/shared';
+import type { AuthResponse, InstitutionSummary } from '@acadex/shared';
 import { getConfig } from '../config';
 import { asSystem, db } from '../db/context';
 import { loadUserRow, toAuthUser, toSessionUser, type UserRow } from '../middleware/auth';
@@ -28,12 +28,12 @@ export function clearRefreshCookie(res: Response): void {
 
 export const requestMeta = (req: Request) => ({ userAgent: String(req.headers['user-agent'] ?? ''), ip: req.ip ?? '' });
 
-export async function loadSchoolSummary(schoolId: number | null): Promise<SchoolSummary | null> {
-  if (!schoolId) return null;
+export async function loadInstitutionSummary(institutionId: number | null): Promise<InstitutionSummary | null> {
+  if (!institutionId) return null;
   const { rows } = await asSystem(() =>
-    db.query<SchoolSummary>(
-      'SELECT id, name, slug, logo_url, primary_color, plan, status, currency, timezone, locale FROM schools WHERE id=$1',
-      [schoolId]
+    db.query<InstitutionSummary>(
+      'SELECT id, name, slug, logo_url, primary_color, plan, status, currency, timezone, locale FROM institutions WHERE id=$1',
+      [institutionId]
     )
   );
   return rows[0] ?? null;
@@ -43,10 +43,10 @@ export async function loadSchoolSummary(schoolId: number | null): Promise<School
 export async function sessionResponse(row: UserRow, sessionId: string): Promise<AuthResponse> {
   const user = toAuthUser(row, sessionId);
   return {
-    access_token: signAccessToken({ id: row.id, tv: row.token_version, sid: sessionId, school_id: row.school_id }),
+    access_token: signAccessToken({ id: row.id, tv: row.token_version, sid: sessionId, institution_id: row.institution_id }),
     expires_in: accessTokenSeconds(),
     user: toSessionUser(user),
-    school: await loadSchoolSummary(row.school_id),
+    institution: await loadInstitutionSummary(row.institution_id),
   };
 }
 

@@ -13,7 +13,7 @@ import { buildOpenApi, docsHtml } from './openapi';
 import { loadDrizzleMigrations } from './db/migrate';
 import authRoutes from './routes/auth';
 import platformRoutes from './routes/platform';
-import schoolRoutes from './routes/school';
+import institutionRoutes from './routes/institution';
 import meRoutes from './routes/me';
 import parentRoutes from './routes/parent';
 import pdfRoutes from './routes/pdf';
@@ -41,7 +41,7 @@ export function createApp(config: Config = getConfig()) {
     '/api',
     rateLimit({ windowMs: 60 * 1000, limit: config.apiRateLimit, standardHeaders: 'draft-8', legacyHeaders: false })
   );
-  // Failed logins only, keyed by IP + email, so one attacker can't lock out a whole school.
+  // Failed logins only, keyed by IP + email, so one attacker can't lock out a whole institution.
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: config.loginRateLimit,
@@ -106,8 +106,8 @@ export function createApp(config: Config = getConfig()) {
   app.use('/api', dbContext);
   app.use('/api/auth', authRoutes);
   app.use('/api/platform', platformRoutes);
-  app.use('/api/school', rolesRoutes);
-  app.use('/api/school', schoolRoutes);
+  app.use('/api/institution', rolesRoutes);
+  app.use('/api/institution', institutionRoutes);
   app.use('/api/me', meRoutes);
   app.use('/api/parent', parentRoutes);
   app.use('/api/pdf', pdfRoutes);

@@ -16,16 +16,16 @@ describe('student submissions', () => {
     const res = await submit('s1', f.assignments.ASG1.id);
     expect(res.status).toBe(201);
     expect(res.body.student_id).toBe(f.students.S1.id);
-    expect(res.body.school_id).toBe(f.schools.A.id);
+    expect(res.body.institution_id).toBe(f.institutions.A.id);
   });
 
-  it('cannot submit to another class assignment in the same school', async () => {
+  it('cannot submit to another class assignment in the same institution', async () => {
     const res = await submit('s3', f.assignments.ASG1.id);
     expect(res.status).toBe(403);
     expect(await count()).toBe(0);
   });
 
-  it('cannot submit to an assignment of another school', async () => {
+  it('cannot submit to an assignment of another institution', async () => {
     const res = await submit('s1', f.assignments.ASGB.id);
     expect(res.status).toBe(404);
     expect(await count()).toBe(0);

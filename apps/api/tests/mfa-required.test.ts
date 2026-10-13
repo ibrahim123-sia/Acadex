@@ -19,7 +19,7 @@ describe('2FA required for administrators', () => {
     const res = await request(app).post('/api/auth/login').send({ email: 'admin@alpha.test', password: f.PASSWORD });
     expect(res.status).toBe(200);
     expect(res.body.user.mfa_enrollment_required).toBe(true);
-    const blocked = await as(res.body.access_token).get('/api/school/students');
+    const blocked = await as(res.body.access_token).get('/api/institution/students');
     expect(blocked.status).toBe(403);
     expect(blocked.body.code).toBe('MFA_ENROLLMENT_REQUIRED');
     expect((await as(res.body.access_token).get('/api/auth/me')).status).toBe(200);
@@ -28,12 +28,12 @@ describe('2FA required for administrators', () => {
     const enabled = await as(res.body.access_token).post('/api/auth/mfa/totp/enable', { code: totpAt(setup.body.secret, currentStep()) });
     expect(enabled.status).toBe(200);
     expect(enabled.body.user.mfa_enrollment_required).toBe(false);
-    expect((await as(enabled.body.access_token).get('/api/school/students')).status).toBe(200);
+    expect((await as(enabled.body.access_token).get('/api/institution/students')).status).toBe(200);
   });
 
   it('platform administrators too', async () => {
     const res = await request(app).post('/api/auth/login').send({ email: 'super@acadex.test', password: f.PASSWORD });
-    expect((await as(res.body.access_token).get('/api/platform/schools')).body.code).toBe('MFA_ENROLLMENT_REQUIRED');
+    expect((await as(res.body.access_token).get('/api/platform/institutions')).body.code).toBe('MFA_ENROLLMENT_REQUIRED');
   });
 
   it('teachers, students and parents are not forced', async () => {

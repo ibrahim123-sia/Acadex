@@ -46,7 +46,7 @@ function TeacherDashboard() {
       <DataTable
         rows={d.subjects}
         rowKey={(r) => r.id}
-        empty={t('teacher.noSubjects', 'No subjects assigned yet. Ask your school administrator.')}
+        empty={t('teacher.noSubjects', 'No subjects assigned yet. Ask your institution administrator.')}
         columns={[
           { key: 'subject', header: t('teacher.subject', 'Subject'), cell: (s) => <span className="font-medium">{s.subject}</span> },
           { key: 'class', header: t('common.class', 'Class'), cell: (s) => s.class_name },

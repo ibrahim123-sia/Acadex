@@ -1,4 +1,4 @@
-// Bug #5 (+ admin writes): ids in request bodies must belong to the class / school,
+// Bug #5 (+ admin writes): ids in request bodies must belong to the class / institution,
 // values must be sane, and a rejected batch must write nothing.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { as, fixture } from './helpers/http';
@@ -20,7 +20,7 @@ const grades = (records, extra = {}) => ({
 });
 
 describe('teacher attendance input', () => {
-  it('rejects a student from another class of the same school, writing nothing', async () => {
+  it('rejects a student from another class of the same institution, writing nothing', async () => {
     const res = await as(f.tokens.t1).post('/api/me/teacher/attendance', attendance([
       { student_id: f.students.S1.id, status: 'Present' },
       { student_id: f.students.S3.id, status: 'Absent' },
@@ -29,7 +29,7 @@ describe('teacher attendance input', () => {
     expect(await count('student_attendance')).toBe(0);
   });
 
-  it('rejects a student from another school', async () => {
+  it('rejects a student from another institution', async () => {
     const res = await as(f.tokens.t1).post('/api/me/teacher/attendance', attendance([{ student_id: f.students.SB.id, status: 'Absent' }]));
     expect(res.status).toBe(400);
     expect(await count('student_attendance')).toBe(0);
@@ -64,7 +64,7 @@ describe('teacher attendance input', () => {
 });
 
 describe('teacher grade input', () => {
-  it('rejects a student from another school, writing nothing', async () => {
+  it('rejects a student from another institution, writing nothing', async () => {
     const res = await as(f.tokens.t1).post('/api/me/teacher/grades', grades([
       { student_id: f.students.S1.id, obtained_marks: 5 },
       { student_id: f.students.SB.id, obtained_marks: 5 },
@@ -100,21 +100,21 @@ describe('teacher grade input', () => {
 });
 
 describe('admin writes', () => {
-  it('cannot record a fee for a student of another school', async () => {
+  it('cannot record a fee for a student of another institution', async () => {
     const before = await count('tuition_fee');
-    const res = await as(f.tokens.adminA).post('/api/school/fees', { student_id: f.students.SB.id, total_fee: 100, paid_amount: 0 });
+    const res = await as(f.tokens.adminA).post('/api/institution/fees', { student_id: f.students.SB.id, total_fee: 100, paid_amount: 0 });
     expect(res.status).toBe(400);
     expect(await count('tuition_fee')).toBe(before);
   });
 
   it('cannot record a payment larger than the fee or a negative amount', async () => {
     const a = as(f.tokens.adminA);
-    expect((await a.post('/api/school/fees', { student_id: f.students.S1.id, total_fee: 100, paid_amount: 150 })).status).toBe(400);
-    expect((await a.post('/api/school/fees', { student_id: f.students.S1.id, total_fee: -5 })).status).toBe(400);
+    expect((await a.post('/api/institution/fees', { student_id: f.students.S1.id, total_fee: 100, paid_amount: 150 })).status).toBe(400);
+    expect((await a.post('/api/institution/fees', { student_id: f.students.S1.id, total_fee: -5 })).status).toBe(400);
   });
 
-  it('cannot admit a student into a class of another school', async () => {
-    const res = await as(f.tokens.adminA).post('/api/school/students', {
+  it('cannot admit a student into a class of another institution', async () => {
+    const res = await as(f.tokens.adminA).post('/api/institution/students', {
       first_name: 'New',
       last_name: 'Kid',
       email: 'new.kid@alpha.test',
@@ -125,25 +125,25 @@ describe('admin writes', () => {
   });
 
   it('rejects an invalid email', async () => {
-    const res = await as(f.tokens.adminA).post('/api/school/teachers', { first_name: 'A', last_name: 'B', email: 'not-an-email' });
+    const res = await as(f.tokens.adminA).post('/api/institution/teachers', { first_name: 'A', last_name: 'B', email: 'not-an-email' });
     expect(res.status).toBe(400);
   });
 
   it('rejects an unknown announcement audience', async () => {
-    const res = await as(f.tokens.adminA).post('/api/school/announcements', { title: 'x', description: 'y', target_audience: 'Aliens' });
+    const res = await as(f.tokens.adminA).post('/api/institution/announcements', { title: 'x', description: 'y', target_audience: 'Aliens' });
     expect(res.status).toBe(400);
   });
 });
 
 describe('platform writes', () => {
-  it('rejects an invalid school status or plan', async () => {
+  it('rejects an invalid institution status or plan', async () => {
     const s = as(f.tokens.super);
-    expect((await s.patch(`/api/platform/schools/${f.schools.A.id}`, { status: 'deleted' })).status).toBe(400);
-    expect((await s.patch(`/api/platform/schools/${f.schools.A.id}`, { plan: 'gold' })).status).toBe(400);
+    expect((await s.patch(`/api/platform/institutions/${f.institutions.A.id}`, { status: 'deleted' })).status).toBe(400);
+    expect((await s.patch(`/api/platform/institutions/${f.institutions.A.id}`, { plan: 'gold' })).status).toBe(400);
   });
 
   it('rejects an invalid slug', async () => {
-    const res = await as(f.tokens.super).post('/api/platform/schools', { name: 'X', slug: 'Bad Slug!', adminEmail: 'x@x.test' });
+    const res = await as(f.tokens.super).post('/api/platform/institutions', { name: 'X', slug: 'Bad Slug!', adminEmail: 'x@x.test' });
     expect(res.status).toBe(400);
   });
 });

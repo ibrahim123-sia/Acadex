@@ -1,10 +1,10 @@
-export const ROLES = ['super_admin', 'school_admin', 'teacher', 'student', 'parent'] as const;
+export const ROLES = ['super_admin', 'institution_admin', 'teacher', 'student', 'parent'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const PLANS = ['free', 'pro', 'enterprise'] as const;
 export type Plan = (typeof PLANS)[number];
 
-export const SCHOOL_STATUSES = ['active', 'suspended'] as const;
+export const INSTITUTION_STATUSES = ['active', 'suspended'] as const;
 
 export const ATTENDANCE_STATUSES = ['Present', 'Absent', 'Leave'] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
@@ -20,11 +20,11 @@ export const MAX_PAGE_SIZE = 100;
 /** Portal home route per primary role. */
 export const HOME_ROUTE: Record<Role, string> = {
   super_admin: '/platform',
-  school_admin: '/admin',
+  institution_admin: '/admin',
   teacher: '/teacher',
   student: '/student',
   parent: '/parent',
 };
 
 /** Roles that must use two-factor authentication when ADMIN_MFA=required. */
-export const MFA_REQUIRED_ROLES: readonly Role[] = ['super_admin', 'school_admin'];
+export const MFA_REQUIRED_ROLES: readonly Role[] = ['super_admin', 'institution_admin'];

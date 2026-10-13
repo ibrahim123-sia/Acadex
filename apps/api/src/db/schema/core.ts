@@ -3,8 +3,8 @@
 import { sql } from 'drizzle-orm';
 import { boolean, check, foreignKey, index, integer, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
 
-export const schools = pgTable(
-  'schools',
+export const institutions = pgTable(
+  'institutions',
   {
     id: serial('id').primaryKey(),
     name: text('name').notNull(),
@@ -22,10 +22,10 @@ export const schools = pgTable(
     locale: text('locale').default('en-PK').notNull(),
   },
   (t) => [
-    unique('schools_slug_key').on(t.slug),
-    check('schools_currency_iso', sql`${t.currency} ~ '^[A-Z]{3}$'::text`),
-    check('schools_plan_check', sql`${t.plan} = ANY (ARRAY['free'::text, 'pro'::text, 'enterprise'::text])`),
-    check('schools_status_check', sql`${t.status} = ANY (ARRAY['active'::text, 'suspended'::text])`),
+    unique('institutions_slug_key').on(t.slug),
+    check('institutions_currency_iso', sql`${t.currency} ~ '^[A-Z]{3}$'::text`),
+    check('institutions_plan_check', sql`${t.plan} = ANY (ARRAY['free'::text, 'pro'::text, 'enterprise'::text])`),
+    check('institutions_status_check', sql`${t.status} = ANY (ARRAY['active'::text, 'suspended'::text])`),
   ]
 );
 
@@ -33,7 +33,7 @@ export const users = pgTable(
   'users',
   {
     id: serial('id').primaryKey(),
-    schoolId: integer('school_id'), // NULL only for platform staff
+    institutionId: integer('institution_id'), // NULL only for platform staff
     role: text('role').notNull(),
     email: text('email').notNull(),
     /** NULL until an invited user sets a password */
@@ -50,12 +50,12 @@ export const users = pgTable(
     mfaEnabled: boolean('mfa_enabled').notNull().default(false),
   },
   (t) => [
-    index('idx_users_school').on(t.schoolId),
-    foreignKey({ columns: [t.schoolId], foreignColumns: [schools.id], name: 'users_school_id_fkey' }).onDelete('cascade'),
+    index('idx_users_institution').on(t.institutionId),
+    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'users_institution_id_fkey' }).onDelete('cascade'),
     unique('users_email_key').on(t.email),
     check(
       'users_role_check',
-      sql`${t.role} = ANY (ARRAY['super_admin'::text, 'school_admin'::text, 'teacher'::text, 'student'::text, 'parent'::text])`
+      sql`${t.role} = ANY (ARRAY['super_admin'::text, 'institution_admin'::text, 'teacher'::text, 'student'::text, 'parent'::text])`
     ),
   ]
 );

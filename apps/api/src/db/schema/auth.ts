@@ -114,7 +114,7 @@ export const emailOutbox = pgTable(
     htmlBody: text('html_body').notNull().default(''),
     template: text('template').notNull().default(''),
     userId: integer('user_id'),
-    schoolId: integer('school_id'),
+    institutionId: integer('institution_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     sentAt: timestamp('sent_at', { withTimezone: true }),
     attempts: integer('attempts').notNull().default(0),

@@ -1,10 +1,10 @@
 // Request-scoped database context and Row-Level Security.
 //
 // Every API request runs its queries in one transaction on one connection. Before the first
-// query (and whenever the context changes) the transaction-local settings app.school_id,
+// query (and whenever the context changes) the transaction-local settings app.institution_id,
 // app.user_id and app.bypass_rls are applied, and the RLS policies on tenant tables use them.
-// A query that forgot its `school_id = ...` filter therefore still cannot see another
-// school's rows.
+// A query that forgot its `institution_id = ...` filter therefore still cannot see another
+// institution's rows.
 //
 // The transaction commits before the response is sent (so a failed commit can never look
 // like a success to the client) and rolls back for error responses.
@@ -15,7 +15,7 @@ import { pool } from './pool';
 import { logger } from '../lib/logger';
 
 interface DbStore {
-  schoolId: number | null;
+  institutionId: number | null;
   userId: number | null;
   bypass: boolean;
   client?: pg.PoolClient;
@@ -26,7 +26,7 @@ interface DbStore {
 
 const als = new AsyncLocalStorage<DbStore>();
 
-const settingsKey = (s: DbStore) => `${s.bypass ? 'on' : 'off'}|${s.schoolId ?? ''}|${s.userId ?? ''}`;
+const settingsKey = (s: DbStore) => `${s.bypass ? 'on' : 'off'}|${s.institutionId ?? ''}|${s.userId ?? ''}`;
 
 const intSetting = (v: number | null) => {
   if (v == null) return '';
@@ -37,7 +37,7 @@ const intSetting = (v: number | null) => {
 /** One statement setting all three values (only integers and on/off, so inlining is safe). */
 const settingsSql = (s: DbStore) =>
   `SELECT set_config('app.bypass_rls', '${s.bypass ? 'on' : 'off'}', true), ` +
-  `set_config('app.school_id', '${intSetting(s.schoolId)}', true), ` +
+  `set_config('app.institution_id', '${intSetting(s.institutionId)}', true), ` +
   `set_config('app.user_id', '${intSetting(s.userId)}', true)`;
 
 async function clientFor(store: DbStore): Promise<pg.PoolClient> {
@@ -87,7 +87,7 @@ export type Db = typeof db;
 
 /** Express middleware: one database context (and transaction) per request. */
 export const dbContext: RequestHandler = (req, res, next) => {
-  const store: DbStore = { schoolId: null, userId: null, bypass: false, savepoints: 0 };
+  const store: DbStore = { institutionId: null, userId: null, bypass: false, savepoints: 0 };
   // Commit / roll back right before the response is finished.
   const end = res.end.bind(res) as (...args: unknown[]) => typeof res;
   res.end = ((...args: unknown[]) => {
@@ -109,11 +109,11 @@ export const dbContext: RequestHandler = (req, res, next) => {
   als.run(store, next);
 };
 
-/** After authentication: scope the rest of the request to the user's school. */
-export function setTenant(schoolId: number | null, userId: number | null): void {
+/** After authentication: scope the rest of the request to the user's institution. */
+export function setTenant(institutionId: number | null, userId: number | null): void {
   const store = als.getStore();
   if (!store) throw new Error('setTenant() outside a database context');
-  store.schoolId = schoolId;
+  store.institutionId = institutionId;
   store.userId = userId;
   store.bypass = false;
 }
@@ -147,7 +147,7 @@ export async function asSystem<T>(fn: () => Promise<T>): Promise<T> {
 
 /** A standalone system transaction (scripts, background jobs). */
 export async function runAsSystem<T>(fn: () => Promise<T>): Promise<T> {
-  const store: DbStore = { schoolId: null, userId: null, bypass: true, savepoints: 0 };
+  const store: DbStore = { institutionId: null, userId: null, bypass: true, savepoints: 0 };
   return als.run(store, async () => {
     try {
       const result = await fn();
@@ -160,9 +160,9 @@ export async function runAsSystem<T>(fn: () => Promise<T>): Promise<T> {
   });
 }
 
-/** A standalone transaction scoped to one school (background jobs acting for a tenant). */
-export async function runAsTenant<T>(schoolId: number, fn: () => Promise<T>): Promise<T> {
-  const store: DbStore = { schoolId, userId: null, bypass: false, savepoints: 0 };
+/** A standalone transaction scoped to one institution (background jobs acting for a tenant). */
+export async function runAsTenant<T>(institutionId: number, fn: () => Promise<T>): Promise<T> {
+  const store: DbStore = { institutionId, userId: null, bypass: false, savepoints: 0 };
   return als.run(store, async () => {
     try {
       const result = await fn();

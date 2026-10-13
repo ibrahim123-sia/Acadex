@@ -35,7 +35,7 @@ import { NotificationBell } from './NotificationBell';
 
 const ROLE_LABEL: Record<Role, string> = {
   super_admin: 'Platform',
-  school_admin: 'Administrator',
+  institution_admin: 'Administrator',
   teacher: 'Teacher',
   student: 'Student',
   parent: 'Parent',
@@ -56,15 +56,15 @@ function useNav(): { title: string; items: NavItem[] }[] {
     {
       title: t('nav.platform', 'Platform'),
       items: [
-        { to: '/platform', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'platform.schools.read', end: true },
-        { to: '/platform/schools', label: t('nav.schools', 'Schools'), icon: Building2, permission: 'platform.schools.read' },
+        { to: '/platform', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'platform.institutions.read', end: true },
+        { to: '/platform/institutions', label: t('nav.institutions', 'Institutions'), icon: Building2, permission: 'platform.institutions.read' },
         { to: '/platform/audit', label: t('nav.audit', 'Audit log'), icon: ScrollText, permission: 'platform.audit.read' },
       ],
     },
     {
-      title: t('nav.schoolOffice', 'School office'),
+      title: t('nav.institutionOffice', 'Institution office'),
       items: [
-        { to: '/admin', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'school.dashboard.read', end: true },
+        { to: '/admin', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'institution.dashboard.read', end: true },
         { to: '/admin/students', label: t('nav.students', 'Students'), icon: Users, permission: 'students.read' },
         { to: '/admin/teachers', label: t('nav.teachers', 'Teachers'), icon: GraduationCap, permission: 'staff.read' },
         { to: '/admin/classes', label: t('nav.classes', 'Classes'), icon: BookOpen, permission: 'classes.read' },
@@ -99,7 +99,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation();
-  const { user, school, can, logout } = useAuth();
+  const { user, institution, can, logout } = useAuth();
   const sections = useNav()
     .map((s) => ({ ...s, items: s.items.filter((i) => can(i.permission)) }))
     .filter((s) => s.items.length);
@@ -107,7 +107,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-fg">
       <div className="flex items-center gap-2 border-b border-white/10 px-5 py-5">
-        <div className="grid size-9 place-items-center rounded-lg font-bold text-white" style={{ background: school?.primary_color || '#4f46e5' }}>
+        <div className="grid size-9 place-items-center rounded-lg font-bold text-white" style={{ background: institution?.primary_color || '#4f46e5' }}>
           A
         </div>
         <div>
@@ -115,10 +115,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="text-[11px] text-sidebar-fg/80">{t('nav.portal', '{{role}} portal', { role: roleLabel })}</div>
         </div>
       </div>
-      {school && (
+      {institution && (
         <div className="flex items-center gap-2 border-b border-white/10 px-5 py-3 text-sm">
           <School className="size-4 shrink-0 opacity-70" aria-hidden />
-          <span className="truncate text-white/90">{school.name}</span>
+          <span className="truncate text-white/90">{institution.name}</span>
         </div>
       )}
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4" aria-label={t('nav.menu', 'Menu')}>

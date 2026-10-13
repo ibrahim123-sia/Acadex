@@ -20,18 +20,18 @@ export const inviteUrl = (token: string) => `${getConfig().appUrl}/accept-invite
 export const resetUrl = (token: string) => `${getConfig().appUrl}/reset-password#token=${token}`;
 export const verifyUrl = (token: string) => `${getConfig().appUrl}/verify-email#token=${token}`;
 
-export async function sendInviteEmail(p: { to: string; name: string; schoolName: string; inviter: string; token: string; userId: number; schoolId: number | null }) {
+export async function sendInviteEmail(p: { to: string; name: string; institutionName: string; inviter: string; token: string; userId: number; institutionId: number | null }) {
   const url = inviteUrl(p.token);
   await sendEmail({
     to: p.to,
-    subject: `You're invited to ${p.schoolName} on Acadex`,
+    subject: `You're invited to ${p.institutionName} on Acadex`,
     template: 'invite',
     userId: p.userId,
-    schoolId: p.schoolId,
-    text: `Hello ${p.name},\n\n${p.inviter} has invited you to ${p.schoolName} on Acadex.\nSet your password to activate your account (the link is valid for 7 days):\n\n${url}\n\nIf you weren't expecting this, you can ignore this email.`,
+    institutionId: p.institutionId,
+    text: `Hello ${p.name},\n\n${p.inviter} has invited you to ${p.institutionName} on Acadex.\nSet your password to activate your account (the link is valid for 7 days):\n\n${url}\n\nIf you weren't expecting this, you can ignore this email.`,
     html: layout(
-      `Join ${p.schoolName} on Acadex`,
-      `<p>Hello ${esc(p.name)},</p><p>${esc(p.inviter)} has invited you to <b>${esc(p.schoolName)}</b>. Set your password to activate your account. The link is valid for 7 days.</p>`,
+      `Join ${p.institutionName} on Acadex`,
+      `<p>Hello ${esc(p.name)},</p><p>${esc(p.inviter)} has invited you to <b>${esc(p.institutionName)}</b>. Set your password to activate your account. The link is valid for 7 days.</p>`,
       { label: 'Set my password', url }
     ),
   });
@@ -74,7 +74,7 @@ export async function sendSecurityNotice(p: { to: string; name: string; userId: 
     subject: `Security notice: ${p.what}`,
     template: 'security_notice',
     userId: p.userId,
-    text: `Hello ${p.name},\n\n${p.what} on your Acadex account just now. If this wasn't you, reset your password immediately and contact your school administrator.`,
-    html: layout(`Security notice`, `<p>Hello ${esc(p.name)},</p><p><b>${esc(p.what)}</b> on your Acadex account just now.</p><p>If this wasn't you, reset your password immediately and contact your school administrator.</p>`),
+    text: `Hello ${p.name},\n\n${p.what} on your Acadex account just now. If this wasn't you, reset your password immediately and contact your institution administrator.`,
+    html: layout(`Security notice`, `<p>Hello ${esc(p.name)},</p><p><b>${esc(p.what)}</b> on your Acadex account just now.</p><p>If this wasn't you, reset your password immediately and contact your institution administrator.</p>`),
   });
 }

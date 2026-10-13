@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { Building2, GraduationCap, Plus, Users, Wallet } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { createSchoolBody, PLANS } from '@acadex/shared';
+import { createInstitutionBody, PLANS } from '@acadex/shared';
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { usePagedList } from '@/lib/queries';
@@ -16,12 +16,12 @@ import { Alert, Button, Card, DataTable, Dialog, ErrorState, Field, Input, PageH
 import { RequireAuth } from '@/components/RequireAuth';
 
 interface Stats {
-  schools: number;
-  activeSchools: number;
+  institutions: number;
+  activeInstitutions: number;
   students: number;
   teachers: number;
   revenueByCurrency: { currency: string; amount: number }[];
-  recentSchools: { id: number; name: string; students: number }[];
+  recentInstitutions: { id: number; name: string; students: number }[];
 }
 
 function PlatformDashboard() {
@@ -35,22 +35,22 @@ function PlatformDashboard() {
     <>
       <PageHeader title={t('platform.title', 'Platform overview')} subtitle={t('platform.subtitle', 'All institutions on Acadex')} />
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label={t('platform.schools', 'Schools')} value={d.schools} sub={t('platform.active', '{{count}} active', { count: d.activeSchools })} icon={Building2} />
+        <StatCard label={t('platform.institutions', 'Institutions')} value={d.institutions} sub={t('platform.active', '{{count}} active', { count: d.activeInstitutions })} icon={Building2} />
         <StatCard label={t('nav.students', 'Students')} value={d.students} icon={Users} tone="success" />
         <StatCard label={t('nav.teachers', 'Teachers')} value={d.teachers} icon={GraduationCap} tone="warning" />
         <StatCard
           label={t('platform.fees', 'Fees collected')}
           value={first ? formatMoney(first.amount, first.currency) : '—'}
-          sub={rest.map((r) => formatMoney(r.amount, r.currency)).join(' · ') || t('platform.allSchools', 'across all schools')}
+          sub={rest.map((r) => formatMoney(r.amount, r.currency)).join(' · ') || t('platform.allInstitutions', 'across all institutions')}
           icon={Wallet}
           tone="danger"
         />
       </div>
       <Card className="p-5">
-        <h2 className="mb-4 font-semibold">{t('platform.recent', 'Recently added schools')}</h2>
+        <h2 className="mb-4 font-semibold">{t('platform.recent', 'Recently added institutions')}</h2>
         <div dir="ltr">
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={d.recentSchools}>
+            <BarChart data={d.recentInstitutions}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
               <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--fg-muted)' }} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: 'var(--fg-muted)' }} />
@@ -64,7 +64,7 @@ function PlatformDashboard() {
   );
 }
 
-interface SchoolRow {
+interface InstitutionRow {
   id: number;
   name: string;
   slug: string;
@@ -85,19 +85,19 @@ const TIMEZONES = (() => {
   }
 })();
 
-function RegisterSchoolDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function RegisterInstitutionDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [created, setCreated] = useState<{ name: string; invite: Invite } | null>(null);
-  const form = useForm<z.input<typeof createSchoolBody>>({
-    resolver: zodResolver(createSchoolBody),
+  const form = useForm<z.input<typeof createInstitutionBody>>({
+    resolver: zodResolver(createInstitutionBody),
     defaultValues: { name: '', slug: '', plan: 'free', adminName: '', adminEmail: '', currency: 'PKR', timezone: 'Asia/Karachi', locale: 'en-PK' },
   });
   const m = useMutation({
-    mutationFn: (v: z.input<typeof createSchoolBody>) => api.post<{ school: { name: string }; admin: { invite: Invite } }>('/platform/schools', v),
+    mutationFn: (v: z.input<typeof createInstitutionBody>) => api.post<{ institution: { name: string }; admin: { invite: Invite } }>('/platform/institutions', v),
     onSuccess: (r) => {
-      setCreated({ name: r.school.name, invite: r.admin.invite });
-      void qc.invalidateQueries({ queryKey: ['/platform/schools'] });
+      setCreated({ name: r.institution.name, invite: r.admin.invite });
+      void qc.invalidateQueries({ queryKey: ['/platform/institutions'] });
     },
   });
   const close = () => {
@@ -108,12 +108,12 @@ function RegisterSchoolDialog({ open, onClose }: { open: boolean; onClose: () =>
   };
   const e = form.formState.errors;
   return (
-    <Dialog open={open} onClose={close} title={t('platform.register', 'Register a school')}>
+    <Dialog open={open} onClose={close} title={t('platform.register', 'Register an institution')}>
       {created ? (
         <InviteNotice title={t('platform.onboarded', '{{name}} is ready', { name: created.name })} invite={created.invite} onDone={close} />
       ) : (
         <form className="space-y-4" noValidate onSubmit={form.handleSubmit((v) => m.mutate(v))}>
-          <Field label={t('platform.schoolName', 'School name')} error={e.name?.message}>
+          <Field label={t('platform.institutionName', 'Institution name')} error={e.name?.message}>
             {(a) => (
               <Input
                 {...a}
@@ -168,7 +168,7 @@ function RegisterSchoolDialog({ open, onClose }: { open: boolean; onClose: () =>
           {m.isError && <Alert tone="danger">{errorMessage(m.error)}</Alert>}
           <div className="flex justify-end">
             <Button type="submit" loading={m.isPending}>
-              {t('platform.register', 'Register a school')}
+              {t('platform.register', 'Register an institution')}
             </Button>
           </div>
         </form>
@@ -177,28 +177,28 @@ function RegisterSchoolDialog({ open, onClose }: { open: boolean; onClose: () =>
   );
 }
 
-function PlatformSchools() {
+function PlatformInstitutions() {
   const { t } = useTranslation();
   const toast = useToast();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const list = usePagedList<SchoolRow>('/platform/schools');
+  const list = usePagedList<InstitutionRow>('/platform/institutions');
   const setStatus = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: 'active' | 'suspended' }) => api.patch(`/platform/schools/${id}`, { status }),
+    mutationFn: ({ id, status }: { id: number; status: 'active' | 'suspended' }) => api.patch(`/platform/institutions/${id}`, { status }),
     onSuccess: (_r, v) => {
-      toast('success', v.status === 'suspended' ? t('platform.suspended', 'School suspended') : t('platform.reactivated', 'School reactivated'));
-      void qc.invalidateQueries({ queryKey: ['/platform/schools'] });
+      toast('success', v.status === 'suspended' ? t('platform.suspended', 'Institution suspended') : t('platform.reactivated', 'Institution reactivated'));
+      void qc.invalidateQueries({ queryKey: ['/platform/institutions'] });
     },
     onError: (e) => toast('error', errorMessage(e)),
   });
   return (
     <>
       <PageHeader
-        title={t('nav.schools', 'Schools')}
-        subtitle={t('platform.schoolsSubtitle', 'Every institution on the platform')}
+        title={t('nav.institutions', 'Institutions')}
+        subtitle={t('platform.institutionsSubtitle', 'Every institution on the platform')}
         actions={
           <Button onClick={() => setOpen(true)}>
-            <Plus className="size-4" /> {t('platform.register', 'Register a school')}
+            <Plus className="size-4" /> {t('platform.register', 'Register an institution')}
           </Button>
         }
       />
@@ -240,7 +240,7 @@ function PlatformSchools() {
         ]}
       />
       {list.data && <Pager page={list.page} pageSize={list.pageSize} total={list.data.total} onPage={list.setPage} />}
-      <RegisterSchoolDialog open={open} onClose={() => setOpen(false)} />
+      <RegisterInstitutionDialog open={open} onClose={() => setOpen(false)} />
     </>
   );
 }
@@ -248,7 +248,7 @@ function PlatformSchools() {
 interface AuditRow {
   id: number;
   created_at: string;
-  school_name: string | null;
+  institution_name: string | null;
   actor: string;
   action: string;
   entity: string;
@@ -269,7 +269,7 @@ function PlatformAudit() {
         rowKey={(r) => r.id}
         columns={[
           { key: 'when', header: t('platform.when', 'When'), cell: (a) => <span className="whitespace-nowrap text-fg-muted">{formatDateTime(a.created_at)}</span> },
-          { key: 'school', header: t('platform.school', 'School'), cell: (a) => a.school_name ?? '—', hideOnMobile: true },
+          { key: 'institution', header: t('platform.institution', 'Institution'), cell: (a) => a.institution_name ?? '—', hideOnMobile: true },
           { key: 'actor', header: t('platform.actor', 'By'), cell: (a) => a.actor },
           { key: 'action', header: t('platform.action', 'Action'), cell: (a) => <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">{a.action}</code> },
           { key: 'detail', header: t('platform.detail', 'Details'), cell: (a) => <span className="text-fg-muted">{a.detail || a.entity}</span>, hideOnMobile: true },
@@ -283,8 +283,8 @@ function PlatformAudit() {
 export default function PlatformRoutes() {
   return (
     <Routes>
-      <Route index element={<RequireAuth permission="platform.schools.read"><PlatformDashboard /></RequireAuth>} />
-      <Route path="schools" element={<RequireAuth permission="platform.schools.read"><PlatformSchools /></RequireAuth>} />
+      <Route index element={<RequireAuth permission="platform.institutions.read"><PlatformDashboard /></RequireAuth>} />
+      <Route path="institutions" element={<RequireAuth permission="platform.institutions.read"><PlatformInstitutions /></RequireAuth>} />
       <Route path="audit" element={<RequireAuth permission="platform.audit.read"><PlatformAudit /></RequireAuth>} />
     </Routes>
   );

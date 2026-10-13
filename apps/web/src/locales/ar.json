@@ -29,7 +29,7 @@
   },
   "nav": {
     "dashboard": "لوحة التحكم",
-    "schools": "المؤسسات",
+    "institutions": "المؤسسات",
     "audit": "سجل التدقيق",
     "students": "الطلاب",
     "teachers": "المعلمون",
@@ -52,7 +52,7 @@
   "roles": {
     "label": {
       "super_admin": "المنصة",
-      "school_admin": "المدير",
+      "institution_admin": "المدير",
       "teacher": "المعلم",
       "student": "الطالب",
       "parent": "ولي الأمر"
@@ -82,7 +82,7 @@
     "passwordHint": "10 أحرف على الأقل، تتضمن حروفًا وأرقامًا.",
     "passwordsDontMatch": "كلمتا المرور غير متطابقتين",
     "inviteTitle": "فعّل حسابك",
-    "inviteSubtitle": "{{name}}، اختر كلمة مرور للانضمام إلى {{school}}.",
+    "inviteSubtitle": "{{name}}، اختر كلمة مرور للانضمام إلى {{institution}}.",
     "inviteInvalid": "رابط الدعوة غير صالح أو منتهي الصلاحية. اطلب رابطًا جديدًا من مؤسستك.",
     "activate": "تفعيل الحساب",
     "forgotTitle": "إعادة تعيين كلمة المرور",

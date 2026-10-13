@@ -1,4 +1,4 @@
-// Bug #3 + the unguarded /school/* reads: every endpoint must reject roles it isn't for.
+// Bug #3 + the unguarded /institution/* reads: every endpoint must reject roles it isn't for.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { as, fixture } from './helpers/http';
 
@@ -12,18 +12,18 @@ const ALL_ROLES = ['super', 'adminA', 't1', 's1', 'p1'];
 // [method, path ({A1} = class A1 id), allowed fixture users, body(f)?]
 type Endpoint = [method: 'get' | 'post', path: string, allowed: string[], body?: () => unknown];
 const ENDPOINTS: Endpoint[] = [
-  ['get', '/api/school/dashboard', ['adminA']],
-  ['get', '/api/school/students', ['adminA']],
-  ['get', '/api/school/teachers', ['adminA']],
-  ['get', '/api/school/classes', ['adminA']],
-  ['get', '/api/school/fees', ['adminA']],
-  ['get', '/api/school/grades', ['adminA']],
-  ['get', '/api/school/attendance', ['adminA']],
-  ['get', '/api/school/timetable', ['adminA']],
-  ['get', '/api/school/exams', ['adminA']],
-  ['get', '/api/school/announcements', ['adminA']],
-  ['post', '/api/school/announcements', ['adminA'], () => ({ title: 'x', description: 'y' })],
-  ['post', '/api/school/classes', ['adminA'], () => ({ code: 'ZZ', name: 'Z' })],
+  ['get', '/api/institution/dashboard', ['adminA']],
+  ['get', '/api/institution/students', ['adminA']],
+  ['get', '/api/institution/teachers', ['adminA']],
+  ['get', '/api/institution/classes', ['adminA']],
+  ['get', '/api/institution/fees', ['adminA']],
+  ['get', '/api/institution/grades', ['adminA']],
+  ['get', '/api/institution/attendance', ['adminA']],
+  ['get', '/api/institution/timetable', ['adminA']],
+  ['get', '/api/institution/exams', ['adminA']],
+  ['get', '/api/institution/announcements', ['adminA']],
+  ['post', '/api/institution/announcements', ['adminA'], () => ({ title: 'x', description: 'y' })],
+  ['post', '/api/institution/classes', ['adminA'], () => ({ code: 'ZZ', name: 'Z' })],
 
   ['get', '/api/me/teacher/overview', ['t1']],
   ['get', '/api/me/teacher/students', ['t1']],
@@ -42,7 +42,7 @@ const ENDPOINTS: Endpoint[] = [
   ['get', '/api/me/notifications', ALL_ROLES],
 
   ['get', '/api/platform/stats', ['super']],
-  ['get', '/api/platform/schools', ['super']],
+  ['get', '/api/platform/institutions', ['super']],
   ['get', '/api/platform/audit', ['super']],
 
   ['get', '/api/parent/children', ['p1']],
@@ -62,7 +62,7 @@ describe('role guards', () => {
   }
 
   it('rejects requests without a token', async () => {
-    const res = await as(null).get('/api/school/students');
+    const res = await as(null).get('/api/institution/students');
     expect(res.status).toBe(401);
   });
 });

@@ -29,12 +29,12 @@ export function AdminClasses() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const list = usePagedList<ClassRow>('/school/classes', {}, 100);
+  const list = usePagedList<ClassRow>('/institution/classes', {}, 100);
   const form = useForm<z.input<typeof createClassBody>>({ resolver: zodResolver(createClassBody), defaultValues: { code: '', name: '', section: 'A' } });
   const m = useMutation({
-    mutationFn: (v: z.input<typeof createClassBody>) => api.post('/school/classes', v),
+    mutationFn: (v: z.input<typeof createClassBody>) => api.post('/institution/classes', v),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['/school/classes'] });
+      void qc.invalidateQueries({ queryKey: ['/institution/classes'] });
       form.reset();
       setOpen(false);
     },
@@ -127,7 +127,7 @@ function StudentPicker({ value, onChange }: { value: number | ''; onChange: (id:
   const debounced = useDebounced(q, 250);
   const results = useQuery({
     queryKey: ['student-search', debounced],
-    queryFn: () => api.get<{ id: number; first_name: string; last_name: string; roll_no: string | null }[]>('/school/students', { search: debounced, pageSize: 10 }),
+    queryFn: () => api.get<{ id: number; first_name: string; last_name: string; roll_no: string | null }[]>('/institution/students', { search: debounced, pageSize: 10 }),
   });
   return (
     <div>
@@ -160,9 +160,9 @@ function CollectFeeDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const qc = useQueryClient();
   const form = useForm<z.input<typeof collectFeeBody>>({ resolver: zodResolver(collectFeeBody), defaultValues: { student_id: '' as unknown as number, total_fee: '' as unknown as number, paid_amount: 0 } });
   const m = useMutation({
-    mutationFn: (v: z.input<typeof collectFeeBody>) => api.post('/school/fees', v),
+    mutationFn: (v: z.input<typeof collectFeeBody>) => api.post('/institution/fees', v),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['/school/fees'] });
+      void qc.invalidateQueries({ queryKey: ['/institution/fees'] });
       void qc.invalidateQueries({ queryKey: ['fees-summary'] });
       form.reset();
       onClose();
@@ -200,8 +200,8 @@ export function AdminFees() {
   const { can } = useAuth();
   const toast = useToast();
   const [open, setOpen] = useState(false);
-  const list = usePagedList<FeeRow>('/school/fees');
-  const summary = useQuery({ queryKey: ['fees-summary'], queryFn: () => api.get<{ collected: number; outstanding: number }>('/school/fees/summary') });
+  const list = usePagedList<FeeRow>('/institution/fees');
+  const summary = useQuery({ queryKey: ['fees-summary'], queryFn: () => api.get<{ collected: number; outstanding: number }>('/institution/fees/summary') });
   return (
     <>
       <PageHeader
@@ -317,9 +317,9 @@ export function AdminAnnouncements() {
   const [open, setOpen] = useState(false);
   const form = useForm<z.input<typeof announcementBody>>({ resolver: zodResolver(announcementBody), defaultValues: { title: '', target_audience: 'All', description: '', end_date: '' } });
   const m = useMutation({
-    mutationFn: (v: z.input<typeof announcementBody>) => api.post('/school/announcements', v),
+    mutationFn: (v: z.input<typeof announcementBody>) => api.post('/institution/announcements', v),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['/school/announcements'] });
+      void qc.invalidateQueries({ queryKey: ['/institution/announcements'] });
       form.reset();
       setOpen(false);
     },
@@ -332,7 +332,7 @@ export function AdminAnnouncements() {
     <>
       <PageHeader
         title={t('nav.announcements', 'Announcements')}
-        subtitle={t('admin.announcementsSubtitle', 'Notices for the school')}
+        subtitle={t('admin.announcementsSubtitle', 'Notices for the institution')}
         actions={
           can('announcements.manage') && (
             <Button onClick={() => setOpen(true)}>
@@ -341,7 +341,7 @@ export function AdminAnnouncements() {
           )
         }
       />
-      <AnnouncementList path="/school/announcements" />
+      <AnnouncementList path="/institution/announcements" />
       <Dialog open={open} onClose={() => setOpen(false)} title={t('admin.newAnnouncement', 'New announcement')}>
         <form className="space-y-4" noValidate onSubmit={form.handleSubmit((v) => m.mutate(v))}>
           <Field label={t('admin.title', 'Title')} error={e.title?.message}>

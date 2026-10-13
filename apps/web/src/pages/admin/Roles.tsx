@@ -1,4 +1,4 @@
-// Roles & permissions: built-in roles (read-only) and the school's custom roles.
+// Roles & permissions: built-in roles (read-only) and the institution's custom roles.
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +18,7 @@ interface Role {
 }
 
 const GROUPS: { title: string; prefixes: string[] }[] = [
-  { title: 'School office', prefixes: ['school.', 'students.', 'staff.', 'classes.', 'academics.', 'announcements.', 'roles.', 'records.', 'audit.'] },
+  { title: 'Institution office', prefixes: ['institution.', 'students.', 'staff.', 'classes.', 'academics.', 'announcements.', 'roles.', 'records.', 'audit.'] },
   { title: 'Finance', prefixes: ['fees.'] },
   { title: 'Teaching', prefixes: ['teaching.', 'attendance.', 'grades.', 'assignments.'] },
   { title: 'Learners & families', prefixes: ['learner.', 'submissions.', 'guardian.'] },
@@ -27,14 +27,14 @@ const GROUPS: { title: string; prefixes: string[] }[] = [
 function RoleDialog({ role, open, onClose }: { role: Role | null; open: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const catalogue = useQuery({ queryKey: ['permissions'], queryFn: () => api.get<{ key: Permission; description: string }[]>('/school/permissions'), enabled: open });
+  const catalogue = useQuery({ queryKey: ['permissions'], queryFn: () => api.get<{ key: Permission; description: string }[]>('/institution/permissions'), enabled: open });
   const [name, setName] = useState(role?.name ?? '');
   const [description, setDescription] = useState(role?.description ?? '');
   const [selected, setSelected] = useState<Set<Permission>>(new Set(role?.permissions ?? []));
   const save = useMutation({
     mutationFn: () => {
       const body = { name, description, permissions: [...selected] };
-      return role ? api.patch(`/school/roles/${role.id}`, body) : api.post('/school/roles', body);
+      return role ? api.patch(`/institution/roles/${role.id}`, body) : api.post('/institution/roles', body);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['roles'] });
@@ -110,9 +110,9 @@ export function AdminRoles() {
   const toast = useToast();
   const qc = useQueryClient();
   const [editing, setEditing] = useState<{ role: Role | null } | null>(null);
-  const roles = useQuery({ queryKey: ['roles'], queryFn: () => api.get<Role[]>('/school/roles') });
+  const roles = useQuery({ queryKey: ['roles'], queryFn: () => api.get<Role[]>('/institution/roles') });
   const del = useMutation({
-    mutationFn: (id: number) => api.delete(`/school/roles/${id}`),
+    mutationFn: (id: number) => api.delete(`/institution/roles/${id}`),
     onSuccess: () => {
       toast('success', t('roles.deleted', 'Role deleted'));
       void qc.invalidateQueries({ queryKey: ['roles'] });

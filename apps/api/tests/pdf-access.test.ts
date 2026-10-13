@@ -1,6 +1,6 @@
 // Bug #6: report cards and fee vouchers are only for people linked to that student.
-//   report card: school admin, the student, a linked parent, teachers of the student's class
-//   fee voucher: school admin, the student, a linked parent (not teachers)
+//   report card: institution admin, the student, a linked parent, teachers of the student's class
+//   fee voucher: institution admin, the student, a linked parent (not teachers)
 import { describe, it, expect, beforeAll } from 'vitest';
 import { as, fixture } from './helpers/http';
 
@@ -16,7 +16,7 @@ const REPORT_CARD_S1 = {
   t1: 200, // teaches class A1
   s2: 403, // classmate
   t2: 403, // teaches a different class
-  adminB: 404, // other school: the student does not exist for them
+  adminB: 404, // other institution: the student does not exist for them
   sb: 404,
   tb: 404,
   super: 403,

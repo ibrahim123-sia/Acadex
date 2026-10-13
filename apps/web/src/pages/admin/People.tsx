@@ -44,7 +44,7 @@ function useResendInvite() {
   const { t } = useTranslation();
   const toast = useToast();
   return useMutation({
-    mutationFn: (userId: number) => api.post<{ invite: Invite }>(`/school/users/${userId}/invite`),
+    mutationFn: (userId: number) => api.post<{ invite: Invite }>(`/institution/users/${userId}/invite`),
     onSuccess: (r) => toast('success', t('invite.resent', 'New invitation sent to {{email}}', { email: r.invite.email })),
     onError: (e) => toast('error', errorMessage(e)),
   });
@@ -54,16 +54,16 @@ function AdmitStudentDialog({ open, onClose }: { open: boolean; onClose: () => v
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [invite, setInvite] = useState<{ name: string; invite: Invite } | null>(null);
-  const classes = useQuery({ queryKey: ['classes-all'], queryFn: () => api.get<{ id: number; name: string }[]>('/school/classes', { pageSize: 100 }), enabled: open });
+  const classes = useQuery({ queryKey: ['classes-all'], queryFn: () => api.get<{ id: number; name: string }[]>('/institution/classes', { pageSize: 100 }), enabled: open });
   const form = useForm<z.input<typeof createStudentBody>, unknown, z.output<typeof createStudentBody>>({
     resolver: zodResolver(createStudentBody),
     defaultValues: { first_name: '', last_name: '', email: '', gender: 'Male', age: '', class_id: '', guardian_name: '', guardian_phone: '', roll_no: '' },
   });
   const m = useMutation({
-    mutationFn: (v: z.output<typeof createStudentBody>) => api.post<{ first_name: string; last_name: string; invite: Invite }>('/school/students', v),
+    mutationFn: (v: z.output<typeof createStudentBody>) => api.post<{ first_name: string; last_name: string; invite: Invite }>('/institution/students', v),
     onSuccess: (r) => {
       setInvite({ name: `${r.first_name} ${r.last_name}`, invite: r.invite });
-      void qc.invalidateQueries({ queryKey: ['/school/students'] });
+      void qc.invalidateQueries({ queryKey: ['/institution/students'] });
     },
   });
   const close = () => {
@@ -143,7 +143,7 @@ export function AdminStudents() {
   const debounced = useDebounced(search);
   const [open, setOpen] = useState(false);
   const [rolesFor, setRolesFor] = useState<{ id: number; name: string } | null>(null);
-  const list = usePagedList<StudentRow>('/school/students', { search: debounced });
+  const list = usePagedList<StudentRow>('/institution/students', { search: debounced });
   const resend = useResendInvite();
   const download = async (s: StudentRow) => {
     try {
@@ -231,10 +231,10 @@ function AddTeacherDialog({ open, onClose }: { open: boolean; onClose: () => voi
     defaultValues: { first_name: '', last_name: '', email: '', gender: 'Male', phone: '', qualification: '' },
   });
   const m = useMutation({
-    mutationFn: (v: z.output<typeof createTeacherBody>) => api.post<{ first_name: string; last_name: string; invite: Invite }>('/school/teachers', v),
+    mutationFn: (v: z.output<typeof createTeacherBody>) => api.post<{ first_name: string; last_name: string; invite: Invite }>('/institution/teachers', v),
     onSuccess: (r) => {
       setInvite({ name: `${r.first_name} ${r.last_name}`, invite: r.invite });
-      void qc.invalidateQueries({ queryKey: ['/school/teachers'] });
+      void qc.invalidateQueries({ queryKey: ['/institution/teachers'] });
     },
   });
   const close = () => {
@@ -294,7 +294,7 @@ export function AdminTeachers() {
   const { can } = useAuth();
   const [open, setOpen] = useState(false);
   const [rolesFor, setRolesFor] = useState<{ id: number; name: string } | null>(null);
-  const list = usePagedList<TeacherRow>('/school/teachers');
+  const list = usePagedList<TeacherRow>('/institution/teachers');
   const resend = useResendInvite();
   return (
     <>

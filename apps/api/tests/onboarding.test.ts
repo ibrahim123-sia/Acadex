@@ -11,7 +11,7 @@ beforeEach(async () => {
 const login = (email: string, password: string) => request(app).post('/api/auth/login').send({ email, password });
 
 async function createTeacher(email = 'new.teacher@alpha.test') {
-  const res = await as(f.tokens.adminA).post('/api/school/teachers', { first_name: 'New', last_name: 'Teacher', email });
+  const res = await as(f.tokens.adminA).post('/api/institution/teachers', { first_name: 'New', last_name: 'Teacher', email });
   expect(res.status, JSON.stringify(res.body)).toBe(201);
   return res.body;
 }
@@ -38,7 +38,7 @@ describe('invitations', () => {
     const token = await fixture.tokenFromEmail('new.teacher@alpha.test', 'accept-invite');
     const peek = await request(app).get(`/api/auth/invites/${token}`);
     expect(peek.status).toBe(200);
-    expect(peek.body).toEqual({ email: 'new.teacher@alpha.test', full_name: 'New Teacher', school_name: 'Alpha School' });
+    expect(peek.body).toEqual({ email: 'new.teacher@alpha.test', full_name: 'New Teacher', institution_name: 'Alpha School' });
 
     const accept = await request(app).post('/api/auth/invites/accept').send({ token, password: 'MyOwnPassw0rd' });
     expect(accept.status, JSON.stringify(accept.body)).toBe(200);
@@ -64,7 +64,7 @@ describe('invitations', () => {
   it('resending an invitation replaces the old link', async () => {
     const t = await createTeacher();
     const first = await fixture.tokenFromEmail('new.teacher@alpha.test', 'accept-invite');
-    const resend = await as(f.tokens.adminA).post(`/api/school/users/${t.user_id}/invite`);
+    const resend = await as(f.tokens.adminA).post(`/api/institution/users/${t.user_id}/invite`);
     expect(resend.status).toBe(200);
     const second = await fixture.tokenFromEmail('new.teacher@alpha.test', 'accept-invite');
     expect(second).not.toBe(first);
@@ -72,27 +72,27 @@ describe('invitations', () => {
     expect((await request(app).get(`/api/auth/invites/${second}`)).status).toBe(200);
   });
 
-  it('cannot resend for an activated account, another school, or without permission', async () => {
+  it('cannot resend for an activated account, another institution, or without permission', async () => {
     const a = as(f.tokens.adminA);
-    expect((await a.post(`/api/school/users/${f.users.t1.id}/invite`)).status).toBe(400); // already active
-    expect((await a.post(`/api/school/users/${f.users.tb.id}/invite`)).status).toBe(404); // other school
+    expect((await a.post(`/api/institution/users/${f.users.t1.id}/invite`)).status).toBe(400); // already active
+    expect((await a.post(`/api/institution/users/${f.users.tb.id}/invite`)).status).toBe(404); // other institution
     const t = await createTeacher();
-    expect((await as(f.tokens.t1).post(`/api/school/users/${t.user_id}/invite`)).status).toBe(403);
+    expect((await as(f.tokens.t1).post(`/api/institution/users/${t.user_id}/invite`)).status).toBe(403);
   });
 
-  it('admitting a student and registering a school also send invitations', async () => {
-    const st = await as(f.tokens.adminA).post('/api/school/students', { first_name: 'N', last_name: 'S', email: 'n.s@alpha.test' });
+  it('admitting a student and registering an institution also send invitations', async () => {
+    const st = await as(f.tokens.adminA).post('/api/institution/students', { first_name: 'N', last_name: 'S', email: 'n.s@alpha.test' });
     expect(st.status).toBe(201);
     expect(st.body.invite.url).toMatch(/accept-invite#token=/);
-    const school = await as(f.tokens.super).post('/api/platform/schools', { name: 'Gamma', slug: 'gamma', adminEmail: 'admin@gamma.test' });
-    expect(school.status).toBe(201);
-    expect(school.body.admin.invite.url).toMatch(/accept-invite#token=/);
+    const institution = await as(f.tokens.super).post('/api/platform/institutions', { name: 'Gamma', slug: 'gamma', adminEmail: 'admin@gamma.test' });
+    expect(institution.status).toBe(201);
+    expect(institution.body.admin.invite.url).toMatch(/accept-invite#token=/);
     expect(await fixture.outbox('admin@gamma.test')).toHaveLength(1);
   });
 
   it('invitations are sent only if the account was really created', async () => {
     // duplicate email: the request fails and no email goes out
-    await as(f.tokens.adminA).post('/api/school/teachers', { first_name: 'Dup', last_name: 'T', email: 't1@alpha.test' });
+    await as(f.tokens.adminA).post('/api/institution/teachers', { first_name: 'Dup', last_name: 'T', email: 't1@alpha.test' });
     expect(await fixture.outbox('t1@alpha.test')).toHaveLength(0);
   });
 });

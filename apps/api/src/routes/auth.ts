@@ -24,7 +24,7 @@ import { auth, authAllowingIncomplete, currentUser, loadUserRow, mfaEnrollmentRe
 import { createEmailToken, consumeEmailToken, peekEmailToken } from '../auth/email-tokens';
 import { sendPasswordResetEmail, sendSecurityNotice, sendVerifyEmail } from '../auth/emails';
 import { disableTotp, enableTotp, regenerateRecoveryCodes, remainingRecoveryCodes, setupTotp, verifySecondFactor } from '../auth/mfa';
-import { clearRefreshCookie, loadSchoolSummary, REFRESH_COOKIE, requestMeta, sessionResponse, setRefreshCookie, startSession } from '../auth/service';
+import { clearRefreshCookie, loadInstitutionSummary, REFRESH_COOKIE, requestMeta, sessionResponse, setRefreshCookie, startSession } from '../auth/service';
 import { markSessionMfaVerified, revokeSession, revokeUserSessions, rotateRefreshToken } from '../auth/sessions';
 import { signMfaChallenge, verifyAccessToken, verifyMfaChallenge } from '../auth/tokens';
 
@@ -41,7 +41,7 @@ interface Account {
   email: string;
   full_name: string;
   role: string;
-  school_id: number | null;
+  institution_id: number | null;
   password_hash: string | null;
   is_active: boolean;
   token_version: number;
@@ -52,9 +52,9 @@ const accountByEmail = async (email: string) =>
   (await db.query<Account>('SELECT * FROM users WHERE email = $1', [email])).rows[0];
 const accountById = async (id: number) => (await db.query<Account>('SELECT * FROM users WHERE id = $1', [id])).rows[0];
 
-const auditSelf = (user: { id: number; school_id: number | null; full_name?: string; name?: string }, action: string, detail = '') =>
+const auditSelf = (user: { id: number; institution_id: number | null; full_name?: string; name?: string }, action: string, detail = '') =>
   asSystem(() =>
-    audit({ schoolId: user.school_id, userId: user.id, actor: user.full_name ?? user.name ?? '', action, entity: 'Auth', detail })
+    audit({ institutionId: user.institution_id, userId: user.id, actor: user.full_name ?? user.name ?? '', action, entity: 'Auth', detail })
   );
 
 /** Cookie-authenticated endpoints need a custom header: plain cross-site form posts can't send one. */
@@ -66,10 +66,10 @@ const requireClientHeader: RequestHandler = (req, res, next) => {
   next();
 };
 
-async function assertSchoolActive(schoolId: number | null) {
-  if (!schoolId) return;
-  const school = await loadSchoolSummary(schoolId);
-  if (school && school.status !== 'active') throw forbidden('This school account is currently suspended.', 'SCHOOL_SUSPENDED');
+async function assertInstitutionActive(institutionId: number | null) {
+  if (!institutionId) return;
+  const institution = await loadInstitutionSummary(institutionId);
+  if (institution && institution.status !== 'active') throw forbidden('This institution account is currently suspended.', 'INSTITUTION_SUSPENDED');
 }
 
 // ---------- login ----------
@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
   if (!user || !user.password_hash || !ok || !user.is_active) {
     return void res.status(401).json({ error: 'Invalid email or password', code: 'INVALID_CREDENTIALS' });
   }
-  await assertSchoolActive(user.school_id);
+  await assertInstitutionActive(user.institution_id);
   if (user.mfa_enabled) {
     // password was right; a second factor completes the sign-in
     return void res.json({ mfa_required: true, mfa_token: signMfaChallenge(user.id, user.token_version) });
@@ -98,7 +98,7 @@ router.post('/mfa/verify', async (req, res) => {
   if (!user || !user.is_active || user.token_version !== challenge.tv || !user.mfa_enabled) {
     throw unauthorized('This sign-in attempt expired. Please sign in again.', 'MFA_CHALLENGE_EXPIRED');
   }
-  await assertSchoolActive(user.school_id);
+  await assertInstitutionActive(user.institution_id);
   const method = await verifySecondFactor(user.id, code);
   if (!method) throw badRequest('That code is not valid. Try the latest code from your app.');
   if (method === 'recovery') await auditSelf(user, 'mfa_recovery_code_used');
@@ -120,7 +120,7 @@ router.post('/refresh', requireClientHeader, async (req, res) => {
     clearRefreshCookie(res);
     throw unauthorized('Your session has ended. Please sign in again.', 'SESSION_ENDED');
   }
-  await assertSchoolActive(row.school_id);
+  await assertInstitutionActive(row.institution_id);
   setRefreshCookie(res, rotated.refreshToken);
   res.json(await sessionResponse(row, rotated.sessionId));
 });
@@ -155,7 +155,7 @@ router.post('/logout-all', auth, async (req, res) => {
 // ---------- the signed-in user ----------
 router.get('/me', authAllowingIncomplete, async (req, res) => {
   const user = currentUser(req);
-  res.json({ user: toSessionUser(user), school: await loadSchoolSummary(user.school_id), email_verified: user.email_verified });
+  res.json({ user: toSessionUser(user), institution: await loadInstitutionSummary(user.institution_id), email_verified: user.email_verified });
 });
 
 router.post('/change-password', authAllowingIncomplete, async (req, res) => {
@@ -213,9 +213,9 @@ router.post('/sessions/revoke-others', auth, async (req, res) => {
 router.get('/invites/:token', async (req, res) => {
   const token = emailToken.parse(req.params.token);
   const userId = await peekEmailToken(token, 'invite');
-  if (!userId) throw notFound('This invitation link is invalid or has expired. Ask your school for a new one.');
-  const { rows } = await db.query<{ email: string; full_name: string; school_name: string | null }>(
-    `SELECT u.email, u.full_name, s.name AS school_name FROM users u LEFT JOIN schools s ON s.id = u.school_id WHERE u.id = $1`,
+  if (!userId) throw notFound('This invitation link is invalid or has expired. Ask your institution for a new one.');
+  const { rows } = await db.query<{ email: string; full_name: string; institution_name: string | null }>(
+    `SELECT u.email, u.full_name, s.name AS institution_name FROM users u LEFT JOIN institutions s ON s.id = u.institution_id WHERE u.id = $1`,
     [userId]
   );
   res.json(rows[0]);
@@ -224,10 +224,10 @@ router.get('/invites/:token', async (req, res) => {
 router.post('/invites/accept', async (req, res) => {
   const { token, password } = acceptInviteBody.parse(req.body);
   const userId = await consumeEmailToken(token, 'invite');
-  if (!userId) throw badRequest('This invitation link is invalid or has expired. Ask your school for a new one.');
+  if (!userId) throw badRequest('This invitation link is invalid or has expired. Ask your institution for a new one.');
   const user = (await accountById(userId))!;
   if (!user.is_active) throw forbidden('This account has been deactivated.');
-  await assertSchoolActive(user.school_id);
+  await assertInstitutionActive(user.institution_id);
   await db.query(
     `UPDATE users SET password_hash=$2, must_change_password=FALSE, password_changed_at=now(),
             email_verified_at=COALESCE(email_verified_at, now()) WHERE id=$1`,
