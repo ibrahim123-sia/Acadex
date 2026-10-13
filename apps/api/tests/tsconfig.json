@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // test files favour brevity; production code stays fully strict
+    "noImplicitAny": false
+  },
+  "include": [".", "../src"]
+}

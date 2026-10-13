@@ -20,6 +20,7 @@
     "db:reset": "npm run db:reset -w @acadex/api"
   },
   "devDependencies": {
-    "concurrently": "^10.0.6"
+    "concurrently": "^10.0.6",
+    "typescript": "^6.0.3"
   }
 }
