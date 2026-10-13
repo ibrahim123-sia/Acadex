@@ -1,12 +1,28 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Acadex — School Management SaaS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="description" content="Acadex — the learning platform and institute management system for schools, colleges, universities and academies." />
+    <link rel="icon" href="/favicon.ico" />
+    <title>Acadex</title>
+    <script>
+      // apply the saved theme before first paint (no flash of the wrong theme)
+      try {
+        var t = localStorage.getItem('acadex.theme') || 'system';
+        if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+        var l = localStorage.getItem('acadex.lang');
+        if (l) {
+          document.documentElement.lang = l;
+          document.documentElement.dir = l === 'ur' || l === 'ar' ? 'rtl' : 'ltr';
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <noscript>Acadex needs JavaScript to run.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

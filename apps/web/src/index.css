@@ -1,5 +1,113 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-:root { color-scheme: light; }
-* { -webkit-font-smoothing: antialiased; }
-body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+/* Dark mode follows the .dark class on <html> (set from the user's theme choice). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Semantic design tokens. Components use these (bg-surface, text-fg-muted, ...), never raw
+   palette colours, so light/dark mode and later white-label themes only change variables. */
+:root {
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: #e2e8f0;
+  --fg: #0f172a;
+  --fg-muted: #64748b;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-fg: #ffffff;
+  --primary-soft: #eef2ff;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --ring: #6366f1;
+  --sidebar: #0f172a;
+  --sidebar-fg: #cbd5e1;
+  color-scheme: light;
+}
+
+.dark {
+  --background: #0b1120;
+  --surface: #111827;
+  --surface-2: #1f2937;
+  --border: #273244;
+  --fg: #e5e7eb;
+  --fg-muted: #94a3b8;
+  --primary: #818cf8;
+  --primary-hover: #a5b4fc;
+  --primary-fg: #0b1120;
+  --primary-soft: #1e1b4b;
+  --danger: #f87171;
+  --danger-soft: #3b1212;
+  --success: #4ade80;
+  --success-soft: #0f2a1a;
+  --warning: #fbbf24;
+  --warning-soft: #33240a;
+  --ring: #818cf8;
+  --sidebar: #030712;
+  --sidebar-fg: #94a3b8;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-primary-soft: var(--primary-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --font-sans: 'Inter', 'Noto Sans Arabic', 'Noto Nastaliq Urdu', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Urdu reads better a little larger with more line height. */
+html[lang='ur'] body {
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+dialog::backdrop {
+  background: rgb(15 23 42 / 0.45);
+}

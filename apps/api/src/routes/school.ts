@@ -89,8 +89,10 @@ router.get('/students', requirePermission('students.read'), async (req, res) => 
             c.name class_name,
             COALESCE((SELECT payment_status FROM tuition_fee f WHERE f.student_id=st.id AND f.school_id=st.school_id
                       ORDER BY id DESC LIMIT 1),'—') fee_status,
+            u.id user_id, (u.id IS NOT NULL AND u.password_hash IS NULL) invite_pending,
             count(*) OVER() _total
        FROM students st LEFT JOIN classes c ON c.id=st.class_id
+       LEFT JOIN users u ON u.ref_id=st.id AND u.role='student' AND u.school_id=st.school_id
       WHERE st.school_id=$1 AND (LOWER(st.first_name||' '||st.last_name) LIKE $2 OR LOWER(st.roll_no) LIKE $2)
       ORDER BY st.created_at DESC, st.id DESC LIMIT $3 OFFSET $4`,
     [schoolId(req), q, pg.limit, pg.offset]
@@ -104,8 +106,10 @@ router.get('/teachers', requirePermission('staff.read'), async (req, res) => {
   const { rows } = await db.query(
     `SELECT t.id, t.first_name, t.last_name, t.email, t.gender, t.phone, t.qualification,
             (SELECT count(*) FROM teacher_subjects ts WHERE ts.teacher_id=t.id)::int subjects,
+            u.id user_id, (u.id IS NOT NULL AND u.password_hash IS NULL) invite_pending,
             count(*) OVER() _total
-       FROM teachers t WHERE t.school_id=$1 ORDER BY t.created_at DESC, t.id DESC LIMIT $2 OFFSET $3`,
+       FROM teachers t LEFT JOIN users u ON u.ref_id=t.id AND u.role='teacher' AND u.school_id=t.school_id
+      WHERE t.school_id=$1 ORDER BY t.created_at DESC, t.id DESC LIMIT $2 OFFSET $3`,
     [schoolId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
