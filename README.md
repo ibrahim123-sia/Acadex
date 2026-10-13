@@ -32,95 +32,117 @@
 - Teacher: assigned classes/subjects, student roster, role-targeted announcements
 - Student: personal grades, attendance percentage, and fee status at a glance
 
+**Parent portal**
+- Linked children with grades, attendance and fee status; report-card PDF
+
 **Platform-wide**
-- 🔒 **Multi-tenancy** — every record carries a `school_id`; all queries are tenant-scoped so a school can only ever see its own data
-- 🔐 **Security** — JWT authentication, bcrypt-hashed passwords, role-based route guards, and **fully parameterized SQL** (no injection)
+- 🔒 **Multi-tenancy** — every record carries a `school_id`, and every query is scoped to the caller's school
+- 🔐 **Security** — role checks on every route, ownership checks on every id a client sends, revocable sessions, one-time passwords for new accounts, login rate limiting, validated input (Zod) and parameterized SQL. See [docs/security.md](docs/security.md)
+- 🌍 **Per-school locale** — currency, timezone and locale per school (fees, PDFs and "today" follow the school, not the server)
 
 ## 🏗️ Architecture
 
 ```
 Super Admin ──registers──▶ School (tenant)
                               ├── School Admin ──▶ students, teachers, classes, fees, announcements
-                              ├── Teacher       ──▶ classes, roster, grading, attendance
-                              └── Student        ──▶ grades, attendance, fees
+                              ├── Teacher       ──▶ own classes: roster, attendance, grades, assignments
+                              ├── Student       ──▶ own grades, attendance, fees, submissions
+                              └── Parent        ──▶ linked children only
 ```
-Shared PostgreSQL database with **row-level isolation** via `school_id` (ideal for cost-efficient scaling on serverless Postgres such as Neon).
+Shared PostgreSQL database with isolation via `school_id` (cost-efficient on serverless Postgres such as Neon).
 
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, Vite, React Router, Tailwind CSS 4, Recharts, Axios, lucide-react |
-| Backend | Node.js, Express, `pg` (parameterized queries) |
-| Database | PostgreSQL (Neon serverless) |
-| Auth | JWT (`jsonwebtoken`) + bcrypt (`bcryptjs`), role-based middleware |
+| Backend | Node.js, Express 4, `pg` (parameterized queries), Zod, helmet, express-rate-limit, PDFKit |
+| Database | PostgreSQL (Neon serverless), versioned forward-only migrations |
+| Auth | JWT (12 h, revocable via `token_version`) + bcrypt, role-based middleware |
+| Quality | Vitest + Supertest (embedded Postgres), ESLint, GitHub Actions |
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20+ (22 recommended)
 - A PostgreSQL database. The easiest free option is **[Neon](https://neon.tech)** — create a project and copy the connection string.
 
 ### 1. Backend
 ```bash
 cd backend
 npm install
+cp .env.example .env      # then set DATABASE_URL and JWT_SECRET (openssl rand -hex 32)
 
-# Create backend/.env
-#   DATABASE_URL=postgresql://user:password@host/db?sslmode=require
-#   JWT_SECRET=your_long_random_secret
-#   PORT=5000
-
-npm run migrate   # create tables (db/schema.sql)
-npm run seed      # seed 2 demo schools + users + data
-npm start         # API on http://localhost:5000
+npm run db:migrate        # apply migrations (safe to re-run; never drops data)
+npm run db:seed           # demo data — refuses if the database already has data
+npm run dev               # API on http://localhost:5000 (npm start in production)
 ```
+`npm run db:reset` wipes the tenant tables and reseeds the demo data (refused when `NODE_ENV=production`).
 
 ### 2. Frontend
 ```bash
 cd frontend
 npm install
-npm run dev       # app on http://localhost:3000
-# optional: VITE_API_URL=http://localhost:5000/api (defaults to this)
+npm run dev               # app on http://localhost:3000
+# optional: VITE_API_URL=http://localhost:5000/api (see .env.example)
 ```
 
 ### 🔑 Demo accounts (password: `Acadex@123`)
+Seeded demo accounts only. Accounts created in the app get a one-time password and must choose their own at first sign-in.
+
 | Role | Email |
 |---|---|
 | Super Admin | `superadmin@acadex.com` |
-| School Admin | `admin@greenwood.edu` |
+| School Admin | `admin@greenwood.edu` (second school: `admin@sunrise.edu`) |
 | Teacher | `ali.sheikh.t0@greenwood.edu` |
 | Student | `ali.butt.s0@greenwood.edu` |
+| Parent | `parent1@greenwood.edu` |
+
+## 🧪 Tests & checks
+```bash
+cd backend
+npm test          # API tests; starts a throwaway embedded Postgres (no setup needed)
+npm run lint
+cd ../frontend && npm run lint && npm run build
+```
+Every access rule has a denial test (cross-role, cross-teacher and cross-school). To run the tests against an existing server instead, set `TEST_DATABASE_URL` to a **separate** database — the tests refuse to run against `DATABASE_URL`. CI runs all of this on every push and pull request.
 
 ## 📁 Project Structure
 
 ```
 backend/
+  app.js              # builds the Express app (security middleware, routes, error handler)
+  server.js           # validates config, starts the server
+  config.js           # environment schema (fails fast on unsafe settings)
   db/
-    schema.sql        # multi-tenant PostgreSQL schema
-    pool.js           # pg connection pool
-    migrate.js        # runs schema.sql
-    seed.js           # seeds demo schools + users + data
-  middleware/auth.js  # JWT verify + requireRole
-  routes/
-    auth.js           # login / me
-    platform.js       # super-admin: schools, stats, audit
-    school.js         # school-admin: dashboard, students, teachers, fees…
-    me.js             # teacher/student self views
-  server.js
+    migrations/       # NNNN_name.sql, applied once each, in order
+    migrate.js        # forward-only migration runner (checksums, advisory lock)
+    seed.js           # demo data (guarded)
+    pool.js, tx.js    # pg pool, transaction helper
+  lib/
+    access.js         # ownership checks (teaches class, can view student, ...)
+    errors.js         # HttpError + central error handler
+    validate.js       # shared Zod schemas
+    pagination.js     # page/pageSize + X-Total-Count
+    passwords.js      # one-time passwords, password policy
+    locale.js         # school timezone / currency formatting
+    router.js         # async-safe express.Router
+  middleware/auth.js  # JWT verify + live user/school check + requireRole
+  routes/             # auth, platform, school, me, parent, pdf
+  tests/              # Vitest + Supertest suites, two-tenant fixture
 frontend/
   src/
-    ui.jsx            # Layout (role-aware sidebar) + shared components
+    ui.jsx            # Layout, shared components, usePaged + Pager
     api.js            # axios instance + auth helpers
-    Login.jsx
-    pages/            # platform / admin / teacher / student pages
+    format.js         # money/date formatting in the school's locale
+    Login.jsx, ChangePassword.jsx
+    pages/            # platform / admin / teacher / student / parent
+docs/security.md      # access rules and security model
+CHANGELOG.md
 ```
 
 ## 🗺️ Roadmap
-- Exams & report cards (PDF), fee vouchers/receipts (PDF)
-- Assignment file uploads & submission grading
-- In-app + email notifications
-- Subscription billing for plans
+Acadex is being rebuilt into an AI-native LMS + institute platform in phases. Phase 0A (security & stability) is complete; see [CHANGELOG.md](CHANGELOG.md). Next: Phase 0B — TypeScript monorepo, Drizzle migrations, refresh tokens, invites, 2FA, RBAC with row-level security, i18n/RTL.
 
 ---
 
