@@ -2,8 +2,7 @@
 // ("Exam Controller", "Accountant", ...), and who holds which role.
 import { Router, type Request } from 'express';
 import { PERMISSIONS, SCHOOL_ASSIGNABLE_PERMISSIONS, assignRoleBody, createRoleBody, id, updateRoleBody } from '@acadex/shared';
-import { pool } from '../db/pool';
-import { withTransaction } from '../db/tx';
+import { db, withTransaction } from '../db/context';
 import { audit } from '../lib/audit';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { auth, currentUser, requirePermission, schoolId } from '../middleware/auth';
@@ -28,7 +27,7 @@ const auditAs = (req: Request, action: string, detail: string) =>
 
 /** A role this school may see and assign: a built-in school role, or one of its own. */
 async function findRole(req: Request, roleId: number): Promise<RoleRow> {
-  const { rows } = await pool.query<RoleRow>(
+  const { rows } = await db.query<RoleRow>(
     `SELECT * FROM roles WHERE id=$1 AND ((school_id IS NULL AND is_system AND scope_type='school') OR school_id=$2)`,
     [roleId, schoolId(req)]
   );
@@ -37,7 +36,7 @@ async function findRole(req: Request, roleId: number): Promise<RoleRow> {
 }
 
 async function findSchoolUser(req: Request, userId: number) {
-  const { rows } = await pool.query<{ id: number; full_name: string; role: string }>(
+  const { rows } = await db.query<{ id: number; full_name: string; role: string }>(
     `SELECT id, full_name, role FROM users WHERE id=$1 AND school_id=$2`,
     [userId, schoolId(req)]
   );
@@ -59,7 +58,7 @@ router.get('/permissions', ...guard, (_req, res) => {
 });
 
 router.get('/roles', ...guard, async (req, res) => {
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT r.id, r.key, r.name, r.description, r.is_system,
             COALESCE(array_agg(rp.permission ORDER BY rp.permission) FILTER (WHERE rp.permission IS NOT NULL), '{}') permissions,
             (SELECT count(*) FROM user_roles ur WHERE ur.role_id = r.id AND ur.scope_type='school' AND ur.scope_id=$1)::int members
@@ -116,7 +115,7 @@ router.patch('/roles/:id', ...guard, async (req, res) => {
 router.delete('/roles/:id', ...guard, async (req, res) => {
   const role = await findRole(req, id.parse(req.params.id));
   if (role.is_system) throw badRequest("Built-in roles can't be deleted.");
-  await pool.query(`DELETE FROM roles WHERE id=$1`, [role.id]);
+  await db.query(`DELETE FROM roles WHERE id=$1`, [role.id]);
   await auditAs(req, 'delete_role', role.name);
   res.json({ ok: true });
 });
@@ -124,7 +123,7 @@ router.delete('/roles/:id', ...guard, async (req, res) => {
 // ---------- who holds which role ----------
 router.get('/users/:userId/roles', ...guard, async (req, res) => {
   const user = await findSchoolUser(req, id.parse(req.params.userId));
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT r.id, r.key, r.name, r.is_system FROM user_roles ur JOIN roles r ON r.id = ur.role_id
       WHERE ur.user_id=$1 AND ur.scope_type='school' AND ur.scope_id=$2 ORDER BY r.name`,
     [user.id, schoolId(req)]
@@ -135,7 +134,7 @@ router.get('/users/:userId/roles', ...guard, async (req, res) => {
 router.post('/users/:userId/roles', ...guard, async (req, res) => {
   const user = await findSchoolUser(req, id.parse(req.params.userId));
   const role = await findRole(req, assignRoleBody.parse(req.body).role_id);
-  await pool.query(
+  await db.query(
     `INSERT INTO user_roles (user_id, role_id, scope_type, scope_id, granted_by) VALUES ($1,$2,'school',$3,$4)
      ON CONFLICT ON CONSTRAINT user_roles_user_role_scope_key DO NOTHING`,
     [user.id, role.id, schoolId(req), currentUser(req).id]
@@ -148,14 +147,14 @@ router.delete('/users/:userId/roles/:roleId', ...guard, async (req, res) => {
   const user = await findSchoolUser(req, id.parse(req.params.userId));
   const role = await findRole(req, id.parse(req.params.roleId));
   if (role.key === 'school_admin') {
-    const { rows } = await pool.query<{ n: number }>(
+    const { rows } = await db.query<{ n: number }>(
       `SELECT count(*)::int n FROM user_roles ur JOIN roles r ON r.id=ur.role_id
         WHERE r.key='school_admin' AND r.is_system AND ur.scope_type='school' AND ur.scope_id=$1 AND ur.user_id <> $2`,
       [schoolId(req), user.id]
     );
     if (!rows[0]?.n) throw badRequest('A school needs at least one administrator.');
   }
-  await pool.query(`DELETE FROM user_roles WHERE user_id=$1 AND role_id=$2 AND scope_type='school' AND scope_id=$3`, [
+  await db.query(`DELETE FROM user_roles WHERE user_id=$1 AND role_id=$2 AND scope_type='school' AND scope_id=$3`, [
     user.id,
     role.id,
     schoolId(req),

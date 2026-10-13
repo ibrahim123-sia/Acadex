@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import PDFDocument from 'pdfkit';
 import { idParam } from '@acadex/shared';
-import { pool } from '../db/pool';
+import { db } from '../db/context';
 import { assertCanViewStudent } from '../lib/access';
 import { notFound } from '../lib/errors';
 import { formatDate, formatMoney } from '../lib/locale';
@@ -21,7 +21,7 @@ router.get('/report-card/:studentId', async (req, res) => {
   const { studentId } = idParam('studentId').parse(req.params);
   await assertCanViewStudent(currentUser(req), studentId, { allowTeachers: true });
   const stu = (
-    await pool.query(
+    await db.query(
       `SELECT st.*, c.name class_name FROM students st LEFT JOIN classes c ON c.id=st.class_id WHERE st.id=$1 AND st.school_id=$2`,
       [studentId, s]
     )
@@ -29,7 +29,7 @@ router.get('/report-card/:studentId', async (req, res) => {
   const school = await schoolSettings(s);
   if (!stu || !school) throw notFound('Student not found');
   const grades = (
-    await pool.query<{ subject: string | null; assignment_name: string; obtained_marks: string; total_marks: string; pct: string | null }>(
+    await db.query<{ subject: string | null; assignment_name: string; obtained_marks: string; total_marks: string; pct: string | null }>(
       `SELECT su.name subject, g.assignment_name, g.obtained_marks, g.total_marks,
               ROUND(g.obtained_marks/NULLIF(g.total_marks,0)*100,1) pct
          FROM grades g LEFT JOIN subjects su ON su.id=g.subject_id
@@ -38,7 +38,7 @@ router.get('/report-card/:studentId', async (req, res) => {
     )
   ).rows;
   const att = (
-    await pool.query<{ status: string; c: number }>(
+    await db.query<{ status: string; c: number }>(
       `SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 AND school_id=$2 GROUP BY status`,
       [studentId, s]
     )
@@ -105,7 +105,7 @@ router.get('/fee-voucher/:feeId', async (req, res) => {
   const s = schoolId(req);
   const { feeId } = idParam('feeId').parse(req.params);
   const f = (
-    await pool.query(
+    await db.query(
       `SELECT f.*, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name
          FROM tuition_fee f JOIN students st ON st.id=f.student_id LEFT JOIN classes c ON c.id=st.class_id
         WHERE f.id=$1 AND f.school_id=$2`,

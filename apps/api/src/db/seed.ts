@@ -1,6 +1,7 @@
 // Demo data for local development. The Phase 1 seed replaces this with four tenants.
 import bcrypt from 'bcryptjs';
 import { pool } from './pool';
+import { db, runAsSystem } from './context';
 import { todayIn } from '../lib/locale';
 import { grantSystemRole, syncRbacCatalogue } from '../rbac';
 
@@ -11,7 +12,7 @@ const PW = 'Acadex@123';
 const rand = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)] as T;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function q(text: string, params?: unknown[]): Promise<any[]> { return (await pool.query(text, params)).rows; }
+async function q(text: string, params?: unknown[]): Promise<any[]> { return (await db.query(text, params)).rows; }
 
 async function makeUser(school_id: number | null, role: string, email: string, full_name: string, ref_id: number | null, hash: string) {
   await q(
@@ -20,7 +21,7 @@ async function makeUser(school_id: number | null, role: string, email: string, f
     [school_id, role, email.toLowerCase(), hash, full_name, ref_id]
   );
   const [u] = await q(`SELECT id FROM users WHERE email=$1`, [email.toLowerCase()]);
-  await grantSystemRole(pool, u.id, role, school_id);
+  await grantSystemRole(db, u.id, role, school_id);
 }
 
 const FIRST = ['Ali','Fatima','Hamza','Zainab','Ahmed','Maryam','Hassan','Aisha','Omar','Iqra','Saad','Noor','Talha','Areeba','Bilal','Sana','Usman','Hina','Danish','Mahnoor','Faizan','Rida','Kashan','Emaan'];
@@ -231,13 +232,24 @@ async function guard() {
     throw new Error('Database already has data. Run "npm run db:reset" to wipe it and reseed.');
   }
   if (reset) {
-    await q('TRUNCATE user_roles, notifications, parent_children, audit_log, submissions, assignments, grades, student_attendance, teacher_attendance, timetable, exam_schedule, tuition_fee, teacher_subjects, subjects, students, teachers, classes, users, announcements, schools RESTART IDENTITY CASCADE');
-    await syncRbacCatalogue(pool); // CASCADE also emptied the built-in roles
+    await q('TRUNCATE user_roles, notifications, parent_children, audit_log, submissions, assignments, grades, student_attendance, teacher_attendance, timetable, exam_schedule, tuition_fee, teacher_subjects, subjects, students, teachers, classes, users, announcements, schools CASCADE');
+    await syncRbacCatalogue(db); // CASCADE also emptied the built-in roles (same transaction)
   }
 }
 
 (async () => {
   try {
+    await runAsSystem(seedAll);
+    await pool.end();
+  } catch (e) {
+    console.error('❌ Seed failed:', (e as Error).message);
+    await pool.end().catch(() => {});
+    process.exit(1);
+  }
+})();
+
+async function seedAll() {
+  {
     await guard();
     const hash = await bcrypt.hash(PW, 10);
 
@@ -270,10 +282,5 @@ async function guard() {
     console.log('Greenwood:', r1);
     console.log('Sunrise:', r2);
     console.log('SEED DONE. Password for all demo users:', PW);
-    await pool.end();
-  } catch (e) {
-    console.error('❌ Seed failed:', (e as Error).message);
-    await pool.end().catch(() => {});
-    process.exit(1);
   }
-})();
+}

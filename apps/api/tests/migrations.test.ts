@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
 import { loadLegacyMigrations, migrate } from '../src/db/migrate';
 
-const base = new URL(process.env.DATABASE_URL!);
+const base = new URL(process.env.TEST_ADMIN_DATABASE_URL!); // CREATE DATABASE needs a superuser
 const urlFor = (db: string) => {
   const u = new URL(base.toString());
   u.pathname = `/${db}`;

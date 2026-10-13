@@ -19,12 +19,17 @@ function sslConfig(): false | { rejectUnauthorized: boolean } {
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: sslConfig(),
-  max: Number(process.env.DATABASE_POOL_MAX || 10),
+  // each in-flight request holds one connection for its transaction (see db/context.ts)
+  max: Number(process.env.DATABASE_POOL_MAX || 20),
 });
 
 // An idle client losing its connection must not crash the process.
 pool.on('error', (err) => console.error('pg pool error:', err.message));
 
-export type Queryable = Pick<pg.Pool, 'query'> | pg.PoolClient;
+/** Anything with a pg-style query(): the request context, a pool or a client. */
+export interface Queryable {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query<R extends pg.QueryResultRow = any>(text: string, values?: unknown[]): Promise<pg.QueryResult<R>>;
+}
 
 export default pool;

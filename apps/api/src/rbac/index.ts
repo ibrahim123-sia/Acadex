@@ -1,7 +1,9 @@
 // Role-based access control: catalogue sync, grants and the can() check.
-import type pg from 'pg';
 import { PERMISSIONS, SYSTEM_ROLES, type Permission, type ScopeType } from '@acadex/shared';
-import { pool, type Queryable } from '../db/pool';
+import type { Queryable } from '../db/pool';
+import { db } from '../db/context';
+
+const defaultDb: Queryable = db;
 
 export interface Grant {
   permission: Permission;
@@ -30,7 +32,7 @@ export function can(
 }
 
 /** The user's effective permission grants (all roles, all scopes). */
-export async function loadGrants(userId: number, db: Queryable = pool): Promise<Grant[]> {
+export async function loadGrants(userId: number, db: Queryable = defaultDb): Promise<Grant[]> {
   const { rows } = await db.query<{ permission: Permission; scope_type: ScopeType; scope_id: number | null }>(
     `SELECT DISTINCT rp.permission, ur.scope_type, ur.scope_id
        FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
@@ -66,7 +68,7 @@ export async function grantSystemRole(
  * description, and every built-in role has exactly its defined permission set.
  * Runs after migrations on every deploy.
  */
-export async function syncRbacCatalogue(client: pg.PoolClient | pg.Pool): Promise<void> {
+export async function syncRbacCatalogue(client: Queryable): Promise<void> {
   const keys = Object.keys(PERMISSIONS);
   await client.query(
     `INSERT INTO permissions (key, description)

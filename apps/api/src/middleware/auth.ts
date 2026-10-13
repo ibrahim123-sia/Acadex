@@ -1,7 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import type { Permission, Role } from '@acadex/shared';
-import { pool } from '../db/pool';
+import { db, setTenant } from '../db/context';
 import { can, type AccessContext, type Grant } from '../rbac';
 
 export interface AuthUser {
@@ -71,8 +71,13 @@ const makeAuth = ({ allowPendingPasswordChange = false } = {}): RequestHandler =
       return void unauthorized(res);
     }
     if (!Number.isInteger(payload.id) || !Number.isInteger(payload.tv)) return void unauthorized(res);
+    const claimedSchool = Number.isInteger(payload.school_id) ? (payload.school_id as number) : null;
 
-    const { rows } = await pool.query<UserRow>(
+    // The lookup runs in the context the (signed) token claims — its own user row, school
+    // row and role assignments are visible there without bypassing RLS — and the claim is
+    // verified against the database below. Every later query in the request stays in it.
+    setTenant(claimedSchool, payload.id);
+    const { rows } = await db.query<UserRow>(
       `SELECT u.id, u.role, u.school_id, u.ref_id, u.full_name, u.email, u.is_active, u.token_version,
               u.must_change_password, s.status AS school_status,
               COALESCE((SELECT json_agg(DISTINCT jsonb_build_object('permission', rp.permission,
@@ -84,8 +89,11 @@ const makeAuth = ({ allowPendingPasswordChange = false } = {}): RequestHandler =
       [payload.id]
     );
     const u = rows[0];
-    // token_version is bumped on logout / password change, which revokes older tokens
-    if (!u || !u.is_active || u.token_version !== payload.tv) return void unauthorized(res);
+    // token_version is bumped on logout / password change, which revokes older tokens;
+    // a token issued for another school than the account's current one is stale
+    if (!u || !u.is_active || u.token_version !== payload.tv || u.school_id !== claimedSchool) {
+      return void unauthorized(res);
+    }
     if (u.school_id && u.school_status !== 'active') {
       return void res.status(403).json({ error: 'This school account is currently suspended.' });
     }

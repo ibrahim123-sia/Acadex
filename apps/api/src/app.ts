@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import { pool } from './db/pool';
+import { dbContext } from './db/context';
 import { loadConfig, type Config } from './config';
 import { errorHandler } from './lib/errors';
 import { httpLogger } from './lib/logger';
@@ -58,6 +59,7 @@ export function createApp(config: Config = loadConfig()) {
     }
   });
 
+  app.use('/api', dbContext);
   app.use('/api/auth', authRoutes);
   app.use('/api/platform', platformRoutes);
   app.use('/api/school', rolesRoutes);

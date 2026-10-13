@@ -8,8 +8,7 @@ import {
   createTeacherBody,
   studentSearchQuery,
 } from '@acadex/shared';
-import { pool } from '../db/pool';
-import { withTransaction } from '../db/tx';
+import { db, withTransaction } from '../db/context';
 import { assertInSchool } from '../lib/access';
 import { audit } from '../lib/audit';
 import { conflict } from '../lib/errors';
@@ -25,7 +24,7 @@ const router = Router();
 // them; custom roles such as "Accountant" can hold a subset).
 router.use(auth);
 
-const userIdByEmail = async (client: { query: typeof pool.query }, email: string) =>
+const userIdByEmail = async (client: typeof db, email: string) =>
   (await client.query<{ id: number }>('SELECT id FROM users WHERE email=$1', [email])).rows[0]!.id;
 const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === '23505';
 const auditAs = (req: Request, action: string, entity: string, detail: string) =>
@@ -36,25 +35,25 @@ router.get('/dashboard', requirePermission('school.dashboard.read'), async (req,
   const s = schoolId(req);
   const today = todayIn(await schoolTimeZone(s));
   const [students, teachers, classes, fees, feeStatus, attToday, topClasses, recent] = await Promise.all([
-    pool.query<{ c: number }>(`SELECT count(*)::int c FROM students WHERE school_id=$1`, [s]),
-    pool.query<{ c: number }>(`SELECT count(*)::int c FROM teachers WHERE school_id=$1`, [s]),
-    pool.query<{ c: number }>(`SELECT count(*)::int c FROM classes WHERE school_id=$1`, [s]),
-    pool.query<{ collected: string; outstanding: string }>(
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM students WHERE school_id=$1`, [s]),
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM teachers WHERE school_id=$1`, [s]),
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM classes WHERE school_id=$1`, [s]),
+    db.query<{ collected: string; outstanding: string }>(
       `SELECT COALESCE(SUM(paid_amount),0)::numeric collected, COALESCE(SUM(remaining_balance),0)::numeric outstanding
          FROM tuition_fee WHERE school_id=$1`,
       [s]
     ),
-    pool.query(`SELECT payment_status, count(*)::int c FROM tuition_fee WHERE school_id=$1 GROUP BY payment_status`, [s]),
-    pool.query(
+    db.query(`SELECT payment_status, count(*)::int c FROM tuition_fee WHERE school_id=$1 GROUP BY payment_status`, [s]),
+    db.query(
       `SELECT status, count(*)::int c FROM student_attendance WHERE school_id=$1 AND att_date >= $2::date - 7 GROUP BY status`,
       [s, today]
     ),
-    pool.query(
+    db.query(
       `SELECT c.name, count(st.id)::int students FROM classes c LEFT JOIN students st ON st.class_id=c.id
         WHERE c.school_id=$1 GROUP BY c.id, c.name ORDER BY students DESC`,
       [s]
     ),
-    pool.query(
+    db.query(
       `SELECT id, first_name, last_name, roll_no, created_at FROM students WHERE school_id=$1 ORDER BY created_at DESC LIMIT 6`,
       [s]
     ),
@@ -77,7 +76,7 @@ router.get('/students', requirePermission('students.read'), async (req, res) => 
   const pg = parsePage(req.query);
   const { search } = studentSearchQuery.parse({ search: req.query.search });
   const q = `%${search.toLowerCase()}%`;
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT st.id, st.roll_no, st.first_name, st.last_name, st.email, st.gender, st.age, st.status,
             c.name class_name,
             COALESCE((SELECT payment_status FROM tuition_fee f WHERE f.student_id=st.id AND f.school_id=st.school_id
@@ -94,7 +93,7 @@ router.get('/students', requirePermission('students.read'), async (req, res) => 
 // ---------- Teachers ----------
 router.get('/teachers', requirePermission('staff.read'), async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT t.id, t.first_name, t.last_name, t.email, t.gender, t.phone, t.qualification,
             (SELECT count(*) FROM teacher_subjects ts WHERE ts.teacher_id=t.id)::int subjects,
             count(*) OVER() _total
@@ -107,7 +106,7 @@ router.get('/teachers', requirePermission('staff.read'), async (req, res) => {
 // ---------- Classes & subjects ----------
 router.get('/classes', requirePermission('classes.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 }); // also feeds class dropdowns
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT c.id, c.code, c.name, c.section,
             (SELECT count(*) FROM students s WHERE s.class_id=c.id)::int students,
             (SELECT count(*) FROM subjects su WHERE su.class_id=c.id)::int subjects,
@@ -121,7 +120,7 @@ router.get('/classes', requirePermission('classes.read'), async (req, res) => {
 // ---------- Fees ----------
 router.get('/fees', requirePermission('fees.read'), async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT f.id, f.receipt_id, f.total_fee, f.paid_amount, f.remaining_balance, f.payment_status, f.payment_date,
             st.first_name||' '||st.last_name student, st.roll_no, count(*) OVER() _total
        FROM tuition_fee f JOIN students st ON st.id=f.student_id
@@ -133,7 +132,7 @@ router.get('/fees', requirePermission('fees.read'), async (req, res) => {
 
 // Fee totals for the whole school (the fees list is paginated, so the UI can't add it up)
 router.get('/fees/summary', requirePermission('fees.read'), async (req, res) => {
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT COALESCE(SUM(paid_amount),0)::float8 collected, COALESCE(SUM(remaining_balance),0)::float8 outstanding
        FROM tuition_fee WHERE school_id=$1`,
     [schoolId(req)]
@@ -144,7 +143,7 @@ router.get('/fees/summary', requirePermission('fees.read'), async (req, res) => 
 // ---------- Grades ----------
 router.get('/grades', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT g.id, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name,
             su.name subject, g.assignment_type, g.assignment_name, g.obtained_marks, g.total_marks,
             ROUND(g.obtained_marks / NULLIF(g.total_marks,0) * 100, 1) percentage, count(*) OVER() _total
@@ -159,7 +158,7 @@ router.get('/grades', requirePermission('academics.read'), async (req, res) => {
 // ---------- Attendance (most recent first) ----------
 router.get('/attendance', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT a.att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name, a.subject, a.status,
             count(*) OVER() _total
        FROM student_attendance a JOIN students st ON st.id=a.student_id LEFT JOIN classes c ON c.id=a.class_id
@@ -172,7 +171,7 @@ router.get('/attendance', requirePermission('academics.read'), async (req, res) 
 // ---------- Timetable ----------
 router.get('/timetable', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 });
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT tt.day_of_week, tt.time_slot, tt.subject, c.name class_name,
             t.first_name||' '||t.last_name teacher, count(*) OVER() _total
        FROM timetable tt JOIN classes c ON c.id=tt.class_id LEFT JOIN teachers t ON t.id=tt.teacher_id
@@ -185,7 +184,7 @@ router.get('/timetable', requirePermission('academics.read'), async (req, res) =
 // ---------- Exams ----------
 router.get('/exams', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 });
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT e.exam_name, e.subject, e.exam_date, e.time_slot, e.total_marks, c.name class_name, count(*) OVER() _total
        FROM exam_schedule e LEFT JOIN classes c ON c.id=e.class_id
       WHERE e.school_id=$1 ORDER BY e.exam_date, e.id LIMIT $2 OFFSET $3`,
@@ -197,7 +196,7 @@ router.get('/exams', requirePermission('academics.read'), async (req, res) => {
 // ---------- Announcements ----------
 router.get('/announcements', requirePermission('announcements.read'), async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT id, title, target_audience, description, start_date, end_date, created_at, count(*) OVER() _total
        FROM announcements WHERE school_id=$1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
     [schoolId(req), pg.limit, pg.offset]
@@ -207,7 +206,7 @@ router.get('/announcements', requirePermission('announcements.read'), async (req
 
 router.post('/announcements', requirePermission('announcements.manage'), async (req, res) => {
   const { title, target_audience, description, end_date } = announcementBody.parse(req.body);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `INSERT INTO announcements (school_id, title, target_audience, description, end_date) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
     [schoolId(req), title, target_audience, description, end_date]
   );
@@ -281,7 +280,7 @@ router.post('/teachers', requirePermission('staff.manage'), async (req, res) => 
 router.post('/classes', requirePermission('classes.manage'), async (req, res) => {
   const { code, name, section } = createClassBody.parse(req.body);
   try {
-    const { rows } = await pool.query(
+    const { rows } = await db.query(
       `INSERT INTO classes (school_id, code, name, section) VALUES ($1,$2,$3,$4) RETURNING *`,
       [schoolId(req), code, name, section]
     );
@@ -302,7 +301,7 @@ router.post('/fees', requirePermission('fees.manage'), async (req, res) => {
   const status = remaining <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending';
   const receipt = 'RCP-' + crypto.randomBytes(5).toString('hex').toUpperCase();
   const paidOn = todayIn(await schoolTimeZone(s));
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `INSERT INTO tuition_fee (school_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status, payment_date)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     [s, receipt, student_id, total, paid, remaining, status, paidOn]

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { assignmentBody, attendanceBody, gradesBody, id, rosterQuery, submissionBody } from '@acadex/shared';
-import { pool } from '../db/pool';
-import { withTransaction } from '../db/tx';
+import { db, withTransaction } from '../db/context';
 import { assertStudentsInClass, assertTeachesClass } from '../lib/access';
 import { forbidden, notFound } from '../lib/errors';
 import { todayIn } from '../lib/locale';
@@ -21,22 +20,22 @@ router.get('/student/overview', async (req, res) => {
   const s = schoolId(req);
   const stu = ref(req);
   const [profile, grades, attendance, fee] = await Promise.all([
-    pool.query(
+    db.query(
       `SELECT st.*, c.name class_name FROM students st LEFT JOIN classes c ON c.id=st.class_id WHERE st.id=$1 AND st.school_id=$2`,
       [stu, s]
     ),
-    pool.query(
+    db.query(
       `SELECT su.name subject, g.assignment_type, g.assignment_name, g.obtained_marks, g.total_marks,
               ROUND(g.obtained_marks/NULLIF(g.total_marks,0)*100,1) percentage
          FROM grades g LEFT JOIN subjects su ON su.id=g.subject_id
         WHERE g.student_id=$1 AND g.school_id=$2 ORDER BY g.id DESC`,
       [stu, s]
     ),
-    pool.query(
+    db.query(
       `SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 AND school_id=$2 GROUP BY status`,
       [stu, s]
     ),
-    pool.query(
+    db.query(
       `SELECT total_fee, paid_amount, remaining_balance, payment_status, receipt_id
          FROM tuition_fee WHERE student_id=$1 AND school_id=$2 ORDER BY id DESC LIMIT 1`,
       [stu, s]
@@ -55,19 +54,19 @@ router.get('/teacher/overview', async (req, res) => {
   const s = schoolId(req);
   const tch = ref(req);
   const [profile, classes, subjects, students] = await Promise.all([
-    pool.query(`SELECT * FROM teachers WHERE id=$1 AND school_id=$2`, [tch, s]),
-    pool.query(
+    db.query(`SELECT * FROM teachers WHERE id=$1 AND school_id=$2`, [tch, s]),
+    db.query(
       `SELECT DISTINCT c.id, c.name FROM teacher_subjects ts JOIN classes c ON c.id=ts.class_id
         WHERE ts.teacher_id=$1 AND ts.school_id=$2`,
       [tch, s]
     ),
-    pool.query(
+    db.query(
       `SELECT ts.id, su.name subject, c.name class_name
          FROM teacher_subjects ts JOIN subjects su ON su.id=ts.subject_id LEFT JOIN classes c ON c.id=ts.class_id
         WHERE ts.teacher_id=$1 AND ts.school_id=$2`,
       [tch, s]
     ),
-    pool.query<{ c: number }>(
+    db.query<{ c: number }>(
       `SELECT count(DISTINCT st.id)::int c
          FROM teacher_subjects ts JOIN students st ON st.class_id=ts.class_id AND st.school_id=ts.school_id
         WHERE ts.teacher_id=$1 AND ts.school_id=$2`,
@@ -84,7 +83,7 @@ router.get('/teacher/overview', async (req, res) => {
 
 // Teacher: students in their classes (for gradebook / attendance)
 router.get('/teacher/students', async (req, res) => {
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT DISTINCT st.id, st.roll_no, st.first_name||' '||st.last_name name, c.name class_name
        FROM teacher_subjects ts
        JOIN students st ON st.class_id=ts.class_id AND st.school_id=ts.school_id
@@ -99,7 +98,7 @@ router.get('/teacher/students', async (req, res) => {
 router.get('/announcements', requirePermission('announcements.view'), async (req, res) => {
   const aud = currentUser(req).role === 'teacher' ? ['All', 'Teachers'] : ['All', 'Students'];
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT id, title, target_audience, description, start_date, end_date, count(*) OVER() _total FROM announcements
       WHERE school_id=$1 AND target_audience = ANY($2) ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`,
     [schoolId(req), aud, pg.limit, pg.offset]
@@ -111,7 +110,7 @@ router.get('/announcements', requirePermission('announcements.view'), async (req
 
 // Teacher's classes (distinct) with student counts
 router.get('/teacher/classes', async (req, res) => {
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT DISTINCT c.id, c.name, c.code,
             (SELECT count(*) FROM students s WHERE s.class_id=c.id)::int students
        FROM teacher_subjects ts JOIN classes c ON c.id=ts.class_id
@@ -127,7 +126,7 @@ router.get('/teacher/class/:classId/roster', async (req, res) => {
   await assertTeachesClass(currentUser(req), classId);
   // "today" is the school's calendar date, not the server's (UTC) one
   const date = rosterQuery.parse(req.query).date ?? todayIn(await schoolTimeZone(schoolId(req)));
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT st.id, st.roll_no, st.first_name||' '||st.last_name name,
             (SELECT status FROM student_attendance a WHERE a.student_id=st.id AND a.class_id=$2 AND a.att_date=$3 LIMIT 1) status
        FROM students st WHERE st.class_id=$1 AND st.school_id=$4 ORDER BY st.roll_no`,
@@ -175,7 +174,7 @@ router.post('/teacher/grades', requirePermission('grades.enter'), async (req, re
 // Teacher's assignments
 router.get('/teacher/assignments', async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT a.id, a.title, a.description, a.due_date, c.name class_name, su.name subject,
             (SELECT count(*) FROM submissions s WHERE s.assignment_id=a.id)::int submissions, count(*) OVER() _total
        FROM assignments a LEFT JOIN classes c ON c.id=a.class_id LEFT JOIN subjects su ON su.id=a.subject_id
@@ -190,28 +189,28 @@ router.post('/teacher/assignments', requirePermission('assignments.manage'), asy
   const { class_id, subject_id, title, description, due_date } = assignmentBody.parse(req.body);
   const s = schoolId(req);
   await assertTeachesClass(currentUser(req), class_id, subject_id);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `INSERT INTO assignments (school_id, class_id, subject_id, teacher_id, title, description, due_date)
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
     [s, class_id, subject_id, ref(req), title, description, due_date]
   );
-  // notify students of the class (best effort)
-  await pool
-    .query(
+  // notify students of the class (best effort: a failure only undoes this savepoint)
+  await withTransaction((tx) =>
+    tx.query(
       `INSERT INTO notifications (school_id, user_id, type, title, message)
        SELECT $1, u.id, 'assignment', 'New assignment: ' || $2, 'A new assignment has been posted for your class.'
          FROM users u WHERE u.role='student' AND u.school_id=$1
           AND u.ref_id IN (SELECT id FROM students WHERE class_id=$3 AND school_id=$1)`,
       [s, title, class_id]
     )
-    .catch((err: unknown) => req.log.warn({ err }, 'assignment notifications failed'));
+  ).catch((err: unknown) => req.log.warn({ err }, 'assignment notifications failed'));
   res.status(201).json(rows[0]);
 });
 
 // ================= STUDENT =================
 router.get('/student/assignments', async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT a.id, a.title, a.description, a.due_date, su.name subject,
             (SELECT count(*) FROM submissions s WHERE s.assignment_id=a.id AND s.student_id=$1)::int submitted,
             count(*) OVER() _total
@@ -227,7 +226,7 @@ router.post('/student/submissions', requirePermission('submissions.create'), asy
   const { assignment_id, title, file_link } = submissionBody.parse(req.body);
   const s = schoolId(req);
   // the assignment must exist in this school and be set for the student's own class
-  const { rows: found } = await pool.query<{ own_class: boolean }>(
+  const { rows: found } = await db.query<{ own_class: boolean }>(
     `SELECT a.class_id = st.class_id AS own_class
        FROM assignments a JOIN students st ON st.id = $3 AND st.school_id = a.school_id
       WHERE a.id = $1 AND a.school_id = $2`,
@@ -235,7 +234,7 @@ router.post('/student/submissions', requirePermission('submissions.create'), asy
   );
   if (!found[0]) throw notFound('Assignment not found');
   if (!found[0].own_class) throw forbidden('This assignment is not for your class');
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `INSERT INTO submissions (school_id, assignment_id, student_id, title, file_link) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
     [s, assignment_id, ref(req), title, file_link]
   );
@@ -247,12 +246,12 @@ router.get('/notifications', async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 20 });
   const userId = currentUser(req).id;
   const [items, counts] = await Promise.all([
-    pool.query(
+    db.query(
       `SELECT id, type, title, message, is_read, created_at FROM notifications WHERE user_id=$1
         ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
       [userId, pg.limit, pg.offset]
     ),
-    pool.query<{ total: number; unread: number }>(
+    db.query<{ total: number; unread: number }>(
       `SELECT count(*)::int total, count(*) FILTER (WHERE NOT is_read)::int unread FROM notifications WHERE user_id=$1`,
       [userId]
     ),
@@ -261,7 +260,7 @@ router.get('/notifications', async (req, res) => {
 });
 
 router.post('/notifications/read-all', async (req, res) => {
-  await pool.query(`UPDATE notifications SET is_read=TRUE WHERE user_id=$1`, [currentUser(req).id]);
+  await db.query(`UPDATE notifications SET is_read=TRUE WHERE user_id=$1`, [currentUser(req).id]);
   res.json({ ok: true });
 });
 

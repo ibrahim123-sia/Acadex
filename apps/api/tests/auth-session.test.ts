@@ -52,6 +52,14 @@ describe('token validity is re-checked on every request', () => {
     expect((await as(forged).get('/api/school/students')).status).toBe(401);
   });
 
+  it('a token claiming another school than the account belongs to is rejected', async () => {
+    const forged = jwt.sign({ id: f.users.adminA.id, tv: 0, role: 'school_admin', school_id: f.schools.B.id }, process.env.JWT_SECRET!);
+    expect((await as(forged).get('/api/school/students')).status).toBe(401);
+    // and an account moved to another school can't keep using its old token
+    await q(`UPDATE users SET school_id=$1 WHERE id=$2`, [f.schools.B.id, f.users.t2.id]);
+    expect((await as(f.tokens.t2).get('/api/me/notifications')).status).toBe(401);
+  });
+
   it('an old-format token without a version is rejected', async () => {
     const old = jwt.sign({ id: f.users.adminA.id, role: 'school_admin', school_id: f.schools.A.id }, process.env.JWT_SECRET!);
     expect((await as(old).get('/api/school/students')).status).toBe(401);

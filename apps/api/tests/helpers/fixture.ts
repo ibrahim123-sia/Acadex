@@ -1,16 +1,18 @@
 // Deterministic two-tenant fixture used by the API tests.
 import bcrypt from 'bcryptjs';
-import { pool } from '../../src/db/pool';
+import pg from 'pg';
 import { signToken } from '../../src/middleware/auth';
 import { grantSystemRole, syncRbacCatalogue } from '../../src/rbac';
 
-export { pool };
+/** Superuser connection (bypasses RLS): resets, setup inserts and assertions in tests. */
+export const pool = new pg.Pool({ connectionString: process.env.TEST_ADMIN_DATABASE_URL });
 
 export const PASSWORD = 'Test@Pass123';
 
 function assertTestDb() {
   const url = process.env.DATABASE_URL || '';
-  const isTestUrl = url.includes('acadex_test') || url === process.env.TEST_DATABASE_URL;
+  const admin = process.env.TEST_ADMIN_DATABASE_URL || '';
+  const isTestUrl = (url.includes('acadex_test') || url === process.env.TEST_DATABASE_URL) && admin.includes('acadex_test');
   if (process.env.NODE_ENV !== 'test' || !isTestUrl) {
     throw new Error(`Refusing to reset a non-test database (${url.replace(/\/\/.*@/, '//***@')})`);
   }

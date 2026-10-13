@@ -1,19 +1,22 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { changePasswordBody, loginBody } from '@acadex/shared';
-import { pool } from '../db/pool';
+import { db, systemContext } from '../db/context';
 import { badRequest } from '../lib/errors';
 import { hashPassword } from '../lib/passwords';
 import { authAllowingPasswordChange, currentUser, signToken } from '../middleware/auth';
 
 const router = Router();
+// Login works before any tenant is known (lookup by email). Authenticated auth routes switch
+// to the caller's own context in auth(); users can always read and update their own row.
+router.use(systemContext);
 
 // Compared against when the email is unknown, so response time doesn't reveal which emails exist.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
 async function loadSchool(schoolId: number | null) {
   if (!schoolId) return null;
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     'SELECT id, name, slug, logo_url, primary_color, plan, status, currency, timezone, locale FROM schools WHERE id=$1',
     [schoolId]
   );
@@ -48,7 +51,7 @@ router.post('/login', async (req, res) => {
   const parsed = loginBody.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: 'Email and password are required' });
   const { email, password } = parsed.data;
-  const { rows } = await pool.query<UserRecord>('SELECT * FROM users WHERE email=$1', [email]);
+  const { rows } = await db.query<UserRecord>('SELECT * FROM users WHERE email=$1', [email]);
   const user = rows[0];
   const ok = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
   if (!user || !ok || !user.is_active) return void res.status(401).json({ error: 'Invalid email or password' });
@@ -58,13 +61,13 @@ router.post('/login', async (req, res) => {
   if (school && school.status !== 'active') {
     return void res.status(403).json({ error: 'This school account is currently suspended.' });
   }
-  await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
+  await db.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
   res.json({ token: signToken(user), user: publicUser(user), school });
 });
 
 // GET /api/auth/me
 router.get('/me', authAllowingPasswordChange, async (req, res) => {
-  const { rows } = await pool.query<UserRecord>('SELECT * FROM users WHERE id=$1', [currentUser(req).id]);
+  const { rows } = await db.query<UserRecord>('SELECT * FROM users WHERE id=$1', [currentUser(req).id]);
   const user = rows[0]!;
   res.json({ user: publicUser(user), school: await loadSchool(user.school_id) });
 });
@@ -73,12 +76,12 @@ router.get('/me', authAllowingPasswordChange, async (req, res) => {
 // Revokes all existing tokens and returns a fresh one for this session.
 router.post('/change-password', authAllowingPasswordChange, async (req, res) => {
   const { current_password, new_password } = changePasswordBody.parse(req.body);
-  const { rows } = await pool.query<UserRecord>('SELECT * FROM users WHERE id=$1', [currentUser(req).id]);
+  const { rows } = await db.query<UserRecord>('SELECT * FROM users WHERE id=$1', [currentUser(req).id]);
   const user = rows[0]!;
   if (!(await bcrypt.compare(current_password, user.password_hash))) throw badRequest('Current password is incorrect');
   if (await bcrypt.compare(new_password, user.password_hash)) throw badRequest('Choose a password you have not used here');
   const updated = (
-    await pool.query<UserRecord>(
+    await db.query<UserRecord>(
       `UPDATE users SET password_hash=$2, must_change_password=FALSE, password_changed_at=now(), token_version=token_version+1
         WHERE id=$1 RETURNING *`,
       [user.id, await hashPassword(new_password)]
@@ -89,7 +92,7 @@ router.post('/change-password', authAllowingPasswordChange, async (req, res) => 
 
 // POST /api/auth/logout — revokes every token issued to this user so far.
 router.post('/logout', authAllowingPasswordChange, async (req, res) => {
-  await pool.query('UPDATE users SET token_version = token_version + 1 WHERE id=$1', [currentUser(req).id]);
+  await db.query('UPDATE users SET token_version = token_version + 1 WHERE id=$1', [currentUser(req).id]);
   res.json({ ok: true });
 });
 

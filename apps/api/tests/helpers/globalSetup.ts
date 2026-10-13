@@ -69,14 +69,35 @@ export async function setup() {
     throw new Error('Refusing to run tests against DATABASE_URL — set a separate TEST_DATABASE_URL');
   }
 
-  process.env.DATABASE_URL = url;
+  const pool = new pg.Pool({ connectionString: url });
+  await migrate(pool, { log: () => {} });
+  // The API connects as an ordinary role: superusers bypass Row-Level Security, so testing
+  // as one would prove nothing. Like production, it may run migrations and the seed.
+  await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'acadex_app') THEN
+        CREATE ROLE acadex_app LOGIN PASSWORD 'acadex_app' NOSUPERUSER NOBYPASSRLS;
+      END IF;
+    END $$`);
+  for (const stmt of [
+    'GRANT ALL ON SCHEMA public TO acadex_app',
+    'GRANT ALL ON ALL TABLES IN SCHEMA public TO acadex_app',
+    'GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO acadex_app',
+    'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO acadex_app',
+    'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO acadex_app',
+    'ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO acadex_app',
+  ]) {
+    await pool.query(stmt);
+  }
+  await pool.end();
+
+  const appUrl = new URL(url);
+  appUrl.username = 'acadex_app';
+  appUrl.password = 'acadex_app';
+  process.env.TEST_ADMIN_DATABASE_URL = url; // superuser: fixture resets and assertions
+  process.env.DATABASE_URL = appUrl.toString(); // what the API under test uses
   process.env.DATABASE_SSL = 'false';
   process.env.JWT_SECRET = 'test-secret-that-is-at-least-32-characters-long';
   process.env.NODE_ENV = 'test';
-
-  const pool = new pg.Pool({ connectionString: url });
-  await migrate(pool, { log: () => {} });
-  await pool.end();
 }
 
 export async function teardown() {

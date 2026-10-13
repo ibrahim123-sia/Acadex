@@ -59,6 +59,8 @@ export async function migrate(pool: pg.Pool, { log = console.log }: { log?: (msg
   const client = await pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock($1)', [LOCK_KEY]);
+    // migrations and reference-data sync work across all tenants
+    await client.query("SET app.bypass_rls = 'on'");
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
       id         TEXT PRIMARY KEY,
       checksum   TEXT NOT NULL,

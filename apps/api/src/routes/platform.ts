@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { createSchoolBody, id, updateSchoolBody } from '@acadex/shared';
-import { pool } from '../db/pool';
-import { withTransaction } from '../db/tx';
+import { db, systemContext, withTransaction } from '../db/context';
 import { audit } from '../lib/audit';
 import { conflict, notFound } from '../lib/errors';
 import { parsePage, sendPage } from '../lib/pagination';
@@ -10,23 +9,24 @@ import { auth, currentUser, requirePermission } from '../middleware/auth';
 import { grantSystemRole } from '../rbac';
 
 const router = Router();
-router.use(auth);
+// Platform staff work across schools: RLS bypass for this router (after auth + permission).
+router.use(auth, systemContext);
 
 // Platform KPIs
 router.get('/stats', requirePermission('platform.schools.read'), async (_req, res) => {
   const [schools, students, teachers, revenue, recent] = await Promise.all([
-    pool.query<{ total: number; active: number }>(
+    db.query<{ total: number; active: number }>(
       `SELECT count(*)::int total, count(*) FILTER (WHERE status='active')::int active FROM schools`
     ),
-    pool.query<{ c: number }>(`SELECT count(*)::int c FROM students`),
-    pool.query<{ c: number }>(`SELECT count(*)::int c FROM teachers`),
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM students`),
+    db.query<{ c: number }>(`SELECT count(*)::int c FROM teachers`),
     // fee collections per currency — amounts in different currencies must never be added up
-    pool.query<{ currency: string; amount: string }>(
+    db.query<{ currency: string; amount: string }>(
       `SELECT sc.currency, SUM(f.paid_amount)::numeric amount
          FROM tuition_fee f JOIN schools sc ON sc.id=f.school_id
         GROUP BY sc.currency ORDER BY amount DESC`
     ),
-    pool.query(
+    db.query(
       `SELECT id, name, slug, plan, status, created_at,
               (SELECT count(*) FROM students s WHERE s.school_id=sc.id)::int students
          FROM schools sc ORDER BY created_at DESC LIMIT 5`
@@ -45,7 +45,7 @@ router.get('/stats', requirePermission('platform.schools.read'), async (_req, re
 // List all schools with counts
 router.get('/schools', requirePermission('platform.schools.read'), async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT sc.*,
             (SELECT count(*) FROM students s WHERE s.school_id=sc.id)::int students,
             (SELECT count(*) FROM teachers t WHERE t.school_id=sc.id)::int teachers,
@@ -93,7 +93,7 @@ router.post('/schools', requirePermission('platform.schools.manage'), async (req
 router.patch('/schools/:id', requirePermission('platform.schools.manage'), async (req, res) => {
   const target = id.parse(req.params.id);
   const p = updateSchoolBody.parse(req.body);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `UPDATE schools SET plan=COALESCE($2,plan), status=COALESCE($3,status), currency=COALESCE($4,currency),
             timezone=COALESCE($5,timezone), locale=COALESCE($6,locale)
       WHERE id=$1 RETURNING *`,
@@ -105,7 +105,7 @@ router.patch('/schools/:id', requirePermission('platform.schools.manage'), async
 
 router.get('/audit', requirePermission('platform.audit.read'), async (req, res) => {
   const pg = parsePage(req.query);
-  const { rows } = await pool.query(
+  const { rows } = await db.query(
     `SELECT a.*, sc.name school_name, count(*) OVER() _total FROM audit_log a LEFT JOIN schools sc ON sc.id=a.school_id
       ORDER BY a.created_at DESC, a.id DESC LIMIT $1 OFFSET $2`,
     [pg.limit, pg.offset]

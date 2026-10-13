@@ -1,6 +1,9 @@
 // Ownership checks. Never trust an id from the client: every check is scoped to the
 // caller's school and to what their role is actually linked to.
-import { pool, type Queryable } from '../db/pool';
+import type { Queryable } from '../db/pool';
+import { db } from '../db/context';
+
+const defaultDb: Queryable = db;
 import type { AuthUser } from '../middleware/auth';
 import { can } from '../rbac';
 import { badRequest, forbidden, notFound } from './errors';
@@ -10,7 +13,7 @@ export async function assertTeachesClass(
   user: AuthUser,
   classId: number,
   subjectId: number | null = null,
-  db: Queryable = pool
+  db: Queryable = defaultDb
 ): Promise<void> {
   const { rows } = await db.query(
     `SELECT 1
@@ -34,7 +37,7 @@ export async function assertStudentsInClass(
   schoolId: number,
   classId: number,
   studentIds: number[],
-  db: Queryable = pool
+  db: Queryable = defaultDb
 ): Promise<void> {
   const unique = [...new Set(studentIds)];
   if (unique.length !== studentIds.length) throw badRequest('The same student appears more than once');
@@ -55,7 +58,7 @@ export async function assertInSchool(
   table: keyof typeof SCHOOL_TABLES,
   rowId: number,
   schoolId: number,
-  db: Queryable = pool
+  db: Queryable = defaultDb
 ): Promise<void> {
   const { rows } = await db.query(`SELECT 1 FROM ${table} WHERE id = $1 AND school_id = $2`, [rowId, schoolId]);
   if (!rows[0]) throw badRequest(`${SCHOOL_TABLES[table]} not found in this school`);
@@ -71,7 +74,7 @@ export async function assertCanViewStudent(
   user: AuthUser,
   studentId: number,
   { allowTeachers = false }: { allowTeachers?: boolean } = {},
-  db: Queryable = pool
+  db: Queryable = defaultDb
 ): Promise<{ id: number; class_id: number | null }> {
   if (!user.school_id) throw forbidden();
   const { rows } = await db.query<{ id: number; class_id: number | null }>(
