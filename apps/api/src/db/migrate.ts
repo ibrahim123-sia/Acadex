@@ -12,7 +12,17 @@ import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
 import { syncRbacCatalogue } from '../rbac';
 
-const API_DIR = fileURLToPath(new URL('../..', import.meta.url));
+// The app root is the nearest directory with drizzle/ above this module: src/db/ in
+// development, dist/db/ for the migrate bundle, dist/ for the server bundle.
+function findApiDir(): string {
+  let dir = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(dir, 'drizzle', 'meta', '_journal.json'))) return dir;
+    dir = path.dirname(dir);
+  }
+  throw new Error('drizzle/ migrations folder not found next to the API');
+}
+const API_DIR = findApiDir();
 export const DRIZZLE_DIR = path.join(API_DIR, 'drizzle');
 export const LEGACY_DIR = path.join(API_DIR, 'migrations', 'legacy');
 const BASELINE_ID = 'drizzle:0000_baseline';
