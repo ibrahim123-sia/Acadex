@@ -2,6 +2,7 @@
 import bcrypt from 'bcryptjs';
 import { pool } from '../../src/db/pool';
 import { signToken } from '../../src/middleware/auth';
+import { grantSystemRole, syncRbacCatalogue } from '../../src/rbac';
 
 export { pool };
 
@@ -34,6 +35,7 @@ export async function resetDb() {
         EXECUTE format('ALTER SEQUENCE %I RESTART', r.sequencename);
       END LOOP;
     END $$`);
+  await syncRbacCatalogue(pool); // reference data: permission catalogue + built-in roles
 
   const hash = await bcrypt.hash(PASSWORD, 4);
     const users: Record<string, any> = {};
@@ -43,6 +45,7 @@ export async function resetDb() {
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [school_id, role, email, hash, name, ref_id]
     );
+    await grantSystemRole(pool, users[key].id, role, school_id);
   };
 
   const school = (name: string, slug: string) =>

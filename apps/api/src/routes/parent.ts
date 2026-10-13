@@ -2,10 +2,10 @@ import { Router } from 'express';
 import { idParam } from '@acadex/shared';
 import { pool } from '../db/pool';
 import { assertCanViewStudent } from '../lib/access';
-import { auth, currentUser, requireRole, schoolId } from '../middleware/auth';
+import { auth, currentUser, requirePermission, schoolId } from '../middleware/auth';
 
 const router = Router();
-router.use(auth, requireRole('parent'));
+router.use(auth, requirePermission('guardian.access'));
 
 // Children of the logged-in parent
 router.get('/children', async (req, res) => {

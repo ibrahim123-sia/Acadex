@@ -7,12 +7,12 @@ import { forbidden, notFound } from '../lib/errors';
 import { todayIn } from '../lib/locale';
 import { parsePage, sendPage } from '../lib/pagination';
 import { schoolTimeZone } from '../lib/school';
-import { auth, currentUser, requireRole, schoolId } from '../middleware/auth';
+import { auth, currentUser, requirePermission, schoolId } from '../middleware/auth';
 
 const router = Router();
 router.use(auth);
-router.use('/teacher', requireRole('teacher'));
-router.use('/student', requireRole('student'));
+router.use('/teacher', requirePermission('teaching.access'));
+router.use('/student', requirePermission('learner.access'));
 
 const ref = (req: Parameters<typeof currentUser>[0]) => currentUser(req).ref_id;
 
@@ -96,7 +96,7 @@ router.get('/teacher/students', async (req, res) => {
 });
 
 // Announcements filtered by role audience
-router.get('/announcements', requireRole('teacher', 'student', 'parent'), async (req, res) => {
+router.get('/announcements', requirePermission('announcements.view'), async (req, res) => {
   const aud = currentUser(req).role === 'teacher' ? ['All', 'Teachers'] : ['All', 'Students'];
   const pg = parsePage(req.query);
   const { rows } = await pool.query(
@@ -137,7 +137,7 @@ router.get('/teacher/class/:classId/roster', async (req, res) => {
 });
 
 // Bulk-save attendance for a whole class on a date (replaces that class's day)
-router.post('/teacher/attendance', async (req, res) => {
+router.post('/teacher/attendance', requirePermission('attendance.mark'), async (req, res) => {
   const { class_id, date, records } = attendanceBody.parse(req.body);
   const s = schoolId(req);
   await assertTeachesClass(currentUser(req), class_id);
@@ -155,7 +155,7 @@ router.post('/teacher/attendance', async (req, res) => {
 });
 
 // Bulk grade entry for a class/subject (all-or-nothing)
-router.post('/teacher/grades', async (req, res) => {
+router.post('/teacher/grades', requirePermission('grades.enter'), async (req, res) => {
   const b = gradesBody.parse(req.body);
   const s = schoolId(req);
   await assertTeachesClass(currentUser(req), b.class_id, b.subject_id);
@@ -186,7 +186,7 @@ router.get('/teacher/assignments', async (req, res) => {
 });
 
 // Assign an assignment to a whole class at once
-router.post('/teacher/assignments', async (req, res) => {
+router.post('/teacher/assignments', requirePermission('assignments.manage'), async (req, res) => {
   const { class_id, subject_id, title, description, due_date } = assignmentBody.parse(req.body);
   const s = schoolId(req);
   await assertTeachesClass(currentUser(req), class_id, subject_id);
@@ -223,7 +223,7 @@ router.get('/student/assignments', async (req, res) => {
   sendPage(res, rows, pg);
 });
 
-router.post('/student/submissions', async (req, res) => {
+router.post('/student/submissions', requirePermission('submissions.create'), async (req, res) => {
   const { assignment_id, title, file_link } = submissionBody.parse(req.body);
   const s = schoolId(req);
   // the assignment must exist in this school and be set for the student's own class

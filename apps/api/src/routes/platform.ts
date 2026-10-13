@@ -6,13 +6,14 @@ import { audit } from '../lib/audit';
 import { conflict, notFound } from '../lib/errors';
 import { parsePage, sendPage } from '../lib/pagination';
 import { generateTempPassword, hashPassword } from '../lib/passwords';
-import { auth, currentUser, requireRole } from '../middleware/auth';
+import { auth, currentUser, requirePermission } from '../middleware/auth';
+import { grantSystemRole } from '../rbac';
 
 const router = Router();
-router.use(auth, requireRole('super_admin'));
+router.use(auth);
 
 // Platform KPIs
-router.get('/stats', async (_req, res) => {
+router.get('/stats', requirePermission('platform.schools.read'), async (_req, res) => {
   const [schools, students, teachers, revenue, recent] = await Promise.all([
     pool.query<{ total: number; active: number }>(
       `SELECT count(*)::int total, count(*) FILTER (WHERE status='active')::int active FROM schools`
@@ -42,7 +43,7 @@ router.get('/stats', async (_req, res) => {
 });
 
 // List all schools with counts
-router.get('/schools', async (req, res) => {
+router.get('/schools', requirePermission('platform.schools.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT sc.*,
@@ -57,7 +58,7 @@ router.get('/schools', async (req, res) => {
 });
 
 // Register a new school + its first admin
-router.post('/schools', async (req, res) => {
+router.post('/schools', requirePermission('platform.schools.manage'), async (req, res) => {
   const b = createSchoolBody.parse(req.body);
   const actor = currentUser(req);
   try {
@@ -70,11 +71,14 @@ router.post('/schools', async (req, res) => {
         )
       ).rows[0];
       const tempPassword = generateTempPassword();
-      await client.query(
-        `INSERT INTO users (school_id, role, email, password_hash, full_name, must_change_password)
-         VALUES ($1,'school_admin',$2,$3,$4,TRUE)`,
-        [school.id, b.adminEmail, await hashPassword(tempPassword), b.adminName || `${b.name} Administrator`]
-      );
+      const admin = (
+        await client.query<{ id: number }>(
+          `INSERT INTO users (school_id, role, email, password_hash, full_name, must_change_password)
+           VALUES ($1,'school_admin',$2,$3,$4,TRUE) RETURNING id`,
+          [school.id, b.adminEmail, await hashPassword(tempPassword), b.adminName || `${b.name} Administrator`]
+        )
+      ).rows[0]!;
+      await grantSystemRole(client, admin.id, 'school_admin', school.id, actor.id);
       await audit({ schoolId: school.id, userId: actor.id, actor: actor.name, action: 'create_school', entity: 'School', detail: b.name }, client);
       return { school, admin: { email: b.adminEmail, tempPassword } };
     });
@@ -86,7 +90,7 @@ router.post('/schools', async (req, res) => {
 });
 
 // Update school (plan / status / locale)
-router.patch('/schools/:id', async (req, res) => {
+router.patch('/schools/:id', requirePermission('platform.schools.manage'), async (req, res) => {
   const target = id.parse(req.params.id);
   const p = updateSchoolBody.parse(req.body);
   const { rows } = await pool.query(
@@ -99,7 +103,7 @@ router.patch('/schools/:id', async (req, res) => {
   res.json(rows[0]);
 });
 
-router.get('/audit', async (req, res) => {
+router.get('/audit', requirePermission('platform.audit.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT a.*, sc.name school_name, count(*) OVER() _total FROM audit_log a LEFT JOIN schools sc ON sc.id=a.school_id

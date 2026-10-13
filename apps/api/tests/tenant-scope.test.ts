@@ -4,6 +4,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { as, fixture } from './helpers/http';
 
 import { signToken } from '../src/middleware/auth';
+import { grantSystemRole } from '../src/rbac';
 
 let f;
 let crossStudent;
@@ -20,9 +21,12 @@ beforeAll(async () => {
   await q(`INSERT INTO student_attendance (school_id, student_id, class_id, att_date, status) VALUES ($1,$2,$3,'2026-03-02','Present')`,
     [A.id, S1.id, f.classes.A1.id]);
 
-  const mk = async (role, email, ref) =>
-    (await q(`INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,$2,$3,'x','Cross',$4) RETURNING *`,
+  const mk = async (role, email, ref) => {
+    const u = (await q(`INSERT INTO users (school_id, role, email, password_hash, full_name, ref_id) VALUES ($1,$2,$3,'x','Cross',$4) RETURNING *`,
       [B.id, role, email, ref])).rows[0];
+    await grantSystemRole(fixture.pool, u.id, role, B.id); // a normal member of school B
+    return u;
+  };
   crossStudent = signToken(await mk('student', 'cross.s@beta.test', S1.id));
   crossTeacher = signToken(await mk('teacher', 'cross.t@beta.test', f.teachers.T1.id));
   const pB = await mk('parent', 'cross.p@beta.test', null);

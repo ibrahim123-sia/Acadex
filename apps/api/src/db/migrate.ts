@@ -10,6 +10,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import type pg from 'pg';
+import { syncRbacCatalogue } from '../rbac';
 
 const API_DIR = fileURLToPath(new URL('../..', import.meta.url));
 export const DRIZZLE_DIR = path.join(API_DIR, 'drizzle');
@@ -113,6 +114,9 @@ export async function migrate(pool: pg.Pool, { log = console.log }: { log?: (msg
     }
 
     for (const m of drizzle) await run(m);
+
+    // reference data that must match the code: permission catalogue + built-in roles
+    await syncRbacCatalogue(client);
     return ran;
   } finally {
     await client.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {});

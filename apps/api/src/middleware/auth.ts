@@ -1,7 +1,8 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import type { Role } from '@acadex/shared';
+import type { Permission, Role } from '@acadex/shared';
 import { pool } from '../db/pool';
+import { can, type AccessContext, type Grant } from '../rbac';
 
 export interface AuthUser {
   id: number;
@@ -12,6 +13,8 @@ export interface AuthUser {
   email: string;
   token_version: number;
   must_change_password: boolean;
+  /** Effective permission grants from all of the user's role assignments. */
+  grants: Grant[];
 }
 
 declare module 'express-serve-static-core' {
@@ -52,6 +55,7 @@ interface UserRow {
   token_version: number;
   must_change_password: boolean;
   school_status: string | null;
+  grants: Grant[];
 }
 
 // allowPendingPasswordChange: only for /auth/me, /auth/change-password and /auth/logout,
@@ -70,7 +74,11 @@ const makeAuth = ({ allowPendingPasswordChange = false } = {}): RequestHandler =
 
     const { rows } = await pool.query<UserRow>(
       `SELECT u.id, u.role, u.school_id, u.ref_id, u.full_name, u.email, u.is_active, u.token_version,
-              u.must_change_password, s.status AS school_status
+              u.must_change_password, s.status AS school_status,
+              COALESCE((SELECT json_agg(DISTINCT jsonb_build_object('permission', rp.permission,
+                                 'scopeType', ur.scope_type, 'scopeId', ur.scope_id))
+                          FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
+                         WHERE ur.user_id = u.id), '[]') AS grants
          FROM users u LEFT JOIN schools s ON s.id = u.school_id
         WHERE u.id = $1`,
       [payload.id]
@@ -93,6 +101,7 @@ const makeAuth = ({ allowPendingPasswordChange = false } = {}): RequestHandler =
       email: u.email,
       token_version: u.token_version,
       must_change_password: u.must_change_password,
+      grants: u.grants,
     };
     next();
   };
@@ -100,15 +109,32 @@ const makeAuth = ({ allowPendingPasswordChange = false } = {}): RequestHandler =
 export const auth = makeAuth();
 export const authAllowingPasswordChange = makeAuth({ allowPendingPasswordChange: true });
 
-export function requireRole(...roles: Role[]): RequestHandler {
+
+/**
+ * Allow the request only if the user holds `permission` for their school (or platform-wide).
+ * Relationship rules (own classes, own children) are checked separately in lib/access.
+ */
+export function requirePermission(permission: Permission, ctx?: (req: Request) => AccessContext): RequestHandler {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      res.status(403).json({ error: 'Forbidden — insufficient role' });
+    if (!req.user || !can(req.user, permission, ctx?.(req))) {
+      res.status(403).json({ error: 'You do not have permission to do this', code: 'FORBIDDEN', permission });
       return;
     }
     next();
   };
 }
+
+/** For routes that only make sense inside a school (platform staff have none). */
+export const requireSchoolUser: RequestHandler = (req, res, next) => {
+  if (!req.user?.school_id) {
+    res.status(403).json({ error: 'This is only available inside a school', code: 'FORBIDDEN' });
+    return;
+  }
+  next();
+};
+
+/** True when the signed-in user holds `permission` (for their school by default). */
+export const userCan = (req: Request, permission: Permission, ctx?: AccessContext) => !!req.user && can(req.user, permission, ctx);
 
 /** req.user after auth(); throws if a route forgot the middleware. */
 export function currentUser(req: Request): AuthUser {

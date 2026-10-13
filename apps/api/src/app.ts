@@ -13,6 +13,7 @@ import schoolRoutes from './routes/school';
 import meRoutes from './routes/me';
 import parentRoutes from './routes/parent';
 import pdfRoutes from './routes/pdf';
+import rolesRoutes from './routes/roles';
 
 export function createApp(config: Config = loadConfig()) {
   const app = express();
@@ -59,6 +60,7 @@ export function createApp(config: Config = loadConfig()) {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/platform', platformRoutes);
+  app.use('/api/school', rolesRoutes);
   app.use('/api/school', schoolRoutes);
   app.use('/api/me', meRoutes);
   app.use('/api/parent', parentRoutes);

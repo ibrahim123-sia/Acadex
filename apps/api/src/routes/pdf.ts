@@ -6,11 +6,11 @@ import { assertCanViewStudent } from '../lib/access';
 import { notFound } from '../lib/errors';
 import { formatDate, formatMoney } from '../lib/locale';
 import { schoolSettings } from '../lib/school';
-import { auth, currentUser, requireRole, schoolId } from '../middleware/auth';
+import { auth, currentUser, requireSchoolUser, schoolId } from '../middleware/auth';
 
 const router = Router();
-// School-scoped documents; the platform super admin has no school.
-router.use(auth, requireRole('school_admin', 'teacher', 'student', 'parent'));
+// School-scoped documents; access is decided per student by assertCanViewStudent.
+router.use(auth, requireSchoolUser);
 
 // built-in PDF fonts lack U+202F/U+00A0, which some locales put between amount and symbol
 const pdfSafe = (s: string) => s.replace(/[\u202F\u00A0]/g, ' ');

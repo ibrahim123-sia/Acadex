@@ -2,6 +2,7 @@
 // caller's school and to what their role is actually linked to.
 import { pool, type Queryable } from '../db/pool';
 import type { AuthUser } from '../middleware/auth';
+import { can } from '../rbac';
 import { badRequest, forbidden, notFound } from './errors';
 
 /** The teacher must be assigned to this class (and, if given, this subject in that class). */
@@ -62,8 +63,8 @@ export async function assertInSchool(
 
 /**
  * Who may see a student's records (report card, fee voucher, ...):
- *   school admin of that school, the student themself, a linked parent, and — only when
- *   allowTeachers — a teacher assigned to the student's class.
+ *   anyone holding records.read_any in that school (school admins), the student themself,
+ *   a linked parent, and — only when allowTeachers — a teacher assigned to the student's class.
  * A student outside the caller's school is reported as 404 so ids can't be probed.
  */
 export async function assertCanViewStudent(
@@ -81,7 +82,7 @@ export async function assertCanViewStudent(
   if (!student) throw notFound('Student not found');
 
   let allowed = false;
-  if (user.role === 'school_admin') allowed = true;
+  if (can(user, 'records.read_any', { schoolId: user.school_id })) allowed = true;
   else if (user.role === 'student') allowed = user.ref_id === student.id;
   else if (user.role === 'parent') {
     const r = await db.query(

@@ -17,18 +17,22 @@ import { todayIn } from '../lib/locale';
 import { parsePage, sendPage } from '../lib/pagination';
 import { generateTempPassword, hashPassword } from '../lib/passwords';
 import { schoolTimeZone } from '../lib/school';
-import { auth, currentUser, requireRole, schoolId } from '../middleware/auth';
+import { auth, currentUser, requirePermission, schoolId } from '../middleware/auth';
+import { grantSystemRole } from '../rbac';
 
 const router = Router();
-// Every /api/school route is for the school's administrator only.
-router.use(auth, requireRole('school_admin'));
+// School administration: each route requires its own permission (school admins hold all of
+// them; custom roles such as "Accountant" can hold a subset).
+router.use(auth);
 
+const userIdByEmail = async (client: { query: typeof pool.query }, email: string) =>
+  (await client.query<{ id: number }>('SELECT id FROM users WHERE email=$1', [email])).rows[0]!.id;
 const isUniqueViolation = (e: unknown) => (e as { code?: string })?.code === '23505';
 const auditAs = (req: Request, action: string, entity: string, detail: string) =>
   audit({ schoolId: schoolId(req), userId: currentUser(req).id, actor: currentUser(req).name, action, entity, detail });
 
 // ---------- Admin dashboard ----------
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', requirePermission('school.dashboard.read'), async (req, res) => {
   const s = schoolId(req);
   const today = todayIn(await schoolTimeZone(s));
   const [students, teachers, classes, fees, feeStatus, attToday, topClasses, recent] = await Promise.all([
@@ -69,7 +73,7 @@ router.get('/dashboard', async (req, res) => {
 });
 
 // ---------- Students ----------
-router.get('/students', async (req, res) => {
+router.get('/students', requirePermission('students.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { search } = studentSearchQuery.parse({ search: req.query.search });
   const q = `%${search.toLowerCase()}%`;
@@ -88,7 +92,7 @@ router.get('/students', async (req, res) => {
 });
 
 // ---------- Teachers ----------
-router.get('/teachers', async (req, res) => {
+router.get('/teachers', requirePermission('staff.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT t.id, t.first_name, t.last_name, t.email, t.gender, t.phone, t.qualification,
@@ -101,7 +105,7 @@ router.get('/teachers', async (req, res) => {
 });
 
 // ---------- Classes & subjects ----------
-router.get('/classes', async (req, res) => {
+router.get('/classes', requirePermission('classes.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 }); // also feeds class dropdowns
   const { rows } = await pool.query(
     `SELECT c.id, c.code, c.name, c.section,
@@ -115,7 +119,7 @@ router.get('/classes', async (req, res) => {
 });
 
 // ---------- Fees ----------
-router.get('/fees', async (req, res) => {
+router.get('/fees', requirePermission('fees.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT f.id, f.receipt_id, f.total_fee, f.paid_amount, f.remaining_balance, f.payment_status, f.payment_date,
@@ -128,7 +132,7 @@ router.get('/fees', async (req, res) => {
 });
 
 // Fee totals for the whole school (the fees list is paginated, so the UI can't add it up)
-router.get('/fees/summary', async (req, res) => {
+router.get('/fees/summary', requirePermission('fees.read'), async (req, res) => {
   const { rows } = await pool.query(
     `SELECT COALESCE(SUM(paid_amount),0)::float8 collected, COALESCE(SUM(remaining_balance),0)::float8 outstanding
        FROM tuition_fee WHERE school_id=$1`,
@@ -138,7 +142,7 @@ router.get('/fees/summary', async (req, res) => {
 });
 
 // ---------- Grades ----------
-router.get('/grades', async (req, res) => {
+router.get('/grades', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT g.id, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name,
@@ -153,7 +157,7 @@ router.get('/grades', async (req, res) => {
 });
 
 // ---------- Attendance (most recent first) ----------
-router.get('/attendance', async (req, res) => {
+router.get('/attendance', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT a.att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name class_name, a.subject, a.status,
@@ -166,7 +170,7 @@ router.get('/attendance', async (req, res) => {
 });
 
 // ---------- Timetable ----------
-router.get('/timetable', async (req, res) => {
+router.get('/timetable', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 });
   const { rows } = await pool.query(
     `SELECT tt.day_of_week, tt.time_slot, tt.subject, c.name class_name,
@@ -179,7 +183,7 @@ router.get('/timetable', async (req, res) => {
 });
 
 // ---------- Exams ----------
-router.get('/exams', async (req, res) => {
+router.get('/exams', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 });
   const { rows } = await pool.query(
     `SELECT e.exam_name, e.subject, e.exam_date, e.time_slot, e.total_marks, c.name class_name, count(*) OVER() _total
@@ -191,7 +195,7 @@ router.get('/exams', async (req, res) => {
 });
 
 // ---------- Announcements ----------
-router.get('/announcements', async (req, res) => {
+router.get('/announcements', requirePermission('announcements.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await pool.query(
     `SELECT id, title, target_audience, description, start_date, end_date, created_at, count(*) OVER() _total
@@ -201,7 +205,7 @@ router.get('/announcements', async (req, res) => {
   sendPage(res, rows, pg);
 });
 
-router.post('/announcements', async (req, res) => {
+router.post('/announcements', requirePermission('announcements.manage'), async (req, res) => {
   const { title, target_audience, description, end_date } = announcementBody.parse(req.body);
   const { rows } = await pool.query(
     `INSERT INTO announcements (school_id, title, target_audience, description, end_date) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
@@ -213,7 +217,7 @@ router.post('/announcements', async (req, res) => {
 // ---------- WRITE: admissions / faculty / classes / fees ----------
 
 // Admit a new student (creates student + login)
-router.post('/students', async (req, res) => {
+router.post('/students', requirePermission('students.manage'), async (req, res) => {
   const s = schoolId(req);
   const b = createStudentBody.parse(req.body);
   if (b.class_id) await assertInSchool('classes', b.class_id, s);
@@ -232,6 +236,7 @@ router.post('/students', async (req, res) => {
          VALUES ($1,'student',$2,$3,$4,$5,TRUE)`,
         [s, b.email, await hashPassword(tempPassword), `${b.first_name} ${b.last_name}`, row.id]
       );
+      await grantSystemRole(client, await userIdByEmail(client, b.email), 'student', s, currentUser(req).id);
       return row;
     });
     await auditAs(req, 'admit_student', 'Student', `${b.first_name} ${b.last_name}`);
@@ -243,7 +248,7 @@ router.post('/students', async (req, res) => {
 });
 
 // Add a teacher (creates teacher + login)
-router.post('/teachers', async (req, res) => {
+router.post('/teachers', requirePermission('staff.manage'), async (req, res) => {
   const s = schoolId(req);
   const b = createTeacherBody.parse(req.body);
   const tempPassword = generateTempPassword();
@@ -261,6 +266,7 @@ router.post('/teachers', async (req, res) => {
          VALUES ($1,'teacher',$2,$3,$4,$5,TRUE)`,
         [s, b.email, await hashPassword(tempPassword), `${b.first_name} ${b.last_name}`, row.id]
       );
+      await grantSystemRole(client, await userIdByEmail(client, b.email), 'teacher', s, currentUser(req).id);
       return row;
     });
     await auditAs(req, 'add_teacher', 'Teacher', `${b.first_name} ${b.last_name}`);
@@ -272,7 +278,7 @@ router.post('/teachers', async (req, res) => {
 });
 
 // Create a class
-router.post('/classes', async (req, res) => {
+router.post('/classes', requirePermission('classes.manage'), async (req, res) => {
   const { code, name, section } = createClassBody.parse(req.body);
   try {
     const { rows } = await pool.query(
@@ -288,7 +294,7 @@ router.post('/classes', async (req, res) => {
 });
 
 // Collect a fee
-router.post('/fees', async (req, res) => {
+router.post('/fees', requirePermission('fees.manage'), async (req, res) => {
   const s = schoolId(req);
   const { student_id, total_fee: total, paid_amount: paid } = collectFeeBody.parse(req.body);
   await assertInSchool('students', student_id, s);

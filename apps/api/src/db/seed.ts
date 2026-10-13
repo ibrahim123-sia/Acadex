@@ -2,6 +2,7 @@
 import bcrypt from 'bcryptjs';
 import { pool } from './pool';
 import { todayIn } from '../lib/locale';
+import { grantSystemRole, syncRbacCatalogue } from '../rbac';
 
 const TZ = 'Asia/Karachi'; // demo schools use the default school timezone
 
@@ -18,6 +19,8 @@ async function makeUser(school_id: number | null, role: string, email: string, f
      VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (email) DO NOTHING`,
     [school_id, role, email.toLowerCase(), hash, full_name, ref_id]
   );
+  const [u] = await q(`SELECT id FROM users WHERE email=$1`, [email.toLowerCase()]);
+  await grantSystemRole(pool, u.id, role, school_id);
 }
 
 const FIRST = ['Ali','Fatima','Hamza','Zainab','Ahmed','Maryam','Hassan','Aisha','Omar','Iqra','Saad','Noor','Talha','Areeba','Bilal','Sana','Usman','Hina','Danish','Mahnoor','Faizan','Rida','Kashan','Emaan'];
@@ -228,7 +231,8 @@ async function guard() {
     throw new Error('Database already has data. Run "npm run db:reset" to wipe it and reseed.');
   }
   if (reset) {
-    await q('TRUNCATE notifications, parent_children, audit_log, submissions, assignments, grades, student_attendance, teacher_attendance, timetable, exam_schedule, tuition_fee, teacher_subjects, subjects, students, teachers, classes, users, announcements, schools RESTART IDENTITY CASCADE');
+    await q('TRUNCATE user_roles, notifications, parent_children, audit_log, submissions, assignments, grades, student_attendance, teacher_attendance, timetable, exam_schedule, tuition_fee, teacher_subjects, subjects, students, teachers, classes, users, announcements, schools RESTART IDENTITY CASCADE');
+    await syncRbacCatalogue(pool); // CASCADE also emptied the built-in roles
   }
 }
 

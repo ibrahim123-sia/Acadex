@@ -34,8 +34,9 @@ describe('token validity is re-checked on every request', () => {
     expect((await as(f.tokens.s2).get('/api/me/notifications')).status).toBe(401);
   });
 
-  it('the role comes from the database, not the token', async () => {
-    await q(`UPDATE users SET role='student' WHERE id=$1`, [f.users.t1.id]);
+  it('permissions come from the database, not the token', async () => {
+    expect((await as(f.tokens.t1).get('/api/me/teacher/overview')).status).toBe(200);
+    await q(`DELETE FROM user_roles WHERE user_id=$1`, [f.users.t1.id]);
     expect((await as(f.tokens.t1).get('/api/me/teacher/overview')).status).toBe(403);
   });
 
