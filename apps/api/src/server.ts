@@ -9,6 +9,9 @@ try {
   process.exit(1);
 }
 
+const { initSentry } = await import('./lib/sentry');
+initSentry(config.sentryDsn, config.env);
+
 const { createApp } = await import('./app');
 const { logger } = await import('./lib/logger');
 const { startOutboxFlusher } = await import('./lib/mailer');

@@ -1,6 +1,7 @@
 // Central error handling. Clients get a stable, generic message; details stay in the server log.
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
+import { captureServerError } from './sentry';
 
 export class HttpError extends Error {
   constructor(
@@ -65,6 +66,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   if (status >= 500) {
     if (req.log) req.log.error({ err }, 'request failed');
     else console.error(`[${req.method} ${req.originalUrl}]`, err);
+    captureServerError(err, { requestId: req.id ? String(req.id) : undefined, method: req.method, path: req.path, userId: req.user?.id });
   }
   if (res.headersSent) {
     res.end(); // e.g. a PDF stream that failed midway

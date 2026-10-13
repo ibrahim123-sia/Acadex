@@ -13,6 +13,12 @@ describe('smoke', () => {
     expect(res.body.db).toBe('connected');
   });
 
+  it('readiness reports all migrations applied', async () => {
+    const res = await request(app).get('/api/ready');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('READY');
+  });
+
   it('logs in with valid credentials', async () => {
     const res = await request(app).post('/api/auth/login').send({ email: 'admin@alpha.test', password: f.PASSWORD });
     expect(res.status).toBe(200);

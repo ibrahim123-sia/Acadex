@@ -9,6 +9,8 @@ import { getConfig, type Config } from './config';
 import { errorHandler } from './lib/errors';
 import { httpLogger } from './lib/logger';
 import { PAGINATION_HEADERS } from './lib/pagination';
+import { buildOpenApi, docsHtml } from './openapi';
+import { loadDrizzleMigrations } from './db/migrate';
 import authRoutes from './routes/auth';
 import platformRoutes from './routes/platform';
 import schoolRoutes from './routes/school';
@@ -75,6 +77,30 @@ export function createApp(config: Config = getConfig()) {
       req.log.error({ err: e }, 'health check: database unreachable');
       res.status(503).json({ status: 'ERROR', db: 'disconnected' });
     }
+  });
+
+  // readiness: the database answers and every migration in this build has been applied
+  app.get('/api/ready', async (req, res) => {
+    try {
+      const expected = loadDrizzleMigrations().map((m) => m.id);
+      const { rows } = await pool.query<{ id: string }>('SELECT id FROM schema_migrations WHERE id = ANY($1::text[])', [expected]);
+      const missing = expected.filter((id) => !rows.some((r) => r.id === id));
+      if (missing.length) return void res.status(503).json({ status: 'NOT_READY', reason: 'pending migrations', pending: missing.length });
+      res.json({ status: 'READY' });
+    } catch (e) {
+      req.log.error({ err: e }, 'readiness: database unreachable');
+      res.status(503).json({ status: 'NOT_READY', reason: 'database unreachable' });
+    }
+  });
+
+  const spec = buildOpenApi();
+  app.get('/api/openapi.json', (_req, res) => res.json(spec));
+  app.get('/api/docs', (_req, res) => {
+    res.set(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'"
+    );
+    res.type('html').send(docsHtml);
   });
 
   app.use('/api', dbContext);
