@@ -47,6 +47,22 @@ describe('row-level security', () => {
     for (const r of rows) expect([r.relname, r.relrowsecurity, r.relforcerowsecurity]).toEqual([r.relname, true, true]);
   });
 
+  it('soft-deleted rows are hidden from every query unless the request opts in', async () => {
+    const A = String(f.institutions.A.id);
+    await fixture.pool.query(`UPDATE students SET deleted_at = now() WHERE id = $1`, [f.students.S3.id]);
+    try {
+      expect(await countIn({ 'app.institution_id': A }, 'students')).toBe(2);
+      expect(await countIn({ 'app.institution_id': A, 'app.include_deleted': 'on' }, 'students')).toBe(3);
+      // a soft delete needs the opt-in too (the updated row must stay visible to the statement)
+      const err = await inTx({ 'app.institution_id': A }, (c) =>
+        c.query(`UPDATE students SET deleted_at = now() WHERE id = $1`, [f.students.S1.id]).then(() => null, (e: Error) => e)
+      );
+      expect(err?.message).toMatch(/row-level security/);
+    } finally {
+      await fixture.pool.query(`UPDATE students SET deleted_at = NULL WHERE id = $1`, [f.students.S3.id]);
+    }
+  });
+
   it('with no tenant set, tenant tables show nothing (fail closed)', async () => {
     for (const t of ['students', 'tuition_fee', 'users', 'institutions', 'grades']) expect(await countIn({}, t), t).toBe(0);
   });

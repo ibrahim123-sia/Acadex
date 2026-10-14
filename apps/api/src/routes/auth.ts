@@ -16,7 +16,7 @@ import {
   passwordResetRequestBody,
   verifyEmailBody,
 } from '@acadex/shared';
-import { asSystem, db, systemContext } from '../db/context';
+import { asSystem, db, runAsSystem, systemContext } from '../db/context';
 import { audit } from '../lib/audit';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors';
 import { hashPassword } from '../lib/passwords';
@@ -57,6 +57,10 @@ const auditSelf = (user: { id: number; institution_id: number | null; full_name?
     audit({ institutionId: user.institution_id, userId: user.id, actor: user.full_name ?? user.name ?? '', action, entity: 'Auth', detail })
   );
 
+/** An audit entry that survives the request failing (failed sign-ins answer 401, which rolls back). */
+const auditStandalone = (user: { id: number; institution_id: number | null; full_name?: string }, action: string, detail = '') =>
+  runAsSystem(() => audit({ institutionId: user.institution_id, userId: user.id, actor: user.full_name ?? '', action, entity: 'Auth', detail })).catch(() => {});
+
 /** Cookie-authenticated endpoints need a custom header: plain cross-site form posts can't send one. */
 const requireClientHeader: RequestHandler = (req, res, next) => {
   if (req.get('x-acadex-client') !== 'web') {
@@ -80,6 +84,7 @@ router.post('/login', async (req, res) => {
   const user = await accountByEmail(email);
   const ok = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !user.password_hash || !ok || !user.is_active) {
+    if (user) await auditStandalone(user, 'sign_in_failed', !user.is_active ? 'account deactivated' : !user.password_hash ? 'invitation not accepted' : 'wrong password');
     return void res.status(401).json({ error: 'Invalid email or password', code: 'INVALID_CREDENTIALS' });
   }
   await assertInstitutionActive(user.institution_id);
@@ -87,7 +92,9 @@ router.post('/login', async (req, res) => {
     // password was right; a second factor completes the sign-in
     return void res.json({ mfa_required: true, mfa_token: signMfaChallenge(user.id, user.token_version) });
   }
-  res.json(await startSession(req, res, user.id));
+  const session = await startSession(req, res, user.id);
+  await auditSelf(user, 'sign_in', 'password');
+  res.json(session);
 });
 
 router.post('/mfa/verify', async (req, res) => {
@@ -100,9 +107,14 @@ router.post('/mfa/verify', async (req, res) => {
   }
   await assertInstitutionActive(user.institution_id);
   const method = await verifySecondFactor(user.id, code);
-  if (!method) throw badRequest('That code is not valid. Try the latest code from your app.');
+  if (!method) {
+    await auditStandalone(user, 'sign_in_failed', 'wrong second-factor code');
+    throw badRequest('That code is not valid. Try the latest code from your app.');
+  }
   if (method === 'recovery') await auditSelf(user, 'mfa_recovery_code_used');
-  res.json(await startSession(req, res, user.id, { mfaVerified: true }));
+  const session = await startSession(req, res, user.id, { mfaVerified: true });
+  await auditSelf(user, 'sign_in', method === 'recovery' ? 'password + recovery code' : 'password + authenticator');
+  res.json(session);
 });
 
 // ---------- refresh ----------
@@ -112,7 +124,11 @@ router.post('/refresh', requireClientHeader, async (req, res) => {
   const rotated = await rotateRefreshToken(token, requestMeta(req));
   if (!rotated.ok) {
     clearRefreshCookie(res);
-    if (rotated.reason === 'reused') req.log.warn({ reason: rotated.reason }, 'refresh token reuse — session revoked');
+    if (rotated.reason === 'reused') {
+      req.log.warn({ reason: rotated.reason }, 'refresh token reuse — session revoked');
+      const owner = rotated.userId ? await asSystem(() => accountById(rotated.userId!)) : null;
+      if (owner) await auditStandalone(owner, 'refresh_token_reused', 'a stolen or replayed sign-in token was used; the session was ended');
+    }
     throw unauthorized('Your session has ended. Please sign in again.', 'SESSION_ENDED');
   }
   const row = await loadUserRow(rotated.userId, rotated.sessionId);
@@ -148,6 +164,7 @@ router.post('/logout-all', auth, async (req, res) => {
     await db.query('UPDATE users SET token_version = token_version + 1 WHERE id = $1', [user.id]);
     await revokeUserSessions(user.id, 'logout everywhere');
   });
+  await auditSelf(user, 'signed_out_everywhere');
   clearRefreshCookie(res);
   res.json({ ok: true });
 });
@@ -174,6 +191,7 @@ router.post('/change-password', authAllowingIncomplete, async (req, res) => {
     // other devices are signed out; this one continues with a fresh access token
     await revokeUserSessions(me.id, 'password changed', me.session_id);
   });
+  await auditSelf(user, 'password_changed');
   await sendSecurityNotice({ to: user.email, name: user.full_name, userId: user.id, what: 'Your password was changed' });
   const row = (await asSystem(() => loadUserRow(me.id, me.session_id)))!;
   res.json(await sessionResponse(row, me.session_id));
@@ -200,12 +218,14 @@ router.delete('/sessions/:id', auth, async (req, res) => {
     [sid, me.id]
   );
   if (!rowCount) throw notFound('Session not found');
+  await auditSelf(me, 'session_revoked', 'one device');
   res.json({ ok: true });
 });
 
 router.post('/sessions/revoke-others', auth, async (req, res) => {
   const me = currentUser(req);
   const n = await revokeUserSessions(me.id, 'signed out from another device', me.session_id);
+  await auditSelf(me, 'session_revoked', `all other devices (${n})`);
   res.json({ ok: true, revoked: n });
 });
 

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { assignmentBody, attendanceBody, gradesBody, id, rosterQuery, submissionBody } from '@acadex/shared';
 import { db, withTransaction } from '../db/context';
 import { assertStudentsInClass, assertTeachesClass } from '../lib/access';
+import { HttpError } from '../lib/errors';
+import { assertOfferingWritable, assertOpenDay, assertSectionWritable, campusOfSection, holidayOn, nextOpenDay } from '../lib/structure';
 import { forbidden, notFound } from '../lib/errors';
 import { todayIn } from '../lib/locale';
 import { parsePage, sendPage } from '../lib/pagination';
@@ -132,7 +134,8 @@ router.get('/teacher/class/:sectionId/roster', async (req, res) => {
        FROM students st WHERE st.section_id=$1 AND st.institution_id=$4 ORDER BY st.roll_no`,
     [sectionId, sectionId, date, institutionId(req)]
   );
-  res.json({ date, students: rows });
+  const holiday = await holidayOn(institutionId(req), await campusOfSection(sectionId), date);
+  res.json({ date, holiday: holiday?.name ?? null, students: rows });
 });
 
 // Bulk-save attendance for a whole class on a date (replaces that class's day)
@@ -140,15 +143,17 @@ router.post('/teacher/attendance', requirePermission('attendance.mark'), async (
   const { section_id, date, records } = attendanceBody.parse(req.body);
   const s = institutionId(req);
   await assertTeachesClass(currentUser(req), section_id);
+  await assertSectionWritable(section_id);
+  await assertOpenDay(s, await campusOfSection(section_id), date, 'taking attendance');
   await assertStudentsInClass(s, section_id, records.map((r) => r.student_id));
   await withTransaction(async (client) => {
     await client.query(`DELETE FROM student_attendance WHERE institution_id=$1 AND section_id=$2 AND att_date=$3`, [s, section_id, date]);
-    for (const r of records) {
-      await client.query(
-        `INSERT INTO student_attendance (institution_id, student_id, section_id, att_date, status) VALUES ($1,$2,$3,$4,$5)`,
-        [s, r.student_id, section_id, date, r.status]
-      );
-    }
+    // one statement for the whole class (one round trip, however big the class)
+    await client.query(
+      `INSERT INTO student_attendance (institution_id, student_id, section_id, att_date, status)
+       SELECT $1, r.student_id, $2, $3, r.status FROM unnest($4::int[], $5::text[]) AS r(student_id, status)`,
+      [s, section_id, date, records.map((r) => r.student_id), records.map((r) => r.status)]
+    );
   });
   res.json({ saved: records.length });
 });
@@ -158,15 +163,15 @@ router.post('/teacher/grades', requirePermission('grades.enter'), async (req, re
   const b = gradesBody.parse(req.body);
   const s = institutionId(req);
   await assertTeachesClass(currentUser(req), b.section_id, b.offering_id);
+  await assertSectionWritable(b.section_id);
+  if (b.offering_id) await assertOfferingWritable(b.offering_id);
   await assertStudentsInClass(s, b.section_id, b.records.map((r) => r.student_id));
   await withTransaction(async (client) => {
-    for (const r of b.records) {
-      await client.query(
-        `INSERT INTO grades (institution_id, student_id, section_id, offering_id, assignment_type, assignment_name, obtained_marks, total_marks)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [s, r.student_id, b.section_id, b.offering_id, b.assignment_type, b.assignment_name, r.obtained_marks, b.total_marks]
-      );
-    }
+    await client.query(
+      `INSERT INTO grades (institution_id, student_id, section_id, offering_id, assignment_type, assignment_name, obtained_marks, total_marks)
+       SELECT $1, r.student_id, $2, $3, $4, $5, r.marks, $6 FROM unnest($7::int[], $8::numeric[]) AS r(student_id, marks)`,
+      [s, b.section_id, b.offering_id, b.assignment_type, b.assignment_name, b.total_marks, b.records.map((r) => r.student_id), b.records.map((r) => r.obtained_marks)]
+    );
   });
   res.json({ saved: b.records.length });
 });
@@ -189,6 +194,17 @@ router.post('/teacher/assignments', requirePermission('assignments.manage'), asy
   const { section_id, offering_id, title, description, due_date } = assignmentBody.parse(req.body);
   const s = institutionId(req);
   await assertTeachesClass(currentUser(req), section_id, offering_id);
+  await assertSectionWritable(section_id);
+  if (due_date) {
+    const campus = await campusOfSection(section_id);
+    try {
+      await assertOpenDay(s, campus, due_date, 'a due date');
+    } catch (e) {
+      // say which day would work instead
+      if (e instanceof HttpError) e.details = { ...(e.details as object), suggested_date: await nextOpenDay(s, campus, due_date) };
+      throw e;
+    }
+  }
   const { rows } = await db.query(
     `INSERT INTO assignments (institution_id, section_id, offering_id, teacher_id, title, description, due_date)
      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,

@@ -19,7 +19,7 @@ export const unauthorized = (message = 'Invalid or expired session', code?: stri
 export const forbidden = (message = 'You do not have access to this resource', code?: string) =>
   new HttpError(403, message, undefined, code);
 export const notFound = (message = 'Not found') => new HttpError(404, message);
-export const conflict = (message: string) => new HttpError(409, message);
+export const conflict = (message: string, code?: string, details?: unknown) => new HttpError(409, message, details, code);
 
 // Postgres error codes we can safely translate into client errors.
 const PG_ERRORS: Record<string, [number, string]> = {

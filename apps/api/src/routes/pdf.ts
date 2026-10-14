@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import PDFDocument from 'pdfkit';
-import { idParam } from '@acadex/shared';
+import { idParam, resolveTerminology, type InstitutionType } from '@acadex/shared';
+import { courseResults } from '../lib/grading';
 import { db } from '../db/context';
 import { assertCanViewStudent } from '../lib/access';
 import { notFound } from '../lib/errors';
@@ -15,28 +16,25 @@ router.use(auth, requireInstitutionUser);
 // built-in PDF fonts lack U+202F/U+00A0, which some locales put between amount and symbol
 const pdfSafe = (s: string) => s.replace(/[\u202F\u00A0]/g, ' ');
 
-// Report card PDF
+// Report card PDF: per-course results graded with the student's scheme (program override or
+// the institution default), GPA for GPA schemes, attendance, in the institution's own words.
 router.get('/report-card/:studentId', async (req, res) => {
   const s = institutionId(req);
   const { studentId } = idParam('studentId').parse(req.params);
   await assertCanViewStudent(currentUser(req), studentId, { allowTeachers: true, guardian: 'grades' });
   const stu = (
     await db.query(
-      `SELECT st.*, c.name section_name FROM students st LEFT JOIN sections c ON c.id=st.section_id WHERE st.id=$1 AND st.institution_id=$2`,
+      `SELECT st.first_name, st.last_name, st.roll_no, st.gender, st.id, c.name section_name, c.label section_label, ay.name academic_year
+         FROM students st LEFT JOIN sections c ON c.id=st.section_id LEFT JOIN academic_years ay ON ay.id = c.academic_year_id
+        WHERE st.id=$1 AND st.institution_id=$2`,
       [studentId, s]
     )
   ).rows[0];
   const institution = await institutionSettings(s);
   if (!stu || !institution) throw notFound('Student not found');
-  const grades = (
-    await db.query<{ subject: string | null; assignment_name: string; obtained_marks: string; total_marks: string; pct: string | null }>(
-      `SELECT co.name subject, g.assignment_name, g.obtained_marks, g.total_marks,
-              ROUND(g.obtained_marks/NULLIF(g.total_marks,0)*100,1) pct
-         FROM grades g LEFT JOIN course_offerings su ON su.id=g.offering_id LEFT JOIN courses co ON co.id=su.course_id
-        WHERE g.student_id=$1 AND g.institution_id=$2 ORDER BY co.name`,
-      [studentId, s]
-    )
-  ).rows;
+  const { rows: instRow } = await db.query<{ type: InstitutionType; settings: { terminology?: object } }>(`SELECT type, settings FROM institutions WHERE id = $1`, [s]);
+  const terms = resolveTerminology(instRow[0]!.type, instRow[0]!.settings?.terminology as never);
+  const { scheme, results, overall } = await courseResults(studentId, s);
   const att = (
     await db.query<{ status: string; c: number }>(
       `SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 AND institution_id=$2 GROUP BY status`,
@@ -44,8 +42,9 @@ router.get('/report-card/:studentId', async (req, res) => {
     )
   ).rows;
   const present = att.find((a) => a.status === 'Present')?.c || 0;
-  const totalAtt = att.reduce((x, a) => x + a.c, 0) || 1;
-  const avg = grades.length ? (grades.reduce((x, g) => x + Number(g.pct || 0), 0) / grades.length).toFixed(1) : '0';
+  const totalAtt = att.reduce((x, a) => x + a.c, 0);
+  const isGpa = scheme.kind === 'gpa';
+  const hasCredits = results.some((r) => r.credits != null);
 
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
   res.setHeader('Content-Type', 'application/pdf');
@@ -54,46 +53,61 @@ router.get('/report-card/:studentId', async (req, res) => {
   const accent = institution.primary_color || '#4F46E5';
 
   doc.rect(0, 0, doc.page.width, 90).fill(accent);
-  doc.fillColor('#fff').fontSize(22).text(institution.name, 50, 30);
-  doc.fontSize(12).fillColor('#e5e7eb').text('Student Report Card', 50, 60);
-  doc.fillColor('#111').moveDown(4);
+  doc.fillColor('#fff').fontSize(22).text(pdfSafe(institution.name), 50, 30);
+  doc.fontSize(12).fillColor('#e5e7eb').text(`${terms.student.one} report card${stu.academic_year ? ` · ${stu.academic_year}` : ''}`, 50, 60);
 
   doc.fontSize(11).fillColor('#374151');
   const y0 = 120;
-  doc.text(`Name: ${stu.first_name} ${stu.last_name}`, 50, y0);
-  doc.text(`Roll No: ${stu.roll_no || '—'}`, 320, y0);
-  doc.text(`Class: ${stu.section_name || '—'}`, 50, y0 + 18);
-  doc.text(`Gender: ${stu.gender || '—'}`, 320, y0 + 18);
-
+  doc.text(pdfSafe(`Name: ${stu.first_name} ${stu.last_name}`), 50, y0);
+  doc.text(`Roll no.: ${stu.roll_no || '—'}`, 320, y0);
+  doc.text(pdfSafe(`${terms.section.one}: ${stu.section_name ? `${stu.section_name}${stu.section_label ? ` ${stu.section_label}` : ''}` : '—'}`), 50, y0 + 18);
+  doc.text(pdfSafe(`Grading: ${scheme.name}`), 320, y0 + 18);
   doc.moveTo(50, y0 + 48).lineTo(545, y0 + 48).strokeColor('#e5e7eb').stroke();
 
-  // grades table
   let y = y0 + 65;
-  doc.fontSize(13).fillColor(accent).text('Academic Performance', 50, y);
+  doc.fontSize(13).fillColor(accent).text('Results', 50, y);
   y += 22;
-  doc.fontSize(10).fillColor('#6b7280');
-  doc.text('Subject', 50, y);
-  doc.text('Assessment', 200, y);
-  doc.text('Marks', 380, y);
-  doc.text('%', 480, y);
-  y += 6;
-  doc.moveTo(50, y + 8).lineTo(545, y + 8).strokeColor('#e5e7eb').stroke();
-  y += 16;
-  doc.fillColor('#111827').fontSize(10);
-  for (const g of grades) {
-    doc.text(g.subject || '—', 50, y, { width: 145 });
-    doc.text(g.assignment_name, 200, y, { width: 170 });
-    doc.text(`${g.obtained_marks}/${g.total_marks}`, 380, y);
-    doc.text(`${g.pct}%`, 480, y);
+  const cols = { course: 50, credits: 280, marks: 330, pct: 410, grade: 470, points: 515 };
+  doc.fontSize(9.5).fillColor('#6b7280');
+  doc.text(terms.course.one, cols.course, y);
+  if (hasCredits) doc.text('Credits', cols.credits, y);
+  doc.text('Marks', cols.marks, y);
+  doc.text('%', cols.pct, y);
+  doc.text('Grade', cols.grade, y);
+  if (isGpa) doc.text('Points', cols.points, y);
+  doc.moveTo(50, y + 14).lineTo(545, y + 14).strokeColor('#e5e7eb').stroke();
+  y += 22;
+  doc.fontSize(10);
+  if (!results.length) {
+    doc.fillColor('#6b7280').text('No results recorded yet.', 50, y);
     y += 18;
   }
-
-  y += 15;
+  for (const r of results) {
+    if (y > 700) {
+      doc.addPage();
+      y = 60;
+    }
+    doc.fillColor('#111827').text(pdfSafe(r.code ? `${r.code} ${r.course}` : r.course), cols.course, y, { width: 225 });
+    if (hasCredits) doc.text(r.credits == null ? '—' : String(r.credits), cols.credits, y);
+    doc.text(`${r.obtained}/${r.total}`, cols.marks, y);
+    doc.text(r.percent.toFixed(1), cols.pct, y);
+    doc.fillColor(r.passed ? '#111827' : '#B91C1C').text(r.grade, cols.grade, y);
+    if (isGpa) doc.fillColor('#111827').text(r.points == null ? '—' : r.points.toFixed(2), cols.points, y);
+    y += 18;
+  }
+  y += 10;
   doc.moveTo(50, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();
-  y += 15;
+  y += 14;
   doc.fontSize(11).fillColor('#374151');
-  doc.text(`Overall Average: ${avg}%`, 50, y);
-  doc.text(`Attendance: ${Math.round((present / totalAtt) * 100)}%  (${present}/${totalAtt} present)`, 320, y);
+  if (overall) {
+    doc.text(
+      isGpa && overall.gpa != null ? `GPA: ${overall.gpa.toFixed(2)} / ${scheme.gpa_scale ?? 4}` : `Overall: ${overall.percent.toFixed(1)}% (${overall.label})`,
+      50,
+      y
+    );
+    doc.text(overall.passed ? 'Result: Pass' : 'Result: Needs improvement', 50, y + 18);
+  }
+  doc.text(totalAtt ? `Attendance: ${Math.round((present / totalAtt) * 100)}%  (${present}/${totalAtt} days present)` : 'Attendance: no records', 320, y);
 
   const generated = pdfSafe(formatDate(new Date(), { timeZone: institution.timezone, locale: institution.locale }));
   doc.fontSize(9).fillColor('#9ca3af').text(`Generated by Acadex · ${generated}`, 50, 760, { align: 'center', width: 495 });

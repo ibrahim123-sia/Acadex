@@ -43,6 +43,19 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   LOG_PRETTY: bool(false),
   SENTRY_DSN: z.string().optional(),
+  /** local: files on disk (development); s3: any S3-compatible store (AWS, Cloudflare R2, MinIO) */
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_LOCAL_DIR: z.string().default('./.storage'),
+  S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().default('auto'),
+  S3_ENDPOINT: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_FORCE_PATH_STYLE: bool(false),
+  /** none: skip; clamav: scan every upload with clamd at CLAMAV_HOST:CLAMAV_PORT */
+  VIRUS_SCAN: z.enum(['none', 'clamav']).default('none'),
+  CLAMAV_HOST: z.string().default('127.0.0.1'),
+  CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
 });
 
 export interface Config {
@@ -67,6 +80,12 @@ export interface Config {
   logLevel: string;
   logPretty: boolean;
   sentryDsn?: string;
+  storage: {
+    driver: 'local' | 's3';
+    localDir: string;
+    s3?: { bucket: string; region: string; endpoint?: string; accessKeyId?: string; secretAccessKey?: string; forcePathStyle: boolean };
+  };
+  virusScan: { driver: 'none' | 'clamav'; host: string; port: number };
 }
 
 function parseKey(raw: string): Buffer | null {
@@ -96,6 +115,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (c.COOKIE_SAMESITE === 'none' && c.COOKIE_SECURE === 'false') {
     problems.push('  - COOKIE_SAMESITE=none requires COOKIE_SECURE=true');
   }
+  if (c.STORAGE_DRIVER === 's3' && !c.S3_BUCKET) problems.push('  - S3_BUCKET: required when STORAGE_DRIVER=s3');
   if (problems.length) throw new Error(`Invalid configuration:\n${problems.join('\n')}`);
 
   const trustProxy = c.TRUST_PROXY === 'true' ? 1 : c.TRUST_PROXY === 'false' ? false : c.TRUST_PROXY;
@@ -124,6 +144,21 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     logLevel: c.LOG_LEVEL,
     logPretty: c.LOG_PRETTY,
     sentryDsn: c.SENTRY_DSN,
+    storage: {
+      driver: c.STORAGE_DRIVER,
+      localDir: c.STORAGE_LOCAL_DIR,
+      s3: c.S3_BUCKET
+        ? {
+            bucket: c.S3_BUCKET,
+            region: c.S3_REGION,
+            endpoint: c.S3_ENDPOINT,
+            accessKeyId: c.S3_ACCESS_KEY_ID,
+            secretAccessKey: c.S3_SECRET_ACCESS_KEY,
+            forcePathStyle: c.S3_FORCE_PATH_STYLE,
+          }
+        : undefined,
+    },
+    virusScan: { driver: c.VIRUS_SCAN, host: c.CLAMAV_HOST, port: c.CLAMAV_PORT },
   };
 }
 

@@ -83,3 +83,6 @@ Database Backup/
 
 # portfolio screenshot gallery (kept locally, not committed)
 screenshots/
+
+# uploaded files (local storage driver)
+**/.storage/

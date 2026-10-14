@@ -39,7 +39,7 @@ export async function createSession(userId: number, meta: SessionMeta = {}): Pro
 
 export type RotateResult =
   | { ok: true; sessionId: string; userId: number; refreshToken: string }
-  | { ok: false; reason: 'unknown' | 'expired' | 'revoked' | 'reused' };
+  | { ok: false; reason: 'unknown' | 'expired' | 'revoked' | 'reused'; userId?: number };
 
 /** Exchange a refresh token for a new one (single use). */
 export async function rotateRefreshToken(token: string, meta: SessionMeta = {}): Promise<RotateResult> {
@@ -67,7 +67,7 @@ export async function rotateRefreshToken(token: string, meta: SessionMeta = {}):
       await runAsSystem(() =>
         db.query(`UPDATE sessions SET revoked_at = now(), revoke_reason = 'refresh token reused' WHERE id = $1 AND revoked_at IS NULL`, [rt.session_id])
       );
-      return { ok: false, reason: 'reused' };
+      return { ok: false, reason: 'reused', userId: rt.user_id };
     }
     if (rt.expires_at.getTime() < Date.now() || rt.session_expires_at.getTime() < Date.now()) {
       return { ok: false, reason: 'expired' };

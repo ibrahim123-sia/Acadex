@@ -1,6 +1,7 @@
 // Boots a throwaway PostgreSQL (embedded-postgres) for the test run, migrates it,
 // and exposes its URL to the test workers through process.env.
 // Set TEST_DATABASE_URL to use an existing server instead (CI does this).
+import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -93,6 +94,8 @@ export async function setup() {
   const appUrl = new URL(url);
   appUrl.username = 'acadex_app';
   appUrl.password = 'acadex_app';
+  // uploads go to a throwaway folder
+  process.env.STORAGE_LOCAL_DIR = path.join(os.tmpdir(), 'acadex-test-storage');
   process.env.TEST_ADMIN_DATABASE_URL = url; // superuser: fixture resets and assertions
   process.env.DATABASE_URL = appUrl.toString(); // what the API under test uses
   process.env.DATABASE_SSL = 'false';

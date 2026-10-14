@@ -8,3 +8,5 @@ export * from './schemas/platform';
 export * from './schemas/roles';
 export * from './types';
 export * from './academics';
+export * from './schemas/structure';
+export * from './schemas/people';
