@@ -52,6 +52,14 @@ Backs up, restores into the scratch database and compares every table's row coun
 this on every push against a freshly migrated and seeded database; run it monthly against
 production into a throwaway Neon branch.
 
+## File storage
+
+`STORAGE_DRIVER=local` keeps uploads in `STORAGE_LOCAL_DIR` (back it up with the database);
+`s3` uses any S3-compatible store (`S3_BUCKET`, `S3_ENDPOINT`, keys). Database backups do not
+contain file bytes: back up the bucket separately (versioning or replication on R2 / S3).
+Quotas per plan: free 500 MB, pro 10 GB, enterprise 100 GB (institution setting
+`storage_quota_mb` overrides). `VIRUS_SCAN=clamav` streams every upload to clamd.
+
 ## Local services
 
 `docker compose up -d`: Postgres 16 + pgvector (5432), MinIO (9000, console 9001, bucket

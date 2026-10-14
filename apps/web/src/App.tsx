@@ -13,6 +13,8 @@ const AdminRoutes = lazy(() => import('@/pages/admin'));
 const TeacherRoutes = lazy(() => import('@/pages/teacher'));
 const StudentRoutes = lazy(() => import('@/pages/student'));
 const ParentRoutes = lazy(() => import('@/pages/parent'));
+const GroupRoutes = lazy(() => import('@/pages/group'));
+const VerifyPage = lazy(() => import('@/pages/public/Verify').then((m) => ({ default: m.VerifyPage })));
 
 function NotFound() {
   const { t } = useTranslation();
@@ -47,6 +49,8 @@ export default function App() {
         <Route path="/teacher/*" element={<TeacherRoutes />} />
         <Route path="/student/*" element={<StudentRoutes />} />
         <Route path="/parent/*" element={<ParentRoutes />} />
+        <Route path="/group/*" element={<GroupRoutes />} />
+        <Route path="/verify/:code" element={<VerifyPage />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -21,6 +21,38 @@ How the API decides who may do what, and the layers that back each decision up.
      runs as such a role (`acadex_app`) and `tests/rls.test.ts` checks isolation directly in
      SQL.
 
+## Campuses and groups
+
+Role assignments have a scope: the platform, a group of institutions, an institution, or one
+campus of it. A campus-scoped role (e.g. a branch principal) passes the permission check, and
+then every list, profile and dashboard is filtered to its campuses; touching anything on
+another campus — or with no campus — is refused (`lib/structure.ts`). Group administrators
+read their group's institutions through an explicit, filtered system query.
+
+## Soft delete and the recycle bin
+
+Students, staff, guardians, sections, courses, programs, departments, campuses, documents and
+files are soft-deleted. A restrictive RLS policy hides rows with `deleted_at` from every
+query unless the request explicitly opts in (`withDeleted`: the recycle bin, restoring, and
+the delete itself), so a forgotten filter can't resurrect deleted data. Deleting a person also
+disables their sign-in; restoring re-enables it. Permanent deletion needs `recycle_bin.manage`
+and an explicit confirmation, and removes the account and the files too.
+
+## Files
+
+Uploads are identified by their content (magic bytes), not the name or the browser's claim;
+size-limited per purpose; images are re-encoded (dropping EXIF / GPS metadata); scanned when
+`VIRUS_SCAN=clamav` (a scanner outage rejects uploads); counted against the institution's
+quota. A file is only served to someone who may see what it belongs to (the student, a linked
+guardian, a teacher of the class, or staff with the right permission and campus), with
+`nosniff` and a sandboxing CSP; S3 downloads use 5-minute signed URLs.
+
+## Public verification
+
+`/api/public/verify/:code` (the QR code on ID cards and certificates) answers without
+sign-in but only with: valid / revoked / expired, the institution, the document type and a
+masked name ("Ali B."). Codes are 12 random characters; the endpoint has its own rate limit.
+
 ## Sessions
 
 - `POST /api/auth/login` returns a **15-minute access token** (JWT, HS256, audience
@@ -105,11 +137,15 @@ pinned script with Subresource Integrity.
 
 ## Audit
 
-Written to `audit_log` (actor, school, action, entity, time): accepting an invitation,
-password reset, 2FA enabled / disabled, recovery-code use and regeneration; school
-registration; admissions, new staff, re-sent invitations, classes, fee payments; custom
-role create / edit / delete, role grants and revocations. Requests are additionally logged
-with their request id.
+A database trigger writes every change to the important tables (institutions, campuses,
+departments, programs, levels, years, terms, holidays, grading schemes, sections, courses,
+offerings, staff assignments, enrolments, students, staff, guardians and their links, custom
+fields, documents, ID cards, certificates, roles and grants, fees, promotions, users) to
+`audit_log`: who (`app.user_id`), which request, the action, and the changed fields with
+before / after values. Medical notes record only *which* fields changed; password hashes and
+token versions never appear. Sign-ins, failed sign-ins (committed even though the request
+fails), refresh-token reuse, session revocations, password and 2FA changes are recorded too.
+Institutions read their own trail at `/api/institution/audit` (`audit.read`).
 
 ## Database changes
 
@@ -122,6 +158,3 @@ file is marked `-- acadex:reviewed-destructive`.
 
 - `users.email` is unique across the platform, so one person can't yet belong to two
   institutions with the same email (Phase 1).
-- Not yet audited: sign-in and failed sign-in, refresh-token reuse, session revocation,
-  password change, school plan/status changes. There is no school-facing audit log screen
-  yet (the `audit.read` permission is reserved for it). Both are planned for Phase 1.

@@ -47,7 +47,20 @@
     "notifications": "الإشعارات",
     "markAllRead": "تحديد الكل كمقروء",
     "noNotifications": "لا توجد إشعارات",
-    "portal": "بوابة {{role}}"
+    "portal": "بوابة {{role}}",
+    "group": "المجموعة",
+    "groupOverview": "المؤسسات",
+    "institutionOffice": "المكتب",
+    "academics": "الشؤون الأكاديمية",
+    "administration": "الإدارة",
+    "staff": "الموظفون",
+    "structure": "الهيكل",
+    "calendar": "التقويم",
+    "yearEnd": "نهاية العام",
+    "documents": "البطاقات والشهادات",
+    "imports": "الاستيراد",
+    "records": "السجلات",
+    "settings": "الإعدادات"
   },
   "roles": {
     "label": {
@@ -58,8 +71,15 @@
       "parent": "ولي الأمر"
     }
   },
-  "theme": { "label": "المظهر", "light": "فاتح", "dark": "داكن", "system": "حسب النظام" },
-  "language": { "label": "اللغة" },
+  "theme": {
+    "label": "المظهر",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "حسب النظام"
+  },
+  "language": {
+    "label": "اللغة"
+  },
   "auth": {
     "tagline": "منصة واحدة لكل مؤسسة تعليمية: التدريس والتعلم وإدارة المؤسسة.",
     "feature1": "وصول آمن قائم على الأدوار",
@@ -108,5 +128,8 @@
     "recoveryTitle": "احفظ رموز الاسترداد",
     "recoveryHelp": "كل رمز يعمل مرة واحدة إذا فقدت هاتفك. احفظها في مكان آمن — لن تظهر مرة أخرى.",
     "savedCodes": "لقد حفظتها"
+  },
+  "bin": {
+    "title": "سلة المحذوفات"
   }
 }

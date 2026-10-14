@@ -1,5 +1,71 @@
 # Changelog
 
+## Phase 1 — Universal structure & people (2026-10-14)
+
+Acadex now fits any kind of institution. The four demo tenants each look native: a school,
+a three-branch school network, a university and a training academy. Existing data was
+migrated in place (classes → sections, subjects → courses + offerings, parent links →
+guardians).
+
+### Institutions and structure
+- Institution types (school, network, college, university, academy, training center) with
+  smart defaults: terminology, grading, term system and program templates; an onboarding
+  guide applies them.
+- Groups → institutions → campuses / branches → departments → programs → levels → sections.
+  Academic years and terms (annual, semester, trimester, quarter, rolling), one current
+  year, archived years read-only.
+- Holiday calendar per institution or campus; attendance and due dates refuse closed days
+  (with the next open day suggested) and honour working days.
+- Course catalog with credit hours; offerings per term for a whole section or open
+  enrolment with capacity and an automatic waitlist; teachers, co-teachers and TAs.
+- Grading schemes: percentage, letter, GPA 4.0 / 5.0 (credit-weighted), pass/fail,
+  competency, custom bands; one default, per-program override; report cards use them.
+- Terminology packs with per-institution overrides, used across the web app.
+- Year end: promotion preview, next year's classes created automatically, promote / repeat
+  / graduate / leave in one transaction, batches move up a level, archive the year.
+
+### People
+- Student records: profile, photo, multiple guardians with per-guardian permissions (grades,
+  fees, messages; the parent portal and PDFs obey them), medical notes behind their own
+  permission, documents, custom fields, enrolments, promotion history, change history.
+- Staff profiles: teaching / non-teaching, designation, campus, department, employment,
+  documents, and teaching load (courses, credit hours, periods, class-teacher duties).
+- Bulk import of students, staff, guardians, courses and enrolments from CSV / Excel
+  (OneRoster column names work), dry run row by row, all-or-nothing or skip bad rows,
+  upserts, templates; bulk invitations.
+- ID cards (students and staff) printable on A4 sheets with photo and QR; leaving /
+  character certificates and bonafide letters from editable templates with serial
+  numbers; public verification by QR with a masked name only; revocation.
+- Soft delete with a recycle bin (restore, or delete permanently with confirmation) and a
+  full audit trail of who changed what (database trigger), now also covering sign-ins,
+  failed sign-ins, token reuse, session revocation and password changes.
+
+### Platform
+- Campus-scoped roles (e.g. a branch principal sees and runs one branch); the dashboard
+  compares campuses side by side; group administrators see every institution of their group.
+- File storage behind local / S3 drivers: content-checked uploads, size limits, image
+  re-encoding (EXIF stripped), ClamAV hook, per-institution quota, permission-checked
+  downloads.
+- `schools` → `institutions` throughout (API under /api/institution); a schema-drift test
+  keeps the TypeScript schema and the migrations identical.
+- Faster requests: the dashboard is one query; attendance and grade batches are single
+  statements.
+
+### Tests
+426 API tests (75 new, with denial tests for roles, campuses and institutions), 8 shared,
+12 web; migration backfill tested from the old shape.
+
+### Known gaps (carried forward)
+- The timetable does not yet hide holidays (timetable is rebuilt in Phase 2).
+- Term-by-term CGPA and transcripts come with results in Phase 3.
+- Recycle-bin entries are not purged automatically after 30 days yet (needs the job runner,
+  Phase 2); purging is manual.
+- Excel import is implemented but only CSV is covered by tests.
+- One email can belong to only one institution; PDFs do not render Urdu / Arabic yet.
+- Subdomain / custom-domain tenant resolution is Phase 6. No browser end-to-end tests yet.
+- Requests from far away are slow (several sequential round trips per request); deploy the
+  API next to the database.
+
 ## Phase 0B — Foundation (2026-10-13)
 
 The platform underneath everything that follows. The demo data was reseeded (agreed data

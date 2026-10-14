@@ -6,3 +6,5 @@ export * from './dialog';
 export * from './table';
 export * from './toast';
 export * from './copy-button';
+export * from './tabs';
+export * from './confirm';

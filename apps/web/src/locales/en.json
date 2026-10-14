@@ -1,0 +1,27 @@
+{
+  "studentStatus": { "active": "Active", "inactive": "Inactive", "graduated": "Alumni", "left": "Left", "all": "All" },
+  "staffStatus": { "active": "Active", "on_leave": "On leave", "left": "Left" },
+  "employment": { "full_time": "Full time", "part_time": "Part time", "visiting": "Visiting", "contract": "Contract" },
+  "relationship": { "father": "Father", "mother": "Mother", "guardian": "Guardian", "grandparent": "Grandparent", "sibling": "Sibling", "other": "Other" },
+  "termKind": { "annual": "Annual", "semester": "Semester", "trimester": "Trimester", "quarter": "Quarter", "rolling": "Rolling", "custom": "Custom" },
+  "holidayKind": { "holiday": "Holiday", "break": "Break", "exam_period": "Exam period", "event": "Event" },
+  "gradingKind": { "percentage": "Percentage", "letter": "Letter grades", "gpa": "GPA", "pass_fail": "Pass / fail", "competency": "Competency", "custom": "Custom" },
+  "promotion": { "promoted": "Promoted", "repeated": "Repeating", "graduated": "Graduated", "left": "Left" },
+  "staffRole": { "teacher": "Teacher", "co_teacher": "Co-teacher", "ta": "Teaching assistant" },
+  "institutionType": { "school": "School", "chain": "School network", "college": "College", "university": "University", "academy": "Academy", "training_center": "Training center" },
+  "fieldType": { "text": "Text", "number": "Number", "date": "Date", "select": "Choice", "checkbox": "Yes / no" },
+  "docCategory": {
+    "birth_certificate": "Birth certificate", "national_id": "National ID / B-form", "previous_result": "Previous result", "transfer_certificate": "Transfer certificate",
+    "medical": "Medical", "photo": "Photo", "cv": "CV", "contract": "Contract", "other": "Other"
+  },
+  "auditAction": {
+    "create": "Created", "update": "Changed", "delete": "Deleted", "restore": "Restored", "purge": "Deleted for good",
+    "sign_in": "Signed in", "sign_in_failed": "Failed sign-in", "refresh_token_reused": "Stolen sign-in token used", "session_revoked": "Signed out a device",
+    "signed_out_everywhere": "Signed out everywhere", "password_changed": "Changed password", "password_reset": "Reset password", "accept_invite": "Accepted invitation",
+    "mfa_enabled": "Turned on 2FA", "mfa_disabled": "Turned off 2FA", "mfa_recovery_code_used": "Used a recovery code", "mfa_recovery_codes_regenerated": "New recovery codes"
+  },
+  "termKey": {
+    "institution": "Institution", "campus": "Campus", "department": "Department", "program": "Program", "level": "Level", "section": "Section (class / batch)",
+    "course": "Course (subject)", "teacher": "Teacher", "student": "Student", "guardian": "Guardian", "term": "Term", "academicYear": "Academic year"
+  }
+}

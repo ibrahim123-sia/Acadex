@@ -17,10 +17,28 @@ institute ERP. See [CHANGELOG.md](CHANGELOG.md) for what each phase delivered.
 ## ✨ What's in it today
 
 **Platform** — register institutions (each gets an invited administrator), plans, suspend /
-reactivate, cross-tenant KPIs, platform audit log.
+reactivate, cross-tenant KPIs, platform audit log. **Groups** (school networks, university
+systems) with a group administrator who sees every member institution.
 
-**Institute office** — dashboard, student admissions and directory, staff directory,
-classes, fee collection with vouchers, announcements, **custom roles & permissions**,
+**Any kind of institution** — school, school network, college, university, academy or
+training center, each with its own words (Class / Batch / Cohort, Teacher / Instructor /
+Trainer, Term / Semester / Intake…), grading (letter, percentage, GPA 4.0 / 5.0 with credit
+hours, pass/fail, competency, custom bands) and term system — set up in minutes with the
+onboarding guide.
+
+**Structure** — campuses / branches → departments → programs → levels → sections, academic
+years and terms, a holiday calendar that attendance and due dates respect, the course
+catalog, offerings with co-teachers and TAs, open enrolment with capacity and a waitlist,
+year-end promotion / graduation and archiving.
+
+**People** — complete student records (guardians with per-guardian permissions, medical notes
+behind their own permission, documents, custom fields, history), staff profiles with
+teaching load, bulk import from CSV / Excel (OneRoster columns) with a dry run, bulk
+invitations, ID cards with QR codes, leaving / character certificates and bonafide
+letters with public verification, a recycle bin and a full audit trail.
+
+**Institute office** — dashboards with a campus-by-campus comparison, fee collection with
+vouchers, announcements, **custom roles & permissions** (also limited to one campus),
 invitations instead of shared passwords.
 
 **Teaching** — my classes, roster, keyboard-fast attendance (P / A / L), gradebook,
@@ -69,13 +87,17 @@ In development, emails (invitations, reset links) are written to the API log unl
 Seeded demo accounts only. People added in the app receive an invitation and choose their
 own password.
 
-| Role | Email |
-|---|---|
-| Platform admin | `superadmin@acadex.com` |
-| Institute admin | `admin@greenwood.edu` (second institute: `admin@sunrise.edu`) |
-| Teacher | `ali.sheikh.t0@greenwood.edu` |
-| Student | `ali.butt.s0@greenwood.edu` |
-| Parent | `parent1@greenwood.edu` |
+Four institutions that each look native, plus the platform and a group:
+
+| | Greenwood High School (school) | Sunrise Schools (3 branches) | Northfield University | Skillforge Academy (training) |
+|---|---|---|---|---|
+| Admin | `admin@greenwood.edu` | `admin@sunrise.edu` | `registrar@northfield.edu` | `admin@skillforge.edu` |
+| Branch principal | | `principal.dha@sunrise.edu` (DHA only) | | |
+| Teacher | `ali.sheikh.t0@greenwood.edu` | `ali.nadeem.t8@sunrise.edu` | `zainab.baig.t17@northfield.edu` | `zainab.shah.t25@skillforge.edu` |
+| Student | `ali.butt.s0@greenwood.edu` | `ali.butt.s36@sunrise.edu` | `omar.baig.s88@northfield.edu` | `omar.baig.s112@skillforge.edu` |
+| Parent | `parent1@greenwood.edu` | | | |
+
+Platform admin: `superadmin@acadex.com` · Group admin (Greenwood + Sunrise): `group@acadex.com`
 
 ## 🧪 Tests & checks
 ```bash
@@ -102,7 +124,9 @@ apps/
       db/              Drizzle schema, migration runner, request context (RLS), seed
       lib/             access checks, audit, errors, mailer, pagination, locale, sentry
       middleware/      authentication
-      routes/          auth, platform, school, roles, me, parent, pdf
+      routes/          auth, platform, institution, structure, settings, people, imports,
+                       documents, yearend, records, roles, group, files, public, me, parent, pdf
+      storage/         file storage drivers (local / S3), uploads, virus scanning
     drizzle/           migrations (generated, reviewed, forward-only)
     tests/             Vitest + Supertest, two-tenant fixture
   web/                 @acadex/web — React + Vite + TypeScript

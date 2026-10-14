@@ -47,7 +47,20 @@
     "notifications": "اطلاعات",
     "markAllRead": "سب پڑھ لیے",
     "noNotifications": "کوئی اطلاع نہیں",
-    "portal": "{{role}} پورٹل"
+    "portal": "{{role}} پورٹل",
+    "group": "گروپ",
+    "groupOverview": "ادارے",
+    "institutionOffice": "دفتر",
+    "academics": "تعلیمی امور",
+    "administration": "انتظامیہ",
+    "staff": "عملہ",
+    "structure": "ڈھانچہ",
+    "calendar": "کیلنڈر",
+    "yearEnd": "سال کا اختتام",
+    "documents": "شناختی کارڈ اور سرٹیفکیٹ",
+    "imports": "درآمد",
+    "records": "ریکارڈ",
+    "settings": "ترتیبات"
   },
   "roles": {
     "label": {
@@ -58,8 +71,15 @@
       "parent": "والدین"
     }
   },
-  "theme": { "label": "تھیم", "light": "روشن", "dark": "تاریک", "system": "سسٹم کے مطابق" },
-  "language": { "label": "زبان" },
+  "theme": {
+    "label": "تھیم",
+    "light": "روشن",
+    "dark": "تاریک",
+    "system": "سسٹم کے مطابق"
+  },
+  "language": {
+    "label": "زبان"
+  },
   "auth": {
     "tagline": "ہر ادارے کے لیے ایک پلیٹ فارم: تدریس، سیکھنا اور ادارے کا انتظام۔",
     "feature1": "محفوظ، کردار کی بنیاد پر رسائی",
@@ -108,5 +128,8 @@
     "recoveryTitle": "اپنے بیک اپ کوڈ محفوظ کریں",
     "recoveryHelp": "فون گم ہونے کی صورت میں ہر کوڈ ایک بار استعمال ہو سکتا ہے۔ انہیں محفوظ جگہ رکھیں — یہ دوبارہ نہیں دکھائے جائیں گے۔",
     "savedCodes": "میں نے محفوظ کر لیے"
+  },
+  "bin": {
+    "title": "ری سائیکل بن"
   }
 }

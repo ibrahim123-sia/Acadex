@@ -101,7 +101,7 @@ function TeacherAttendance() {
   const rows = useRef<(HTMLLIElement | null)[]>([]);
   const roster = useQuery({
     queryKey: ['roster', sectionId, date],
-    queryFn: () => api.get<{ date: string; students: RosterStudent[] }>(`/me/teacher/class/${sectionId}/roster`, { date }),
+    queryFn: () => api.get<{ date: string; holiday: string | null; students: RosterStudent[] }>(`/me/teacher/class/${sectionId}/roster`, { date }),
     enabled: !!sectionId,
   });
   useEffect(() => {
@@ -134,6 +134,11 @@ function TeacherAttendance() {
           {t('teacher.allPresent', 'Mark everyone present')}
         </Button>
       </Card>
+      {roster.data?.holiday && (
+        <Alert tone="warning" className="mb-4">
+          {t('teacher.holiday', '{{name}} — no attendance on this day.', { name: roster.data.holiday })}
+        </Alert>
+      )}
       {roster.isPending && sectionId ? (
         <Spinner />
       ) : roster.isError ? (
@@ -185,7 +190,7 @@ function TeacherAttendance() {
       {students.length > 0 && (
         <div className="sticky bottom-0 mt-4 flex items-center justify-between gap-3 border-t border-border bg-background py-3">
           <span className="text-sm text-fg-muted">{t('teacher.marked', '{{marked}} of {{total}} marked', { marked: markedCount, total: students.length })}</span>
-          <Button loading={save.isPending} disabled={!markedCount} onClick={() => save.mutate()}>
+          <Button loading={save.isPending} disabled={!markedCount || !!roster.data?.holiday} onClick={() => save.mutate()}>
             <Save className="size-4" /> {t('teacher.saveAttendance', 'Save attendance')}
           </Button>
         </div>

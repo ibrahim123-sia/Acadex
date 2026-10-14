@@ -243,7 +243,8 @@ async function addSection(inst: Inst, s: SectionDef) {
 async function addStudents(inst: Inst, section: Row | null, n: number, age: [number, number], extra: { status?: string; left_on?: string } = {}) {
   const list = Array.from({ length: n }, (_, j) => {
     const i = studentIndex++;
-    const fn = FIRST[(i * 2) % FIRST.length]!;
+    // even positions in FIRST are boys' names, odd ones girls': match the gender below
+    const fn = FIRST[(i * 2 + (i % 2)) % FIRST.length]!;
     const ln = LAST[(i * 3 + 1) % LAST.length]!;
     return { i, j, fn, ln, email: `${fn}.${ln}.s${i}@${inst.slug}.edu`.toLowerCase() };
   });
@@ -674,10 +675,13 @@ async function seedNorthfield() {
     ['BBA-2026', 'BBA batch 2026', 'BBA', 1, [C.BUS101!, C.ACC101!, C.ECO101!, C.ENG101!], [...ms, ...mth]],
   ];
   for (const [codeS, name, prog, sem, courses, teachers] of batches) {
-    const section = await addSection(inst, { code: codeS, name, label: codeS.split('-')[1]!, campus_id: campus, level_id: lvl(prog, sem), students: 8, age: [18, 22] });
+    const section = await addSection(inst, { code: codeS, name, label: '', campus_id: campus, level_id: lvl(prog, sem), students: 8, age: [18, 22] });
     const students = await addStudents(inst, section, 8, sem === 1 ? [18, 19] : [19, 21]);
     // each batch's courses are open course sections with a capacity; students enrol individually
-    const offerings = await offer(inst, section, courses, fall, teachers, { mode: 'open', capacity: codeS === 'BSCS-2025' ? 6 : 40 });
+    const offerings = await offer(inst, section, courses, fall, teachers, { mode: 'open', capacity: 40 });
+    // Database Systems is popular: a small lab, so two students wait for a seat
+    const lab = offerings.find((o) => o.course_id === C.CS202!.id);
+    if (lab) await q(`UPDATE course_offerings SET capacity = 6 WHERE id = $1`, [lab.id]);
     const enrol: unknown[][] = [];
     for (const o of offerings) {
       const cap = codeS === 'BSCS-2025' && C.CS202!.id === o.course_id ? 6 : 40;
@@ -727,7 +731,7 @@ async function seedSkillforge() {
   ];
   for (const [i, [codeS, name, prog, lvlName, courses]] of cohorts.entries()) {
     const level = programs[prog]!.levels.find((l) => l.name === lvlName)!.id;
-    const section = await addSection(inst, { code: codeS, name, label: codeS.split('-')[1]!, campus_id: campus, level_id: level, students: 6, age: [19, 30], homeroom: trainers[i % trainers.length]!.id, capacity: 25 });
+    const section = await addSection(inst, { code: codeS, name, label: '', campus_id: campus, level_id: level, students: 6, age: [19, 30], homeroom: trainers[i % trainers.length]!.id, capacity: 25 });
     const students = await addStudents(inst, section, 6, [19, 30]);
     const offerings = await offer(inst, section, courses, intake, trainers, { start: i });
     await addActivity(inst, section, students, offerings, { fee: [60000, 75000], assessments: [['Project', 'Project review', 100]], attendanceDays: 6 });

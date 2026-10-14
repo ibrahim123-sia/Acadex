@@ -51,10 +51,28 @@ Background work (email outbox flushing, permission sync after migrate) runs with
 
 ## Data model
 
-Core tables: `schools` (tenants), `users` (one primary role + `school_id`), `students`,
-`teachers`, `parents`, `parent_children`, `classes`, `subjects`, `teacher_subjects`,
-`attendance`, `grades`, `assignments`, `submissions`, `fees`, `timetable`, `exams`,
+Tenants: `institution_groups` → `institutions` (type, settings, terminology overrides) →
+`campuses`. Every tenant table has `institution_id` and an RLS policy.
+
+Academic structure: `departments`, `programs` (optional own grading scheme) →
+`program_levels` (in promotion order); `academic_years` → `terms`; `holidays`;
+`grading_schemes`; `sections` (a class / batch / cohort: one level, one campus, one year);
+`courses` (catalog) → `course_offerings` (a course in a term, for a whole section or open
+with capacity) → `section_staff` (teacher / co-teacher / TA) and `enrollments` (with a
+waitlist); `student_promotions` (year-end history).
+
+People: `users` (one primary role), `students`, `teachers` (all staff, teaching or not),
+`guardians` + `guardianships` (relationship and per-guardian permissions),
+`student_medical` (restricted), `custom_fields` (values in each person's `custom_data`),
+`files`, `person_documents`, `id_cards`, `document_templates`, `issued_documents`,
+`import_jobs`.
+
+Teaching and office (reworked in Phases 2–3): `student_attendance`, `teacher_attendance`,
+`grades`, `assignments`, `submissions`, `tuition_fee`, `timetable`, `exam_schedule`,
 `announcements`, `notifications`, `audit_log`.
+
+Terminology, grading presets, institution-type defaults and the grading maths
+(`gradeFor`, credit-weighted `gpa`) live in `packages/shared/src/academics.ts`.
 
 Auth: `sessions`, `refresh_tokens`, `email_tokens` (invite / reset / verify, hashed),
 `mfa_totp`, `mfa_recovery_codes`, `email_outbox`.

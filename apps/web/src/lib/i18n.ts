@@ -1,7 +1,8 @@
 // Internationalisation. English strings live in the code as defaults (t('key', 'English'));
-// other languages override them from locales/*.json. Urdu and Arabic are right-to-left.
+// locales/en.json holds labels for enum values; other languages override from locales/*.json. Urdu and Arabic are right-to-left.
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import en from '../locales/en.json';
 import ur from '../locales/ur.json';
 import ar from '../locales/ar.json';
 
@@ -30,7 +31,7 @@ export function applyDocumentLanguage(code: string) {
 }
 
 void i18n.use(initReactI18next).init({
-  resources: { en: { translation: {} }, ur: { translation: ur }, ar: { translation: ar } },
+  resources: { en: { translation: en }, ur: { translation: ur }, ar: { translation: ar } },
   lng: initial,
   fallbackLng: 'en',
   interpolation: { escapeValue: false }, // React escapes

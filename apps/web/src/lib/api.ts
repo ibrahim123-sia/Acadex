@@ -75,6 +75,8 @@ type Query = Record<string, string | number | boolean | null | undefined>;
 
 interface RequestOptions {
   body?: unknown;
+  /** multipart upload instead of JSON */
+  form?: FormData;
   query?: Query;
   signal?: AbortSignal;
   /** don't try to refresh on 401 (auth endpoints themselves) */
@@ -94,8 +96,8 @@ async function send(method: string, path: string, opts: RequestOptions, retried 
     method,
     credentials: 'include',
     signal: opts.signal,
-    headers: { ...baseHeaders(), ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    headers: { ...baseHeaders(), ...(opts.body !== undefined && !opts.form ? { 'Content-Type': 'application/json' } : {}) },
+    body: opts.form ?? (opts.body !== undefined ? JSON.stringify(opts.body) : undefined),
   });
   if (res.status === 401 && !opts.noRefresh && !retried && tokenUsed !== null) {
     // another request may already have renewed the token while this one was in flight
@@ -136,7 +138,23 @@ export const api = {
   get: <T>(path: string, query?: Query, signal?: AbortSignal) => json<T>('GET', path, { query, signal }),
   post: <T>(path: string, body?: unknown, opts: Omit<RequestOptions, 'body'> = {}) => json<T>('POST', path, { ...opts, body: body ?? {} }),
   patch: <T>(path: string, body?: unknown) => json<T>('PATCH', path, { body: body ?? {} }),
-  delete: <T>(path: string) => json<T>('DELETE', path),
+  put: <T>(path: string, body?: unknown) => json<T>('PUT', path, { body: body ?? {} }),
+  delete: <T>(path: string, body?: unknown) => json<T>('DELETE', path, body === undefined ? {} : { body }),
+
+  /** Multipart upload: one file in the "file" field plus text fields. */
+  upload: <T>(method: 'POST' | 'PUT', path: string, file: File, fields: Record<string, string> = {}) => {
+    const form = new FormData();
+    form.append('file', file);
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
+    return json<T>(method, path, { form });
+  },
+
+  /** A protected file as a Blob (e.g. to show a photo: <img> can't send the access token). */
+  async blob(path: string, signal?: AbortSignal): Promise<Blob> {
+    const res = await send('GET', path, { signal });
+    if (!res.ok) throw await toError(res);
+    return res.blob();
+  },
 
   /** A page of a paginated list (total from X-Total-Count). */
   async page<T>(path: string, query: Query = {}, signal?: AbortSignal): Promise<Page<T>> {

@@ -2,8 +2,18 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import {
+  ArrowUpRight,
   Baby,
   BookOpen,
+  CalendarDays,
+  FileSpreadsheet,
+  HeartHandshake,
+  History,
+  IdCard,
+  Library,
+  Network,
+  Settings,
+  Trash2,
   Building2,
   CalendarCheck,
   ClipboardList,
@@ -28,6 +38,7 @@ import {
 } from 'lucide-react';
 import type { Permission, Role } from '@acadex/shared';
 import { useAuth } from '@/lib/auth';
+import { useTerms } from '@/lib/terms';
 import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
 import { useTheme, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/cn';
@@ -53,6 +64,7 @@ interface NavItem {
 /** Navigation sections; an item shows when the user holds its permission. */
 function useNav(): { title: string; items: NavItem[] }[] {
   const { t } = useTranslation();
+  const { term } = useTerms();
   return [
     {
       title: t('nav.platform', 'Platform'),
@@ -63,15 +75,39 @@ function useNav(): { title: string; items: NavItem[] }[] {
       ],
     },
     {
-      title: t('nav.institutionOffice', 'Institution office'),
+      title: t('nav.group', 'Group'),
+      items: [{ to: '/group', label: t('nav.groupOverview', 'Institutions'), icon: Network, permission: 'group.read', end: true }],
+    },
+    {
+      title: t('nav.institutionOffice', 'Office'),
       items: [
         { to: '/admin', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'institution.dashboard.read', end: true },
-        { to: '/admin/students', label: t('nav.students', 'Students'), icon: Users, permission: 'students.read' },
-        { to: '/admin/teachers', label: t('nav.teachers', 'Teachers'), icon: GraduationCap, permission: 'staff.read' },
-        { to: '/admin/sections', label: t('nav.sections', 'Classes'), icon: BookOpen, permission: 'sections.read' },
+        { to: '/admin/students', label: term('student', true), icon: Users, permission: 'students.read' },
+        { to: '/admin/teachers', label: t('nav.staff', 'Staff'), icon: GraduationCap, permission: 'staff.read' },
+        { to: '/admin/guardians', label: term('guardian', true), icon: HeartHandshake, permission: 'guardians.read' },
         { to: '/admin/fees', label: t('nav.fees', 'Fees'), icon: Wallet, permission: 'fees.read' },
         { to: '/admin/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, permission: 'announcements.read' },
+      ],
+    },
+    {
+      title: t('nav.academics', 'Academics'),
+      items: [
+        { to: '/admin/sections', label: term('section', true), icon: BookOpen, permission: 'sections.read' },
+        { to: '/admin/courses', label: term('course', true), icon: Library, permission: 'structure.read' },
+        { to: '/admin/structure', label: t('nav.structure', 'Structure'), icon: Network, permission: 'structure.read' },
+        { to: '/admin/calendar', label: t('nav.calendar', 'Calendar'), icon: CalendarDays, permission: 'structure.read' },
+        { to: '/admin/year-end', label: t('nav.yearEnd', 'Year end'), icon: ArrowUpRight, permission: 'year_end.manage' },
+      ],
+    },
+    {
+      title: t('nav.administration', 'Administration'),
+      items: [
+        { to: '/admin/documents', label: t('nav.documents', 'ID cards & certificates'), icon: IdCard, permission: 'documents.issue' },
+        { to: '/admin/imports', label: t('nav.imports', 'Imports'), icon: FileSpreadsheet, permission: 'imports.run' },
+        { to: '/admin/records', label: t('nav.records', 'Records'), icon: History, permission: 'audit.read' },
+        { to: '/admin/recycle-bin', label: t('bin.title', 'Recycle bin'), icon: Trash2, permission: 'recycle_bin.manage' },
         { to: '/admin/roles', label: t('nav.roles', 'Roles & permissions'), icon: UserCog, permission: 'roles.manage' },
+        { to: '/admin/settings', label: t('nav.settings', 'Settings'), icon: Settings, permission: 'settings.manage' },
       ],
     },
     {
