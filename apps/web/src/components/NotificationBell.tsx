@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { api } from '@/lib/api';
+import { useLiveEvents } from '@/lib/lms';
 import { formatRelative } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -11,6 +13,7 @@ interface Notification {
   type: string;
   title: string;
   message: string;
+  link: string;
   is_read: boolean;
   created_at: string;
 }
@@ -19,14 +22,16 @@ export function NotificationBell() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  useLiveEvents();
   const box = useRef<HTMLDivElement>(null);
   const { data } = useQuery({
     queryKey: ['notifications'],
-    queryFn: ({ signal }) => api.get<{ items: Notification[]; unread: number }>('/me/notifications', undefined, signal),
-    refetchInterval: 60_000,
+    queryFn: ({ signal }) => api.get<{ items: Notification[]; unread: number }>('/notifications', undefined, signal),
+    // live events refresh it at once; this is only the fallback
+    refetchInterval: 5 * 60_000,
   });
   const markAll = useMutation({
-    mutationFn: () => api.post('/me/notifications/read-all'),
+    mutationFn: () => api.post('/notifications/read-all'),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
@@ -75,14 +80,19 @@ export function NotificationBell() {
               <li className="px-4 py-8 text-center text-sm text-fg-muted">{t('nav.noNotifications', 'No notifications')}</li>
             ) : (
               data.items.map((n) => (
-                <li key={n.id} className={cn('border-b border-border px-4 py-3 last:border-0', !n.is_read && 'bg-primary-soft/50')}>
-                  <div className="text-sm font-medium">{n.title}</div>
-                  {n.message && <div className="text-xs text-fg-muted">{n.message}</div>}
-                  <div className="mt-0.5 text-[11px] text-fg-muted">{formatRelative(n.created_at)}</div>
+                <li key={n.id} className={cn('border-b border-border last:border-0', !n.is_read && 'bg-primary-soft/50')}>
+                  <Link to={n.link || '/notifications'} onClick={() => setOpen(false)} className="block px-4 py-3 hover:bg-surface-2">
+                    <div className="text-sm font-medium">{n.title}</div>
+                    {n.message && <div className="text-xs text-fg-muted">{n.message}</div>}
+                    <div className="mt-0.5 text-[11px] text-fg-muted">{formatRelative(n.created_at)}</div>
+                  </Link>
                 </li>
               ))
             )}
           </ul>
+          <Link to="/notifications" onClick={() => setOpen(false)} className="block border-t border-border px-4 py-2 text-center text-xs text-primary hover:underline">
+            {t('nav.allNotifications', 'All notifications and settings')}
+          </Link>
         </div>
       )}
     </div>

@@ -86,3 +86,7 @@ screenshots/
 
 # uploaded files (local storage driver)
 **/.storage/
+
+# Playwright
+test-results/
+playwright-report/

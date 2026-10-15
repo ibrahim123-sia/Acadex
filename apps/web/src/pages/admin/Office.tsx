@@ -224,7 +224,7 @@ export function AdminAnnouncements() {
   const [open, setOpen] = useState(false);
   const form = useForm<z.input<typeof announcementBody>>({ resolver: zodResolver(announcementBody), defaultValues: { title: '', target_audience: 'All', description: '', end_date: '' } });
   const m = useMutation({
-    mutationFn: (v: z.input<typeof announcementBody>) => api.post('/institution/announcements', v),
+    mutationFn: (v: z.input<typeof announcementBody>) => api.post('/announcements', v),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['/institution/announcements'] });
       form.reset();

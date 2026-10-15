@@ -16,6 +16,7 @@ import { AdminYearEnd } from './YearEnd';
 import { AdminRecords } from './Records';
 import { AdminOnboarding } from './Onboarding';
 import { AdminRoles } from './Roles';
+import { AdminBlueprints } from './Blueprints';
 
 /** Institution-office pages; each one needs its own permission (custom roles may hold a subset). */
 export default function AdminRoutes() {
@@ -42,6 +43,7 @@ export default function AdminRoutes() {
       <Route path="records" element={<RequireAuth permission="audit.read"><AdminRecords /></RequireAuth>} />
       <Route path="recycle-bin" element={<RequireAuth permission="recycle_bin.manage"><AdminRecords /></RequireAuth>} />
       <Route path="settings" element={<RequireAuth permission="settings.manage"><AdminSettings /></RequireAuth>} />
+      <Route path="blueprints" element={<RequireAuth permission="blueprints.manage"><AdminBlueprints /></RequireAuth>} />
       <Route path="roles" element={<RequireAuth permission="roles.manage"><AdminRoles /></RequireAuth>} />
     </Routes>
   );

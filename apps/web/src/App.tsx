@@ -14,6 +14,16 @@ const TeacherRoutes = lazy(() => import('@/pages/teacher'));
 const StudentRoutes = lazy(() => import('@/pages/student'));
 const ParentRoutes = lazy(() => import('@/pages/parent'));
 const GroupRoutes = lazy(() => import('@/pages/group'));
+const Lms = () => import('@/pages/lms');
+const CourseRoutes = lazy(() => Lms().then((m) => ({ default: m.CourseRoutes })));
+const AttendanceRoutes = lazy(() => Lms().then((m) => ({ default: m.AttendanceRoutes })));
+const SurveyRoutes = lazy(() => Lms().then((m) => ({ default: m.SurveyRoutes })));
+const TimetableRoute = lazy(() => Lms().then((m) => ({ default: m.TimetableRoute })));
+const CalendarRoute = lazy(() => Lms().then((m) => ({ default: m.CalendarRoute })));
+const AnnouncementsRoute = lazy(() => Lms().then((m) => ({ default: m.AnnouncementsRoute })));
+const NotificationsRoute = lazy(() => Lms().then((m) => ({ default: m.NotificationsRoute })));
+const AttemptRoute = lazy(() => Lms().then((m) => ({ default: m.AttemptRoute })));
+const FamilyRoute = lazy(() => Lms().then((m) => ({ default: m.FamilyRoute })));
 const VerifyPage = lazy(() => import('@/pages/public/Verify').then((m) => ({ default: m.VerifyPage })));
 
 function NotFound() {
@@ -50,6 +60,16 @@ export default function App() {
         <Route path="/student/*" element={<StudentRoutes />} />
         <Route path="/parent/*" element={<ParentRoutes />} />
         <Route path="/group/*" element={<GroupRoutes />} />
+        <Route path="/learn/*" element={<CourseRoutes />} />
+        <Route path="/teach/*" element={<CourseRoutes />} />
+        <Route path="/attempts/:attemptId" element={<AttemptRoute />} />
+        <Route path="/attendance/*" element={<AttendanceRoutes />} />
+        <Route path="/timetable" element={<TimetableRoute />} />
+        <Route path="/calendar" element={<CalendarRoute />} />
+        <Route path="/announcements" element={<AnnouncementsRoute />} />
+        <Route path="/notifications" element={<NotificationsRoute />} />
+        <Route path="/surveys/*" element={<SurveyRoutes />} />
+        <Route path="/family" element={<FamilyRoute />} />
         <Route path="/verify/:code" element={<VerifyPage />} />
 
         <Route path="*" element={<NotFound />} />

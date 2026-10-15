@@ -3,6 +3,11 @@ import { NavLink, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowUpRight,
+  Award,
+  Clock,
+  Layers,
+  Plane,
+  QrCode,
   Baby,
   BookOpen,
   CalendarDays,
@@ -28,7 +33,6 @@ import {
   School,
   ScrollText,
   ShieldCheck,
-  SquarePen,
   Sun,
   UserCog,
   Users,
@@ -57,7 +61,10 @@ interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
-  permission: Permission;
+  /** shown to everyone in an institution when omitted */
+  permission?: Permission;
+  /** or to anyone holding one of these */
+  any?: Permission[];
   end?: boolean;
 }
 
@@ -96,6 +103,10 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/admin/courses', label: term('course', true), icon: Library, permission: 'structure.read' },
         { to: '/admin/structure', label: t('nav.structure', 'Structure'), icon: Network, permission: 'structure.read' },
         { to: '/admin/calendar', label: t('nav.calendar', 'Calendar'), icon: CalendarDays, permission: 'structure.read' },
+        { to: '/teach', label: t('nav.allCourses', 'Course spaces'), icon: BookOpen, permission: 'courses.manage_any' },
+        { to: '/admin/blueprints', label: t('nav.blueprints', 'Blueprints'), icon: Layers, permission: 'blueprints.manage' },
+        { to: '/attendance', label: t('nav.registers', 'Registers'), icon: CalendarCheck, permission: 'attendance.manage', end: true },
+        { to: '/attendance/staff', label: t('nav.staffAttendance', 'Staff attendance'), icon: GraduationCap, permission: 'attendance.manage' },
         { to: '/admin/year-end', label: t('nav.yearEnd', 'Year end'), icon: ArrowUpRight, permission: 'year_end.manage' },
       ],
     },
@@ -114,22 +125,36 @@ function useNav(): { title: string; items: NavItem[] }[] {
       title: t('nav.teaching', 'Teaching'),
       items: [
         { to: '/teacher', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'teaching.access', end: true },
-        { to: '/teacher/attendance', label: t('nav.attendance', 'Attendance'), icon: CalendarCheck, permission: 'attendance.mark' },
-        { to: '/teacher/gradebook', label: t('nav.gradebook', 'Gradebook'), icon: SquarePen, permission: 'grades.enter' },
-        { to: '/teacher/assignments', label: t('nav.assignments', 'Assignments'), icon: ClipboardList, permission: 'assignments.manage' },
-        { to: '/teacher/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, permission: 'teaching.access' },
+        { to: '/teach', label: term('course', true), icon: Library, permission: 'teaching.access' },
+        { to: '/attendance', label: t('nav.attendance', 'Attendance'), icon: CalendarCheck, permission: 'attendance.mark', end: true },
       ],
     },
     {
       title: t('nav.learning', 'Learning'),
       items: [
         { to: '/student', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'learner.access', end: true },
-        { to: '/student/assignments', label: t('nav.assignments', 'Assignments'), icon: ClipboardList, permission: 'learner.access' },
+        { to: '/learn', label: term('course', true), icon: Library, permission: 'learner.access', end: true },
+        { to: '/attendance', label: t('nav.attendance', 'Attendance'), icon: CalendarCheck, permission: 'learner.access', end: true },
+        { to: '/attendance/checkin', label: t('nav.checkIn', 'Check in'), icon: QrCode, permission: 'learner.access' },
+        { to: '/learn/achievements', label: t('nav.achievements', 'Achievements'), icon: Award, permission: 'learner.access' },
       ],
     },
     {
       title: t('nav.family', 'Family'),
-      items: [{ to: '/parent', label: t('nav.children', 'My children'), icon: Baby, permission: 'guardian.access', end: true }],
+      items: [
+        { to: '/parent', label: t('nav.children', 'My children'), icon: Baby, permission: 'guardian.access', end: true },
+        { to: '/learn', label: term('course', true), icon: Library, permission: 'guardian.access', end: true },
+      ],
+    },
+    {
+      title: t('nav.everyday', 'Every day'),
+      items: [
+        { to: '/timetable', label: t('nav.timetable', 'Timetable'), icon: Clock, any: ['teaching.access', 'learner.access', 'guardian.access', 'timetable.manage'] },
+        { to: '/calendar', label: t('nav.calendar', 'Calendar'), icon: CalendarDays, any: ['teaching.access', 'learner.access', 'guardian.access'] },
+        { to: '/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, any: ['announcements.view'] },
+        { to: '/attendance/leave', label: t('nav.leave', 'Leave'), icon: Plane, any: ['leave.request', 'leave.approve'] },
+        { to: '/surveys', label: t('nav.surveys', 'Surveys'), icon: ClipboardList },
+      ],
     },
   ];
 }
@@ -138,7 +163,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation();
   const { user, institution, can, logout } = useAuth();
   const sections = useNav()
-    .map((s) => ({ ...s, items: s.items.filter((i) => can(i.permission)) }))
+    .map((s) => ({ ...s, items: s.items.filter((i) => (i.any ? i.any.some((p) => can(p)) : i.permission ? can(i.permission) : !!user?.institution_id)) }))
     .filter((s) => s.items.length);
   const roleLabel = user ? t(`roles.label.${user.role}`, ROLE_LABEL[user.role]) : '';
   return (

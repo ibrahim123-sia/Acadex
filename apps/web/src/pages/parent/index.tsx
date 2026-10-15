@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 import { Card, EmptyState, ErrorState, PageHeader, Spinner, StatusBadge, useToast } from '@/components/ui';
 import { RequireAuth } from '@/components/RequireAuth';
 import { LearnerSummary, type Overview } from '../student';
+import { FamilyHome } from '../lms/Dashboards';
 
 interface Child {
   id: number;
@@ -83,7 +84,8 @@ function ParentDashboard() {
 export default function ParentRoutes() {
   return (
     <Routes>
-      <Route index element={<RequireAuth permission="guardian.access"><ParentDashboard /></RequireAuth>} />
+      <Route index element={<RequireAuth permission="guardian.access"><FamilyHome /></RequireAuth>} />
+      <Route path="children" element={<RequireAuth permission="guardian.access"><ParentDashboard /></RequireAuth>} />
     </Routes>
   );
 }

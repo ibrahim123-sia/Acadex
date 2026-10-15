@@ -169,6 +169,17 @@ export const api = {
     };
   },
 
+  /** Every row of a paginated list (pages of 100, up to maxRows). */
+  async all<T>(path: string, query: Query = {}, maxRows = 2000): Promise<T[]> {
+    const out: T[] = [];
+    for (let page = 1; out.length < maxRows; page++) {
+      const p = await api.page<T>(path, { ...query, page, pageSize: 100 });
+      out.push(...p.rows);
+      if (out.length >= p.total || p.rows.length < 100) break;
+    }
+    return out;
+  },
+
   /** Download a file (e.g. a PDF) and hand it to the browser. */
   async download(path: string, filename: string): Promise<void> {
     const res = await send('GET', path, {});

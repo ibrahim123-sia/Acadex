@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminToday } from '../lms/Dashboards';
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -130,6 +131,7 @@ export function AdminDashboard() {
           )
         }
       />
+      <AdminToday />
       {onboarding.data && !onboarding.data.done && (
         <Alert
           tone="info"

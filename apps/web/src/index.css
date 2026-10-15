@@ -111,3 +111,19 @@ html[lang='ur'] body {
 dialog::backdrop {
   background: rgb(15 23 42 / 0.45);
 }
+
+/* Rich text (course pages, instructions, feedback, posts). */
+.prose-acadex h1, .prose-acadex h2 { font-size: 1.15rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+.prose-acadex h3, .prose-acadex h4 { font-size: 1rem; font-weight: 600; margin: 0.75rem 0 0.4rem; }
+.prose-acadex p { margin: 0.5rem 0; }
+.prose-acadex ul { list-style: disc; padding-inline-start: 1.5rem; margin: 0.5rem 0; }
+.prose-acadex ol { list-style: decimal; padding-inline-start: 1.5rem; margin: 0.5rem 0; }
+.prose-acadex a { color: var(--primary); text-decoration: underline; }
+.prose-acadex blockquote { border-inline-start: 3px solid var(--border); padding-inline-start: 0.75rem; color: var(--fg-muted); margin: 0.5rem 0; }
+.prose-acadex pre { background: var(--surface-2); border-radius: 0.5rem; padding: 0.75rem; overflow-x: auto; font-size: 0.8rem; }
+.prose-acadex code { background: var(--surface-2); border-radius: 0.25rem; padding: 0 0.25rem; font-size: 0.85em; }
+.prose-acadex img { max-width: 100%; height: auto; border-radius: 0.5rem; }
+.prose-acadex table { border-collapse: collapse; width: 100%; display: block; overflow-x: auto; }
+.prose-acadex td, .prose-acadex th { border: 1px solid var(--border); padding: 0.35rem 0.5rem; }
+.prose-acadex iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 0.5rem; }
+.prose-acadex .katex-display { overflow-x: auto; overflow-y: hidden; }
