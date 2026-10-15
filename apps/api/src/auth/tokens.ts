@@ -10,6 +10,8 @@ export interface AccessClaims {
   /** sessions.id */
   sid: string;
   institution_id: number | null;
+  /** expiry (seconds since the epoch), set on verified tokens */
+  exp?: number;
 }
 
 const ACCESS_AUDIENCE = 'acadex:access';
@@ -36,7 +38,7 @@ export function verifyAccessToken(token: string): AccessClaims | null {
   try {
     const p = jwt.verify(token, getConfig().jwtSecret, { algorithms: ['HS256'], audience: ACCESS_AUDIENCE }) as jwt.JwtPayload;
     if (!Number.isInteger(p.id) || !Number.isInteger(p.tv) || typeof p.sid !== 'string') return null;
-    return { id: p.id, tv: p.tv, sid: p.sid, institution_id: Number.isInteger(p.institution_id) ? p.institution_id : null };
+    return { id: p.id, tv: p.tv, sid: p.sid, institution_id: Number.isInteger(p.institution_id) ? p.institution_id : null, exp: p.exp };
   } catch {
     return null;
   }

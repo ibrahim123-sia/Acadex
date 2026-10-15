@@ -88,12 +88,6 @@ export const collectFeeBody = z
     path: ['paid_amount'],
   });
 
-export const announcementBody = z.object({
-  title: requiredText(200),
-  target_audience: z.enum(AUDIENCES).default('All'),
-  description: requiredText(5000),
-  end_date: optionalDate,
-});
 
 export const studentSearchQuery = z.object({ search: z.string().trim().max(100).default('') });
 

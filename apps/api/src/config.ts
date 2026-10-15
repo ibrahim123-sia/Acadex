@@ -56,6 +56,15 @@ const schema = z.object({
   VIRUS_SCAN: z.enum(['none', 'clamav']).default('none'),
   CLAMAV_HOST: z.string().default('127.0.0.1'),
   CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+  /** pgboss: queues in PostgreSQL; inline: in memory, run by drainJobs() (tests) */
+  JOBS_DRIVER: z.enum(['pgboss', 'inline']).default('pgboss'),
+  /** run the job workers inside the API process (turn off when running `npm run worker` separately) */
+  JOBS_WORKER: bool(true),
+  /** none: no push; webpush: browser push with the VAPID keys; fake: recorded in memory (tests) */
+  PUSH_DRIVER: z.enum(['none', 'webpush', 'fake']).default('none'),
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default('mailto:admin@acadex.app'),
 });
 
 export interface Config {
@@ -86,6 +95,9 @@ export interface Config {
     s3?: { bucket: string; region: string; endpoint?: string; accessKeyId?: string; secretAccessKey?: string; forcePathStyle: boolean };
   };
   virusScan: { driver: 'none' | 'clamav'; host: string; port: number };
+  jobsDriver: 'pgboss' | 'inline';
+  jobsWorker: boolean;
+  push: { driver: 'none' | 'webpush' | 'fake'; publicKey?: string; privateKey?: string; subject: string };
 }
 
 function parseKey(raw: string): Buffer | null {
@@ -116,6 +128,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     problems.push('  - COOKIE_SAMESITE=none requires COOKIE_SECURE=true');
   }
   if (c.STORAGE_DRIVER === 's3' && !c.S3_BUCKET) problems.push('  - S3_BUCKET: required when STORAGE_DRIVER=s3');
+  if (c.PUSH_DRIVER === 'webpush' && (!c.VAPID_PUBLIC_KEY || !c.VAPID_PRIVATE_KEY)) {
+    problems.push('  - VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY: required when PUSH_DRIVER=webpush (npx web-push generate-vapid-keys)');
+  }
   if (problems.length) throw new Error(`Invalid configuration:\n${problems.join('\n')}`);
 
   const trustProxy = c.TRUST_PROXY === 'true' ? 1 : c.TRUST_PROXY === 'false' ? false : c.TRUST_PROXY;
@@ -159,6 +174,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
         : undefined,
     },
     virusScan: { driver: c.VIRUS_SCAN, host: c.CLAMAV_HOST, port: c.CLAMAV_PORT },
+    jobsDriver: c.JOBS_DRIVER,
+    jobsWorker: c.JOBS_WORKER,
+    push: { driver: c.PUSH_DRIVER, publicKey: c.VAPID_PUBLIC_KEY, privateKey: c.VAPID_PRIVATE_KEY, subject: c.VAPID_SUBJECT },
   };
 }
 

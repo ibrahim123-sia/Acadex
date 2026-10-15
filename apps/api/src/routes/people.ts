@@ -490,7 +490,7 @@ const WORKLOAD = `
   (SELECT COALESCE(sum(co.credit_hours), 0)::float8 FROM section_staff ss JOIN course_offerings o ON o.id = ss.offering_id
      JOIN courses co ON co.id = o.course_id LEFT JOIN terms tm ON tm.id = o.term_id
     WHERE ss.teacher_id = t.id AND (tm.status IS NULL OR tm.status = 'active')) AS credit_hours,
-  (SELECT count(*)::int FROM timetable tt WHERE tt.teacher_id = t.id) AS periods_per_week,
+  (SELECT count(*)::int FROM timetable_slots tt WHERE tt.teacher_id = t.id) AS periods_per_week,
   (SELECT count(*)::int FROM sections hs WHERE hs.homeroom_teacher_id = t.id AND hs.status = 'active') AS homerooms`;
 
 router.get('/teachers', requirePermission('staff.read'), async (req, res) => {

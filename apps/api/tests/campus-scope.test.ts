@@ -84,30 +84,28 @@ describe('institution groups', () => {
 });
 
 describe('the calendar is respected', () => {
-  const att = (date: string) => ({ section_id: f.sections.A1.id, date, records: [{ student_id: f.students.S1.id, status: 'Present' }] });
+  const att = (date: string) => ({ section_id: f.sections.A1.id, date, records: [{ student_id: f.students.S1.id, status: 'present' }] });
   it('no attendance on a holiday or a non-working day', async () => {
-    await as(f.tokens.adminA).post('/api/institution/holidays', { name: 'Iqbal Day', starts_on: '2026-11-09' });
+    await as(f.tokens.adminA).post('/api/institution/holidays', { name: 'Iqbal Day', starts_on: '2026-10-05' });
     const t1 = as(f.tokens.t1);
-    const holiday = await t1.post('/api/me/teacher/attendance', att('2026-11-09'));
+    const holiday = await t1.put('/api/attendance/register', att('2026-10-05'));
     expect(holiday.status).toBe(409);
     expect(holiday.body.code).toBe('HOLIDAY');
-    const sunday = await t1.post('/api/me/teacher/attendance', att('2026-11-08'));
+    const sunday = await t1.put('/api/attendance/register', att('2026-10-04'));
     expect(sunday.body.code).toBe('NON_WORKING_DAY');
-    expect((await t1.post('/api/me/teacher/attendance', att('2026-11-10'))).status).toBe(200);
-    const roster = await t1.get(`/api/me/teacher/class/${f.sections.A1.id}/roster?date=2026-11-09`);
+    expect((await t1.put('/api/attendance/register', att('2026-10-06'))).status).toBe(200);
+    const roster = await t1.get(`/api/attendance/register?section_id=${f.sections.A1.id}&date=2026-10-05`);
     expect(roster.body.holiday).toBe('Iqbal Day');
   });
 
   it('due dates move off holidays, with a suggestion', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/assignments', {
-      section_id: f.sections.A1.id, offering_id: f.subjects.A1math.id, title: 'HW', description: '', due_date: '2026-11-08',
-    });
+    const res = await as(f.tokens.t1).post(`/api/courses/${f.subjects.A1math.id}/assessments`, { title: 'HW', due_at: '2026-10-04T12:00:00+05:00' });
     expect(res.status).toBe(409);
-    expect(res.body.details.suggested_date).toBe('2026-11-10'); // Sunday → Monday is Iqbal Day → Tuesday
+    expect(res.body.details.suggested_date).toBe('2026-10-06'); // Sunday → Monday is Iqbal Day → Tuesday
   });
 
   it('a campus holiday only closes that campus', async () => {
-    await as(f.tokens.adminA).post('/api/institution/holidays', { name: 'North sports day', starts_on: '2026-11-11', campus_id: north.id });
-    expect((await as(f.tokens.t1).post('/api/me/teacher/attendance', att('2026-11-11'))).status).toBe(200);
+    await as(f.tokens.adminA).post('/api/institution/holidays', { name: 'North sports day', starts_on: '2026-10-07', campus_id: north.id });
+    expect((await as(f.tokens.t1).put('/api/attendance/register', att('2026-10-07'))).status).toBe(200);
   });
 });

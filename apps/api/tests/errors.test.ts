@@ -12,12 +12,7 @@ const leaksInternals = (body) => /violates|constraint|relation|syntax|column|pg_
 
 describe('error handling', () => {
   it('a bad foreign key in a write returns 400, not a crash', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/grades', {
-      section_id: f.sections.A1.id,
-      assignment_name: 'Quiz',
-      total_marks: 10,
-      records: [{ student_id: 99999999, obtained_marks: 5 }],
-    });
+    const res = await as(f.tokens.t1).put(`/api/assessments/${f.assignments.ASG1.id}/grades`, { grades: [{ student_id: 99999999, points: 5 }] });
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
     expect(leaksInternals(res.body)).toBe(false);

@@ -3,6 +3,7 @@
 import { GRADING_PRESETS, gpa, gradeFor, type GradingScheme } from '@acadex/shared';
 import type { Queryable } from '../db/pool';
 import { db } from '../db/context';
+import { coursePercent, earned, gradebookData } from './lms/gradebook';
 
 const defaultDb: Queryable = db;
 
@@ -34,32 +35,51 @@ export interface CourseResult {
   passed: boolean;
 }
 
-/** Per-course totals (all assessments added up) graded with the student's scheme. */
-export async function courseResults(studentId: number, institutionId: number, db: Queryable = defaultDb) {
+/**
+ * Per-course results from the gradebook (released grades only: weighted categories, drop
+ * lowest, excused and missing work, late penalties, and a teacher's override), graded with
+ * the student's scheme.
+ */
+export async function courseResults(studentId: number, institutionId: number, db: Queryable = defaultDb, { termId }: { termId?: number | null } = {}) {
   const scheme = await schemeForStudent(studentId, institutionId, db);
-  const { rows } = await db.query<{ course: string | null; code: string | null; credits: string | null; obtained: string; total: string }>(
-    `SELECT co.name AS course, co.code, co.credit_hours AS credits, sum(g.obtained_marks) AS obtained, sum(g.total_marks) AS total
-       FROM grades g LEFT JOIN course_offerings o ON o.id = g.offering_id LEFT JOIN courses co ON co.id = o.course_id
-      WHERE g.student_id = $1 AND g.institution_id = $2
-      GROUP BY co.id, co.name, co.code, co.credit_hours ORDER BY co.name NULLS LAST`,
-    [studentId, institutionId]
+  const { rows: offerings } = await db.query<{ id: number; course: string; code: string | null; credits: string | null }>(
+    `SELECT DISTINCT o.id, co.name AS course, co.code, co.credit_hours AS credits
+       FROM course_offerings o JOIN courses co ON co.id = o.course_id
+      WHERE o.institution_id = $2 AND ($3::int IS NULL OR o.term_id = $3)
+        AND (EXISTS (SELECT 1 FROM grades g JOIN assessments a ON a.id = g.assessment_id WHERE a.offering_id = o.id AND g.student_id = $1 AND g.status = 'released')
+             OR EXISTS (SELECT 1 FROM final_grade_overrides f WHERE f.offering_id = o.id AND f.student_id = $1))
+      ORDER BY co.name`,
+    [studentId, institutionId, termId ?? null]
   );
-  const results: CourseResult[] = rows.map((r) => {
-    const total = Number(r.total);
-    const percent = total > 0 ? (Number(r.obtained) / total) * 100 : 0;
+  const results: CourseResult[] = [];
+  for (const o of offerings) {
+    const data = await gradebookData(o.id, { studentIds: [studentId], releasedOnly: true });
+    const cells = data.byStudent.get(studentId) ?? new Map();
+    const computed = coursePercent(data.columns, data.categories, cells);
+    const override = data.override.get(studentId);
+    const percent = override?.percent ?? computed;
+    if (percent == null) continue;
+    let obtained = 0;
+    let total = 0;
+    for (const c of data.columns) {
+      const g = cells.get(c.id);
+      if (!g || g.excused || (g.points == null && !g.missing)) continue;
+      obtained += earned(g) ?? 0;
+      total += c.points;
+    }
     const g = gradeFor(scheme, percent);
-    return {
-      course: r.course ?? 'General',
-      code: r.code,
-      credits: r.credits == null ? null : Number(r.credits),
-      obtained: Number(r.obtained),
+    results.push({
+      course: o.course,
+      code: o.code,
+      credits: o.credits == null ? null : Number(o.credits),
+      obtained: Math.round(obtained * 100) / 100,
       total,
       percent: g.percent,
       grade: g.label,
       points: g.points,
       passed: g.passed,
-    };
-  });
+    });
+  }
   const overallPercent = results.length ? results.reduce((x, r) => x + r.percent, 0) / results.length : null;
   return {
     scheme,

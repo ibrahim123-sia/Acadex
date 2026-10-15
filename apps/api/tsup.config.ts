@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 // Production bundle: the workspace package @acadex/shared is TypeScript source, so it is
 // bundled in; npm dependencies stay external and are installed normally.
 export default defineConfig({
-  entry: { server: 'src/server.ts', 'db/migrate': 'src/db/migrate.ts', 'db/seed': 'src/db/seed.ts' },
+  entry: { server: 'src/server.ts', worker: 'src/worker.ts', 'db/migrate': 'src/db/migrate.ts', 'db/seed': 'src/db/seed.ts' },
   format: ['esm'],
   platform: 'node',
   target: 'node22',

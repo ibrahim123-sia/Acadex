@@ -45,10 +45,7 @@ import {
   updateStudentBody,
   updateTermBody,
   acceptInviteBody,
-  announcementBody,
   assignRoleBody,
-  assignmentBody,
-  attendanceBody,
   changePasswordBody,
   collectFeeBody,
   createSectionBody,
@@ -56,7 +53,6 @@ import {
   createInstitutionBody,
   createStudentBody,
   createTeacherBody,
-  gradesBody,
   loginBody,
   mfaCode,
   mfaDisableBody,
@@ -65,14 +61,13 @@ import {
   pageQuery,
   passwordResetBody,
   passwordResetRequestBody,
-  rosterQuery,
   studentSearchQuery,
-  submissionBody,
   updateRoleBody,
   updateInstitutionBody,
   verifyEmailBody,
   type Permission,
 } from '@acadex/shared';
+import { lmsRoutes } from './openapi-lms';
 
 type Method = 'get' | 'post' | 'patch' | 'put' | 'delete';
 type Auth = 'public' | 'session' | 'incomplete' | 'cookie';
@@ -150,7 +145,6 @@ export const ROUTES: RouteDoc[] = [
   r('get', '/api/institution/timetable', 'Institution', 'Timetable', 'session', { permission: 'academics.read', query: page, paginated: true }),
   r('get', '/api/institution/exams', 'Institution', 'Exam schedule', 'session', { permission: 'academics.read', query: page, paginated: true }),
   r('get', '/api/institution/announcements', 'Institution', 'Announcements', 'session', { permission: 'announcements.read', query: page, paginated: true }),
-  r('post', '/api/institution/announcements', 'Institution', 'Publish an announcement', 'session', { permission: 'announcements.manage', body: announcementBody }),
 
   // ---------- roles ----------
   r('get', '/api/institution/permissions', 'Roles', 'Permissions an institution role can hold', 'session', { permission: 'roles.manage' }),
@@ -164,21 +158,12 @@ export const ROUTES: RouteDoc[] = [
 
   // ---------- teaching ----------
   r('get', '/api/me/teacher/overview', 'Teaching', 'Teacher home', 'session', { permission: 'teaching.access' }),
-  r('get', '/api/me/teacher/students', 'Teaching', 'Students in my sections', 'session', { permission: 'teaching.access' }),
-  r('get', '/api/me/teacher/sections', 'Teaching', 'My sections', 'session', { permission: 'teaching.access' }),
-  r('get', '/api/me/teacher/class/:sectionId/roster', 'Teaching', 'Class roster with the day’s attendance', 'session', { permission: 'teaching.access', query: rosterQuery }),
-  r('post', '/api/me/teacher/attendance', 'Teaching', 'Save attendance for a class and day', 'session', { permission: 'attendance.mark', body: attendanceBody }),
-  r('post', '/api/me/teacher/grades', 'Teaching', 'Enter grades (all or nothing)', 'session', { permission: 'grades.enter', body: gradesBody }),
-  r('get', '/api/me/teacher/assignments', 'Teaching', 'My assignments', 'session', { permission: 'teaching.access', query: page, paginated: true }),
-  r('post', '/api/me/teacher/assignments', 'Teaching', 'Set an assignment for a class', 'session', { permission: 'assignments.manage', body: assignmentBody }),
+  r('get', '/api/me/teacher/sections', 'Teaching', 'Sections I take registers for, with my courses in each', 'session', { permission: 'teaching.access' }),
 
   // ---------- learning / family / everyone ----------
   r('get', '/api/me/student/overview', 'Learning', 'Student home', 'session', { permission: 'learner.access' }),
-  r('get', '/api/me/student/assignments', 'Learning', 'My assignments', 'session', { permission: 'learner.access', query: page, paginated: true }),
-  r('post', '/api/me/student/submissions', 'Learning', 'Hand in an assignment', 'session', { permission: 'submissions.create', body: submissionBody }),
-  r('get', '/api/me/announcements', 'Everyone', 'Announcements addressed to me', 'session', { permission: 'announcements.view', query: page, paginated: true }),
-  r('get', '/api/me/notifications', 'Everyone', 'My notifications', 'session', { query: pageQuery(20) }),
-  r('post', '/api/me/notifications/read-all', 'Everyone', 'Mark all notifications read', 'session'),
+  r('get', '/api/me/dashboard', 'Everyone', 'My dashboard: today’s classes, work due, grades, attendance (by role)', 'session'),
+  r('get', '/api/events', 'Everyone', 'Live updates for open tabs (server-sent events; Authorization header)', 'session'),
   r('get', '/api/parent/children', 'Family', 'My children', 'session', { permission: 'guardian.access' }),
   r('get', '/api/parent/child/:id/overview', 'Family', "A child's overview", 'session', { permission: 'guardian.access' }),
   r('get', '/api/pdf/report-card/:studentId', 'Documents', 'Report card (PDF)', 'session'),
@@ -270,6 +255,7 @@ export const ROUTES: RouteDoc[] = [
   r('post', '/api/institution/guardians/:id/documents', 'People', 'Add a document (multipart)', 'session', { permission: 'guardians.manage' }),
   r('delete', '/api/institution/documents/:id', 'People', 'Delete a document', 'session'),
   r('get', '/api/files/:id', 'People', 'Download a file (only for people who may see what it belongs to)', 'session'),
+  r('post', '/api/files/', 'Courses', 'Upload a course, submission, feedback or package file (attach it by id afterwards)', 'session'),
 
   // ---------- imports ----------
   r('post', '/api/institution/imports/:entity/preview', 'Imports', 'Dry run: what a CSV / Excel import would do, row by row (multipart "file", mode)', 'session', { permission: 'imports.run' }),
@@ -290,7 +276,8 @@ export const ROUTES: RouteDoc[] = [
   r('get', '/api/institution/issued-documents', 'Documents', 'Issued documents', 'session', { permission: 'documents.issue' }),
   r('post', '/api/institution/issued-documents/:id/revoke', 'Documents', 'Revoke an issued document', 'session', { permission: 'documents.issue', body: revokeDocumentBody }),
   r('get', '/api/institution/issued-documents/:id/pdf', 'Documents', 'An issued document as PDF', 'session', { permission: 'documents.issue' }),
-  r('get', '/api/public/verify/:code', 'Public', 'Verify an ID card or document from its QR code (masked name only)', 'public'),
+  r('get', '/api/public/verify/:code', 'Public', 'Verify an ID card, document or course certificate from its QR code (masked name only)', 'public'),
+  r('get', '/api/public/calendar/:token.ics', 'Public', 'A person’s calendar for calendar apps (the secret link is the key)', 'public'),
 
   // ---------- year end ----------
   r('get', '/api/institution/year-end/preview', 'Year end', 'Who would be promoted where (nothing changes)', 'session', { permission: 'year_end.manage', query: promotionPreviewQuery }),
@@ -305,9 +292,10 @@ export const ROUTES: RouteDoc[] = [
   r('delete', '/api/institution/recycle-bin/:entity/:id', 'Records', 'Delete permanently (body: { confirm: "entity/id" })', 'session', { permission: 'recycle_bin.manage' }),
   r('get', '/api/institution/audit', 'Records', 'Audit trail: who changed what', 'session', { permission: 'audit.read', query: page.extend(auditQuery.shape), paginated: true }),
   r('get', '/api/group/overview', 'Group', 'Every institution of your group side by side', 'session', { permission: 'group.read' }),
+  ...lmsRoutes(r),
 ];
 
-const toOpenApiPath = (p: string) => p.replace(/:(\w+)/g, '{$1}');
+const toOpenApiPath = (p: string) => p.replace(/:(\w+)/g, '{$1}').replace(/\*(\w+)/g, '{$1}');
 const schema = (s: z.ZodType) => z.toJSONSchema(s, { io: 'input', unrepresentable: 'any' });
 
 export function buildOpenApi() {

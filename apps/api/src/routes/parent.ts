@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { idParam } from '@acadex/shared';
 import { db } from '../db/context';
 import { assertCanViewStudent, guardianLink } from '../lib/access';
+import { ATTENDANCE_COUNTS_SQL, RELEASED_GRADES_SQL } from '../lib/lms/student';
 import { auth, currentUser, requirePermission, institutionId } from '../middleware/auth';
 
 const router = Router();
@@ -37,14 +38,11 @@ router.get('/child/:id/overview', async (req, res) => {
       [studentId, s]
     ),
     db.query(
-      `SELECT co.name subject, g.assignment_name, g.assignment_type, g.obtained_marks, g.total_marks,
-              ROUND(g.obtained_marks/NULLIF(g.total_marks,0)*100,1) percentage
-         FROM grades g LEFT JOIN course_offerings su ON su.id=g.offering_id LEFT JOIN courses co ON co.id=su.course_id
-        WHERE g.student_id=$1 AND g.institution_id=$2 ORDER BY g.id DESC`,
+      RELEASED_GRADES_SQL,
       [studentId, s]
     ),
     db.query(
-      `SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 AND institution_id=$2 GROUP BY status`,
+      ATTENDANCE_COUNTS_SQL,
       [studentId, s]
     ),
     db.query(

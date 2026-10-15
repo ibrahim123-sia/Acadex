@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { Router, type Request } from 'express';
-import { announcementBody, collectFeeBody, id, optionalId } from '@acadex/shared';
+import { collectFeeBody, id, optionalId } from '@acadex/shared';
 import { db } from '../db/context';
 import { assertInInstitution } from '../lib/access';
 import { audit } from '../lib/audit';
@@ -39,8 +39,8 @@ router.get('/dashboard', requirePermission('institution.dashboard.read'), async 
           staff AS (SELECT id, campus_id FROM teachers WHERE institution_id = $1 AND status <> 'left'
                        AND (campus_id IN (SELECT id FROM scope) OR ($2::int[] IS NULL AND $3::int IS NULL AND campus_id IS NULL))),
           fee AS (SELECT f.paid_amount, f.remaining_balance, f.payment_status, stu.campus_id FROM tuition_fee f JOIN stu ON stu.id = f.student_id),
-          att AS (SELECT a.status, stu.campus_id FROM student_attendance a JOIN stu ON stu.id = a.student_id
-                   WHERE a.att_date >= (SELECT today FROM inst) - 7)
+          att AS (SELECT initcap(a.status) AS status, stu.campus_id FROM attendance_records a JOIN attendance_sessions sn ON sn.id = a.session_id JOIN stu ON stu.id = a.student_id
+                   WHERE sn.date >= (SELECT today FROM inst) - 7)
      SELECT json_build_object(
        'students', (SELECT count(*) FROM stu),
        'teachers', (SELECT count(*) FROM staff),
@@ -58,7 +58,7 @@ router.get('/dashboard', requirePermission('institution.dashboard.read'), async 
                   (SELECT count(*)::int FROM stu WHERE campus_id = c.id) AS students,
                   (SELECT count(*)::int FROM staff WHERE campus_id = c.id) AS staff,
                   (SELECT count(*)::int FROM sec WHERE campus_id = c.id) AS sections,
-                  (SELECT round(100.0 * count(*) FILTER (WHERE status = 'Present') / NULLIF(count(*), 0), 1) FROM att WHERE campus_id = c.id) AS attendance_rate,
+                  (SELECT round(100.0 * count(*) FILTER (WHERE status IN ('Present', 'Late')) / NULLIF(count(*), 0), 1) FROM att WHERE campus_id = c.id) AS attendance_rate,
                   (SELECT COALESCE(sum(paid_amount), 0) FROM fee WHERE campus_id = c.id) AS fee_collected,
                   (SELECT COALESCE(sum(remaining_balance), 0) FROM fee WHERE campus_id = c.id) AS fee_outstanding
              FROM campuses c WHERE c.id IN (SELECT id FROM scope)) x)
@@ -103,11 +103,11 @@ router.get('/grades', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await db.query(
     `SELECT g.id, st.first_name||' '||st.last_name student, st.roll_no, c.name section_name,
-            co.name subject, g.assignment_type, g.assignment_name, g.obtained_marks, g.total_marks,
-            ROUND(g.obtained_marks / NULLIF(g.total_marks,0) * 100, 1) percentage, count(*) OVER() _total
-       FROM grades g JOIN students st ON st.id=g.student_id
-       LEFT JOIN sections c ON c.id=g.section_id LEFT JOIN course_offerings su ON su.id=g.offering_id LEFT JOIN courses co ON co.id=su.course_id
-      WHERE g.institution_id=$1 ORDER BY g.id DESC LIMIT $2 OFFSET $3`,
+            co.name subject, initcap(a.kind) assignment_type, a.title assignment_name, g.points obtained_marks, a.points total_marks, g.status,
+            ROUND(g.points / NULLIF(a.points,0) * 100, 1) percentage, count(*) OVER() _total
+       FROM grades g JOIN assessments a ON a.id=g.assessment_id JOIN students st ON st.id=g.student_id
+       JOIN course_offerings su ON su.id=a.offering_id LEFT JOIN courses co ON co.id=su.course_id LEFT JOIN sections c ON c.id=su.section_id
+      WHERE g.institution_id=$1 AND g.points IS NOT NULL ORDER BY g.updated_at DESC, g.id DESC LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
@@ -117,10 +117,11 @@ router.get('/grades', requirePermission('academics.read'), async (req, res) => {
 router.get('/attendance', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await db.query(
-    `SELECT a.att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name section_name, a.subject, a.status,
+    `SELECT sn.date att_date, st.first_name||' '||st.last_name student, st.roll_no, c.name section_name, COALESCE(co.name, '') subject, initcap(a.status) status,
             count(*) OVER() _total
-       FROM student_attendance a JOIN students st ON st.id=a.student_id LEFT JOIN sections c ON c.id=a.section_id
-      WHERE a.institution_id=$1 ORDER BY a.att_date DESC, a.id DESC LIMIT $2 OFFSET $3`,
+       FROM attendance_records a JOIN attendance_sessions sn ON sn.id=a.session_id JOIN students st ON st.id=a.student_id LEFT JOIN sections c ON c.id=sn.section_id
+       LEFT JOIN course_offerings o ON o.id=sn.offering_id LEFT JOIN courses co ON co.id=o.course_id
+      WHERE a.institution_id=$1 ORDER BY sn.date DESC, sn.id DESC, st.roll_no LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
@@ -130,10 +131,12 @@ router.get('/attendance', requirePermission('academics.read'), async (req, res) 
 router.get('/timetable', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 });
   const { rows } = await db.query(
-    `SELECT tt.day_of_week, tt.time_slot, tt.subject, c.name section_name,
+    `SELECT (ARRAY['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'])[tt.weekday + 1] day_of_week,
+            to_char(p.starts_at, 'HH24:MI') || '-' || to_char(p.ends_at, 'HH24:MI') time_slot, COALESCE(co.name, '') subject, c.name section_name,
             t.first_name||' '||t.last_name teacher, count(*) OVER() _total
-       FROM timetable tt JOIN sections c ON c.id=tt.section_id LEFT JOIN teachers t ON t.id=tt.teacher_id
-      WHERE tt.institution_id=$1 ORDER BY c.id, tt.time_slot, tt.id LIMIT $2 OFFSET $3`,
+       FROM timetable_slots tt JOIN periods p ON p.id=tt.period_id JOIN sections c ON c.id=tt.section_id LEFT JOIN teachers t ON t.id=tt.teacher_id
+       LEFT JOIN course_offerings o ON o.id=tt.offering_id LEFT JOIN courses co ON co.id=o.course_id
+      WHERE tt.institution_id=$1 ORDER BY c.id, tt.weekday, p.position, tt.id LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
@@ -162,14 +165,6 @@ router.get('/announcements', requirePermission('announcements.read'), async (req
   sendPage(res, rows, pg);
 });
 
-router.post('/announcements', requirePermission('announcements.manage'), async (req, res) => {
-  const { title, target_audience, description, end_date } = announcementBody.parse(req.body);
-  const { rows } = await db.query(
-    `INSERT INTO announcements (institution_id, title, target_audience, description, end_date) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [institutionId(req), title, target_audience, description, end_date]
-  );
-  res.status(201).json(rows[0]);
-});
 
 // ---------- WRITE: admissions / faculty / sections / fees ----------
 

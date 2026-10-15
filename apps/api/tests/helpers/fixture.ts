@@ -140,10 +140,11 @@ export async function resetDb() {
        VALUES ($1,$2,$3,1000,500,500,'Partial') RETURNING *`,
       [sid, receipt, stid]
     );
-  const assignment = (sid: number, cid: number, subid: number, tid: number, title: string) =>
+  /** A published assignment (100 points) in a course. */
+  const assignment = (sid: number, _cid: number, subid: number, _tid: number, title: string) =>
     one(
-      `INSERT INTO assignments (institution_id, section_id, offering_id, teacher_id, title) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [sid, cid, subid, tid, title]
+      `INSERT INTO assessments (institution_id, offering_id, kind, title, status, points) VALUES ($1,$2,'assignment',$3,'published',100) RETURNING *`,
+      [sid, subid, title]
     );
 
   // ----- Institution A: two sections, each teacher on their own class -----

@@ -41,17 +41,26 @@ export const PERMISSIONS = {
   'recycle_bin.manage': 'Restore or permanently delete deleted records',
   'records.read_any': "Download any student's report card or fee voucher in the institution",
   'audit.read': "View the institution's audit log",
+  'courses.manage_any': 'Build, grade and run any course (not only courses you teach)',
+  'blueprints.manage': 'Create course blueprints and push them to sections',
+  'attendance.manage': 'Correct any attendance register and staff attendance',
+  'leave.approve': 'Approve or reject leave requests of students and staff',
+  'timetable.manage': 'Set up rooms, the bell schedule and the timetable; arrange substitutions',
+  'surveys.manage': 'Run course evaluations, surveys and forms',
+  'gamification.manage': 'Turn badges and points on and set them up',
 
   // teaching (limited to the teacher's own sections)
   'teaching.access': 'Use the teacher workspace for assigned sections',
   'attendance.mark': 'Mark attendance for assigned sections',
   'grades.enter': 'Enter grades for assigned sections',
   'assignments.manage': 'Create assignments for assigned sections',
+  'content.import': 'Import course content (Common Cartridge, Moodle, QTI, SCORM)',
 
   // learners and families
   'learner.access': 'Use the student workspace',
   'submissions.create': 'Submit assignments',
   'guardian.access': 'View linked children',
+  'leave.request': 'Request leave (for yourself, or for a linked child)',
 
   // everyone signed in to an institution
   'announcements.view': 'View announcements addressed to you',
@@ -101,6 +110,14 @@ const INSTITUTION_ADMIN: Permission[] = [
   'imports.run',
   'year_end.manage',
   'recycle_bin.manage',
+  'courses.manage_any',
+  'blueprints.manage',
+  'attendance.manage',
+  'leave.approve',
+  'timetable.manage',
+  'surveys.manage',
+  'gamification.manage',
+  'content.import',
 ];
 
 /** Built-in roles. Their keys match the users.role "primary role" values. */
@@ -117,8 +134,8 @@ export const SYSTEM_ROLES: SystemRoleDef[] = [
     key: 'teacher',
     name: 'Teacher',
     scope: 'institution',
-    permissions: ['teaching.access', 'attendance.mark', 'grades.enter', 'assignments.manage', 'announcements.view', 'structure.read'],
+    permissions: ['teaching.access', 'attendance.mark', 'grades.enter', 'assignments.manage', 'announcements.view', 'structure.read', 'content.import', 'leave.request'],
   },
-  { key: 'student', name: 'Student', scope: 'institution', permissions: ['learner.access', 'submissions.create', 'announcements.view'] },
-  { key: 'parent', name: 'Parent / guardian', scope: 'institution', permissions: ['guardian.access', 'announcements.view'] },
+  { key: 'student', name: 'Student', scope: 'institution', permissions: ['learner.access', 'submissions.create', 'announcements.view', 'leave.request'] },
+  { key: 'parent', name: 'Parent / guardian', scope: 'institution', permissions: ['guardian.access', 'announcements.view', 'leave.request'] },
 ];

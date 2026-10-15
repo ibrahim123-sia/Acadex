@@ -30,8 +30,8 @@ describe('can()', () => {
   it('every fixture account holds the permissions of its built-in role', async () => {
     const perms = async (key) => (await loadGrants(f.users[key].id, fixture.pool)).map((g) => g.permission).sort();
     expect(await perms('adminA')).toContain('roles.manage');
-    expect(await perms('t1')).toEqual(['announcements.view', 'assignments.manage', 'attendance.mark', 'grades.enter', 'structure.read', 'teaching.access']);
-    expect(await perms('s1')).toEqual(['announcements.view', 'learner.access', 'submissions.create']);
+    expect(await perms('t1')).toEqual(['announcements.view', 'assignments.manage', 'attendance.mark', 'content.import', 'grades.enter', 'leave.request', 'structure.read', 'teaching.access']);
+    expect(await perms('s1')).toEqual(['announcements.view', 'learner.access', 'leave.request', 'submissions.create']);
     expect(await perms('super')).toEqual(['platform.audit.read', 'platform.institutions.manage', 'platform.institutions.read']);
   });
 });

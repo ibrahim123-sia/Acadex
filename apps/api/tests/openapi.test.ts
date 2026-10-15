@@ -25,13 +25,22 @@ const MOUNTS: Record<string, string> = {
   'files.ts': '/api/files',
   'group.ts': '/api/group',
   'public.ts': '/api/public',
+  'notifications.ts': '/api/notifications',
+  'courses.ts': '/api',
+  'assessments.ts': '/api',
+  'quizzes.ts': '/api',
+  'gradebook.ts': '/api',
+  'attendance.ts': '/api',
+  'timetable.ts': '/api',
+  'engage.ts': '/api',
+  'content.ts': '/api',
 };
 
 function declaredRoutes(): string[] {
   const out: string[] = [];
   for (const [file, prefix] of Object.entries(MOUNTS)) {
     const code = fs.readFileSync(path.join(src, 'routes', file), 'utf8');
-    for (const m of code.matchAll(/router\.(get|post|patch|put|delete)\('([^']+)'/g)) out.push(`${m[1]} ${prefix}${m[2]}`);
+    for (const m of code.matchAll(/\b\w*[rR]outer\.(get|post|patch|put|delete)\('([^']+)'/g)) out.push(`${m[1]} ${prefix}${m[2]}`);
   }
   const appCode = fs.readFileSync(path.join(src, 'app.ts'), 'utf8');
   for (const m of appCode.matchAll(/app\.(get|post)\('(\/api\/[^']+)'/g)) if (!m[2]!.includes('openapi') && !m[2]!.includes('docs')) out.push(`${m[1]} ${m[2]}`);

@@ -10,3 +10,6 @@ export * from './types';
 export * from './academics';
 export * from './schemas/structure';
 export * from './schemas/people';
+export * from './notifications';
+export * from './quiz';
+export * from './schemas/lms';

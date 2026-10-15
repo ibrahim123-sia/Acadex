@@ -26,6 +26,8 @@ interface DbStore {
   applied?: string; // settings currently applied on the client
   settled?: boolean;
   savepoints: number;
+  /** run once the transaction has committed (jobs, live events) */
+  afterCommit?: (() => void | Promise<void>)[];
 }
 
 const als = new AsyncLocalStorage<DbStore>();
@@ -70,12 +72,34 @@ async function settle(store: DbStore, ok: boolean): Promise<void> {
   if (store.settled) return;
   store.settled = true;
   const client = store.client;
-  if (!client) return;
-  try {
-    await client.query(ok ? 'COMMIT' : 'ROLLBACK');
-  } finally {
-    client.release();
+  if (client) {
+    try {
+      await client.query(ok ? 'COMMIT' : 'ROLLBACK');
+    } finally {
+      client.release();
+    }
   }
+  if (!ok) return;
+  for (const fn of store.afterCommit ?? []) {
+    try {
+      await fn();
+    } catch (err) {
+      logger.error({ err }, 'after-commit hook failed');
+    }
+  }
+}
+
+/**
+ * Run fn once the current transaction has committed (never if it rolls back). Outside any
+ * context it runs straight away.
+ */
+export function afterCommit(fn: () => void | Promise<void>): void {
+  const store = als.getStore();
+  if (!store) {
+    void Promise.resolve().then(fn).catch((err) => logger.error({ err }, 'after-commit hook failed'));
+    return;
+  }
+  (store.afterCommit ??= []).push(fn);
 }
 
 /** pg-compatible query function bound to the current context. */
@@ -94,6 +118,9 @@ export const db = {
   query: contextQuery as <R extends pg.QueryResultRow = any>(text: string | pg.QueryConfig, values?: unknown[]) => Promise<pg.QueryResult<R>>, // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 export type Db = typeof db;
+
+/** True inside a request or a runAsSystem()/runAsTenant() block. */
+export const inContext = () => !!als.getStore() && !als.getStore()!.settled;
 
 /** Express middleware: one database context (and transaction) per request. */
 export const dbContext: RequestHandler = (req, res, next) => {

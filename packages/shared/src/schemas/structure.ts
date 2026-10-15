@@ -2,7 +2,7 @@
 // sections; years → terms; courses → offerings → enrolments; the calendar).
 import { z } from 'zod';
 import { HOLIDAY_KINDS, INSTITUTION_TYPES, SECTION_STAFF_ROLES, TERM_KINDS, institutionSettings } from '../academics';
-import { currency, id, isoDate, locale, optionalDate, optionalId, requiredText, text, timeZone } from './common';
+import { currency, id, isoDate, locale, optionalDate, optionalId, requiredText, text, timeZone, patchSchema } from './common';
 
 const codeText = (max = 20) =>
   z
@@ -26,10 +26,7 @@ const optionalDecimal = (max: number) =>
 
 /** PATCH bodies: every field optional, at least one present. */
 const patchOf = <T extends z.ZodRawShape>(shape: T) =>
-  z
-    .object(shape)
-    .partial()
-    .refine((o) => Object.keys(o).length > 0, 'Nothing to change');
+  patchSchema(shape).refine((o) => Object.keys(o).length > 0, 'Nothing to change');
 
 export const campusBody = z.object({
   name: requiredText(120),

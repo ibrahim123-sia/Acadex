@@ -2,7 +2,7 @@
 // medical notes, custom fields, documents, year-end moves, ID cards and certificates.
 import { z } from 'zod';
 import { GUARDIAN_RELATIONSHIPS, STUDENT_STATUSES } from '../academics';
-import { email, id, isoDate, optionalDate, optionalId, requiredText, text } from './common';
+import { email, id, isoDate, optionalDate, optionalId, requiredText, text, patchSchema } from './common';
 
 const nullableText = (max: number) =>
   text(max)
@@ -10,10 +10,7 @@ const nullableText = (max: number) =>
     .transform((v) => v || null);
 
 const patchOf = <T extends z.ZodRawShape>(shape: T) =>
-  z
-    .object(shape)
-    .partial()
-    .refine((o) => Object.keys(o).length > 0, 'Nothing to change');
+  patchSchema(shape).refine((o) => Object.keys(o).length > 0, 'Nothing to change');
 
 /** Values for the institution's custom fields; checked against their definitions by the API. */
 export const customData = z.record(z.string().max(60), z.union([z.string().max(500), z.number(), z.boolean(), z.null()]));

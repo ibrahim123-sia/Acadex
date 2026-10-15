@@ -15,28 +15,8 @@ import {
   unique,
 } from 'drizzle-orm/pg-core';
 import { institutions, users } from './core';
-import { sections, students, teachers } from './academics';
+import { campuses, courseOfferings, sections, students, teachers } from './academics';
 import { guardians } from './people';
-
-export const studentAttendance = pgTable(
-  'student_attendance',
-  {
-    id: serial('id').primaryKey(),
-    institutionId: integer('institution_id').notNull(),
-    studentId: integer('student_id').notNull(),
-    sectionId: integer('section_id'),
-    subject: text('subject').default(''),
-    attDate: date('att_date').notNull(),
-    status: text('status').notNull(),
-  },
-  (t) => [
-    index('idx_satt_institution').on(t.institutionId),
-    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'student_attendance_institution_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.studentId], foreignColumns: [students.id], name: 'student_attendance_student_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.sectionId], foreignColumns: [sections.id], name: 'student_attendance_section_id_fkey' }).onDelete('cascade'),
-    check('student_attendance_status_check', sql`${t.status} = ANY (ARRAY['Present'::text, 'Absent'::text, 'Leave'::text])`),
-  ]
-);
 
 export const teacherAttendance = pgTable(
   'teacher_attendance',
@@ -88,11 +68,20 @@ export const announcements = pgTable(
     startDate: date('start_date').default(sql`CURRENT_DATE`),
     endDate: date('end_date'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    /** scope: the whole institution, or one campus, section or course */
+    campusId: integer('campus_id'),
+    sectionId: integer('section_id'),
+    offeringId: integer('offering_id'),
+    createdBy: integer('created_by'),
   },
   (t) => [
     index('idx_ann_institution').on(t.institutionId),
     foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'announcements_institution_id_fkey' }).onDelete('cascade'),
-    check('announcements_target_audience_check', sql`${t.targetAudience} = ANY (ARRAY['All'::text, 'Teachers'::text, 'Students'::text])`),
+    check('announcements_target_audience_check', sql`${t.targetAudience} IN ('All', 'Teachers', 'Students', 'Parents')`),
+    foreignKey({ columns: [t.campusId], foreignColumns: [campuses.id], name: 'announcements_campus_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.sectionId], foreignColumns: [sections.id], name: 'announcements_section_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.offeringId], foreignColumns: [courseOfferings.id], name: 'announcements_offering_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.createdBy], foreignColumns: [users.id], name: 'announcements_created_by_fkey' }).onDelete('set null'),
   ]
 );
 
@@ -108,9 +97,12 @@ export const notifications = pgTable(
     link: text('link').default(''),
     isRead: boolean('is_read').default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    /** a person gets each key at most once (reminders, alerts) */
+    dedupeKey: text('dedupe_key'),
   },
   (t) => [
     index('idx_notif_user').on(t.userId, t.isRead),
+    unique('notifications_user_id_dedupe_key_key').on(t.userId, t.dedupeKey),
     foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'notifications_institution_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.userId], foreignColumns: [users.id], name: 'notifications_user_id_fkey' }).onDelete('cascade'),
   ]

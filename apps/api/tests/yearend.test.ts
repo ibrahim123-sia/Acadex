@@ -65,10 +65,10 @@ describe('year end', () => {
     expect(s.body.academic_years.find((y: { id: number }) => y.id === nextYear).is_current).toBe(true);
     // the old class is read-only now
     expect((await A.patch(`/api/institution/sections/${f.sections.A1.id}`, { name: 'Renamed' })).status).toBe(409);
-    const grades = await as(f.tokens.t1).post('/api/me/teacher/grades', {
-      section_id: f.sections.A1.id, offering_id: f.subjects.A1math.id, assignment_type: 'Quiz', assignment_name: 'Late', total_marks: 10, records: [],
-    });
-    expect([400, 409]).toContain(grades.status);
+    const grades = await as(f.tokens.t1).put(`/api/assessments/${f.assignments.ASG1.id}/grades`, { grades: [{ student_id: f.students.S1.id, points: 5 }] });
+    expect([400, 403, 409]).toContain(grades.status);
+    const register = await as(f.tokens.t1).put('/api/attendance/register', { section_id: f.sections.A1.id, date: '2026-09-01', records: [] });
+    expect(register.status).toBe(409);
     expect((await A.post('/api/institution/sections', { code: 'OLD', name: 'Old', academic_year_id: f.institutions.A.year.id })).status).toBe(409);
   });
 

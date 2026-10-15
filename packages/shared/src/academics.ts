@@ -387,5 +387,25 @@ export const institutionSettings = z.object({
   working_days: z.array(z.number().int().min(0).max(6)).max(7).optional(),
   /** storage quota in MB (the plan's default applies when unset) */
   storage_quota_mb: z.number().int().min(10).max(1_000_000).optional(),
+  /** below this attendance (percent) students, guardians and the class teacher are alerted, and exam eligibility is flagged */
+  attendance_threshold: z.number().min(0).max(100).optional(),
+  /** how attendance is taken: once a day per section (schools) or per class (colleges, universities) */
+  attendance_mode: z.enum(['day', 'class']).optional(),
+  /** badges, points and streaks (optional), and whether a course leaderboard is shown */
+  gamification: z.object({ enabled: z.boolean(), leaderboard: z.boolean() }).optional(),
+  /** reminders this many hours before work is due */
+  due_reminder_hours: z.number().int().min(1).max(168).optional(),
 });
+
+export const DEFAULT_ATTENDANCE_THRESHOLD = 75;
+
+/**
+ * Attendance percentage: present and late count as attended; excused and approved leave are left
+ * out of the total; absent counts against. null when nothing counts yet.
+ */
+export function attendancePercent(c: { present?: number; late?: number; absent?: number; excused?: number; leave?: number }): number | null {
+  const attended = (c.present ?? 0) + (c.late ?? 0);
+  const total = attended + (c.absent ?? 0);
+  return total ? Math.round((attended / total) * 1000) / 10 : null;
+}
 export type InstitutionSettings = z.infer<typeof institutionSettings>;

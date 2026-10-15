@@ -32,7 +32,7 @@ describe('token validity is re-checked on every request', () => {
 
   it('a deleted user is rejected', async () => {
     await q('DELETE FROM users WHERE id=$1', [f.users.s2.id]);
-    expect((await as(f.tokens.s2).get('/api/me/notifications')).status).toBe(401);
+    expect((await as(f.tokens.s2).get('/api/notifications')).status).toBe(401);
   });
 
   it('permissions come from the database, not the token', async () => {
@@ -43,9 +43,9 @@ describe('token validity is re-checked on every request', () => {
 
   it('logout revokes the token', async () => {
     const t = as(f.tokens.s1);
-    expect((await t.get('/api/me/notifications')).status).toBe(200);
+    expect((await t.get('/api/notifications')).status).toBe(200);
     expect((await t.post('/api/auth/logout')).status).toBe(200);
-    expect((await t.get('/api/me/notifications')).status).toBe(401);
+    expect((await t.get('/api/notifications')).status).toBe(401);
   });
 
   it('a token signed with another secret is rejected', async () => {
@@ -59,7 +59,7 @@ describe('token validity is re-checked on every request', () => {
     expect((await as(forged).get('/api/institution/students')).status).toBe(401);
     // and an account moved to another institution can't keep using its old token
     await q(`UPDATE users SET institution_id=$1 WHERE id=$2`, [f.institutions.B.id, f.users.t2.id]);
-    expect((await as(f.tokens.t2).get('/api/me/notifications')).status).toBe(401);
+    expect((await as(f.tokens.t2).get('/api/notifications')).status).toBe(401);
   });
 
   it('an old-format token without a version is rejected', async () => {

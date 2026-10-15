@@ -265,6 +265,10 @@ export const courseOfferings = pgTable(
     enrollmentMode: text('enrollment_mode').notNull().default('section'),
     capacity: integer('capacity'),
     waitlistEnabled: boolean('waitlist_enabled').notNull().default(true),
+    /** after results are published the gradebook can't change */
+    gradebookLockedAt: timestamp('gradebook_locked_at', { withTimezone: true }),
+    /** how many timetable periods a week this course needs (timetable generator) */
+    periodsPerWeek: integer('periods_per_week').notNull().default(0),
   },
   (t) => [
     index('idx_course_offerings_institution').on(t.institutionId),
@@ -427,23 +431,7 @@ export const studentPromotions = pgTable(
   ]
 );
 
-export const timetable = pgTable(
-  'timetable',
-  {
-    id: serial('id').primaryKey(),
-    institutionId: integer('institution_id').notNull(),
-    sectionId: integer('section_id').notNull(),
-    dayOfWeek: text('day_of_week').notNull(),
-    timeSlot: text('time_slot').notNull(),
-    subject: text('subject').notNull(),
-    teacherId: integer('teacher_id'),
-  },
-  (t) => [
-    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'timetable_institution_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.sectionId], foreignColumns: [sections.id], name: 'timetable_section_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.teacherId], foreignColumns: [teachers.id], name: 'timetable_teacher_id_fkey' }).onDelete('set null'),
-  ]
-);
+
 
 export const examSchedule = pgTable(
   'exam_schedule',

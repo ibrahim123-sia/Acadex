@@ -3,18 +3,16 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { RECYCLABLE, auditQuery, id } from '@acadex/shared';
-import { db, withDeleted, withTransaction } from '../db/context';
+import { db, withDeleted } from '../db/context';
 import { badRequest, notFound } from '../lib/errors';
 import { parsePage, sendPage } from '../lib/pagination';
-import { purgeDeleted, restoreDeleted } from '../lib/soft-delete';
+import { purgeRecord, restoreDeleted } from '../lib/soft-delete';
 import { auth, institutionId, requirePermission } from '../middleware/auth';
-import { storage } from '../storage';
+import { RETENTION_DAYS } from '../lib/soft-delete';
 
 const router = Router();
 router.use(auth);
 
-/** Deleted records are kept this long before anyone may purge them automatically. */
-export const RETENTION_DAYS = 30;
 
 const LABELS: Record<(typeof RECYCLABLE)[number], { label: string; sql: string }> = {
   students: { label: 'Student', sql: `first_name || ' ' || last_name || COALESCE(' · ' || roll_no, '')` },
@@ -76,30 +74,7 @@ router.delete('/recycle-bin/:entity/:id', requirePermission('recycle_bin.manage'
   const confirm = z.object({ confirm: z.string() }).safeParse(req.body ?? {});
   if (!confirm.success || confirm.data.confirm !== `${t}/${rowId}`) throw badRequest(`Confirm by sending { "confirm": "${t}/${rowId}" }`);
   const s = institutionId(req);
-  const files: string[] = [];
-  await withTransaction(async () => {
-    await withDeleted(async () => {
-      // the person's account and files go with them
-      if (t === 'students' || t === 'teachers') {
-        await db.query(`DELETE FROM users WHERE ref_id = $1 AND role = $2 AND institution_id = $3`, [rowId, t === 'students' ? 'student' : 'teacher', s]);
-        const { rows } = await db.query<{ storage_key: string; id: number }>(
-          `SELECT f.id, f.storage_key FROM files f WHERE f.institution_id = $1 AND (f.id IN (SELECT file_id FROM person_documents WHERE owner_type = $2 AND owner_id = $3)
-                                                                                 OR f.id = (SELECT photo_file_id FROM ${t} WHERE id = $3))`,
-          [s, t === 'students' ? 'student' : 'staff', rowId]
-        );
-        files.push(...rows.map((r) => r.storage_key));
-        await db.query(`DELETE FROM person_documents WHERE owner_type = $1 AND owner_id = $2 AND institution_id = $3`, [t === 'students' ? 'student' : 'staff', rowId, s]);
-        if (rows.length) await db.query(`DELETE FROM files WHERE id = ANY($1::int[])`, [rows.map((r) => r.id)]);
-      }
-      if (t === 'guardians') await db.query(`DELETE FROM users WHERE id = (SELECT user_id FROM guardians WHERE id = $1) AND role = 'parent'`, [rowId]);
-      if (t === 'person_documents') {
-        const { rows } = await db.query<{ storage_key: string; id: number }>(`SELECT f.id, f.storage_key FROM files f JOIN person_documents d ON d.file_id = f.id WHERE d.id = $1`, [rowId]);
-        files.push(...rows.map((r) => r.storage_key));
-      }
-      if (!(await purgeDeleted(t, rowId, s))) throw notFound('Nothing to delete');
-    });
-  });
-  for (const key of files) await storage().delete(key).catch(() => {});
+  if (!(await purgeRecord(t, rowId, s))) throw notFound('Nothing to delete');
   res.status(204).end();
 });
 

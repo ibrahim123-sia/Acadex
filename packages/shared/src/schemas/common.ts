@@ -77,3 +77,14 @@ export function isValidLocale(tag: string): boolean {
 export const currency = z.string().trim().toUpperCase().refine(isValidCurrency, 'Unknown ISO 4217 currency code');
 export const timeZone = z.string().trim().refine(isValidTimeZone, 'Unknown IANA timezone (e.g. Asia/Karachi)');
 export const locale = z.string().trim().max(35).refine(isValidLocale, 'Invalid locale tag (e.g. en-PK)');
+
+/**
+ * A PATCH version of an object schema: every field optional and no defaults. (Zod fills in
+ * defaults even for fields left out of a partial object, which would reset them on update.)
+ */
+export function patchSchema<T extends z.ZodRawShape>(shape: T) {
+  const stripped = Object.fromEntries(
+    Object.entries(shape).map(([k, v]) => [k, v instanceof z.ZodDefault ? (v.unwrap() as z.ZodType) : v])
+  ) as { [K in keyof T]: T[K] extends z.ZodDefault<infer I> ? I : T[K] };
+  return z.object(stripped).partial();
+}

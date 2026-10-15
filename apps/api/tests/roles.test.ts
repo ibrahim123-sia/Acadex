@@ -10,7 +10,7 @@ beforeAll(async () => {
 const ALL_ROLES = ['super', 'adminA', 't1', 's1', 'p1'];
 
 // [method, path ({A1} = class A1 id), allowed fixture users, body(f)?]
-type Endpoint = [method: 'get' | 'post', path: string, allowed: string[], body?: () => unknown];
+type Endpoint = [method: 'get' | 'post' | 'put', path: string, allowed: string[], body?: () => unknown];
 const ENDPOINTS: Endpoint[] = [
   ['get', '/api/institution/dashboard', ['adminA']],
   ['get', '/api/institution/students', ['adminA']],
@@ -22,24 +22,26 @@ const ENDPOINTS: Endpoint[] = [
   ['get', '/api/institution/timetable', ['adminA']],
   ['get', '/api/institution/exams', ['adminA']],
   ['get', '/api/institution/announcements', ['adminA']],
-  ['post', '/api/institution/announcements', ['adminA'], () => ({ title: 'x', description: 'y' })],
+  ['post', '/api/announcements', ['adminA'], () => ({ title: 'x', description: 'y', notify: false })],
   ['post', '/api/institution/sections', ['adminA'], () => ({ code: 'ZZ', name: 'Z' })],
 
   ['get', '/api/me/teacher/overview', ['t1']],
-  ['get', '/api/me/teacher/students', ['t1']],
   ['get', '/api/me/teacher/sections', ['t1']],
-  ['get', '/api/me/teacher/class/{A1}/roster', ['t1']],
-  ['get', '/api/me/teacher/assignments', ['t1']],
-  ['post', '/api/me/teacher/attendance', ['t1'], () => ({ section_id: f.sections.A1.id, date: '2026-01-05', records: [] })],
-  ['post', '/api/me/teacher/grades', ['t1'], () => ({ section_id: f.sections.A1.id, assignment_name: 'Q', records: [] })],
-  ['post', '/api/me/teacher/assignments', ['t1'], () => ({ section_id: f.sections.A1.id, title: 'role test' })],
+  ['get', '/api/attendance/register?section_id={A1}&date=2026-09-01', ['adminA', 't1']],
+  ['put', '/api/attendance/register', ['adminA', 't1'], () => ({ section_id: f.sections.A1.id, date: '2026-09-01', records: [] })],
+  ['put', '/api/assessments/{ASG1}/grades', ['adminA', 't1'], () => ({ grades: [{ student_id: f.students.S1.id, points: 5 }] })],
+  ['post', '/api/courses/{A1math}/assessments', ['adminA', 't1'], () => ({ title: 'role test' })],
+  ['get', '/api/courses/{A1math}/gradebook', ['adminA', 't1', 's1', 'p1']],
+  ['get', '/api/attendance/staff', ['adminA']],
+  ['get', '/api/leave?scope=approve', ['adminA', 't1']],
 
   ['get', '/api/me/student/overview', ['s1']],
-  ['get', '/api/me/student/assignments', ['s1']],
-  ['post', '/api/me/student/submissions', ['s1'], () => ({ assignment_id: f.assignments.ASG1.id, file_link: 'https://example.com/a' })],
+  ['post', '/api/assessments/{ASG1}/submission', ['s1'], () => ({ text_html: '<p>mine</p>', submit: false })],
 
-  ['get', '/api/me/announcements', ['t1', 's1', 'p1']],
-  ['get', '/api/me/notifications', ALL_ROLES],
+  ['get', '/api/announcements', ['t1', 's1', 'p1']],
+  ['get', '/api/notifications', ALL_ROLES],
+  ['get', '/api/me/dashboard', ['adminA', 't1', 's1', 'p1']],
+  ['get', '/api/timetable/me', ['t1', 's1', 'p1']],
 
   ['get', '/api/platform/stats', ['super']],
   ['get', '/api/platform/institutions', ['super']],
@@ -53,7 +55,7 @@ describe('role guards', () => {
     for (const who of ALL_ROLES) {
       const expectAllowed = allowed.includes(who);
       it(`${method.toUpperCase()} ${path} as ${who} → ${expectAllowed ? 'allowed' : '403'}`, async () => {
-        const url = path.replace('{A1}', f.sections.A1.id);
+        const url = path.replace('{A1}', f.sections.A1.id).replace('{A1math}', f.subjects.A1math.id).replace('{ASG1}', f.assignments.ASG1.id);
         const res = await as(f.tokens[who])[method](url, body?.());
         if (expectAllowed) expect(res.status, JSON.stringify(res.body)).toBeLessThan(400);
         else expect(res.status, JSON.stringify(res.body)).toBe(403);

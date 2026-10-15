@@ -64,6 +64,34 @@
       "when": 1791916344354,
       "tag": "0008_structure_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791998943328,
+      "tag": "0009_lms_legacy_renames",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791999692715,
+      "tag": "0010_lms_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792001271046,
+      "tag": "0011_lms_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792004365418,
+      "tag": "0012_notification_dedupe",
+      "breakpoints": true
     }
   ]
 }

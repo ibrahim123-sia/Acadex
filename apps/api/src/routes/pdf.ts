@@ -7,6 +7,7 @@ import { assertCanViewStudent } from '../lib/access';
 import { notFound } from '../lib/errors';
 import { formatDate, formatMoney } from '../lib/locale';
 import { institutionSettings } from '../lib/institution';
+import { ATTENDANCE_COUNTS_SQL } from '../lib/lms/student';
 import { auth, currentUser, requireInstitutionUser, institutionId } from '../middleware/auth';
 
 const router = Router();
@@ -37,12 +38,12 @@ router.get('/report-card/:studentId', async (req, res) => {
   const { scheme, results, overall } = await courseResults(studentId, s);
   const att = (
     await db.query<{ status: string; c: number }>(
-      `SELECT status, count(*)::int c FROM student_attendance WHERE student_id=$1 AND institution_id=$2 GROUP BY status`,
+      ATTENDANCE_COUNTS_SQL,
       [studentId, s]
     )
   ).rows;
-  const present = att.find((a) => a.status === 'Present')?.c || 0;
-  const totalAtt = att.reduce((x, a) => x + a.c, 0);
+  const present = att.filter((a) => a.status === 'Present' || a.status === 'Late').reduce((x, a) => x + a.c, 0);
+  const totalAtt = att.filter((a) => ['Present', 'Late', 'Absent'].includes(a.status)).reduce((x, a) => x + a.c, 0);
   const isGpa = scheme.kind === 'gpa';
   const hasCredits = results.some((r) => r.credits != null);
 

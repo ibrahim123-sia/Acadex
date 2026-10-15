@@ -48,7 +48,8 @@ describe('grading schemes', () => {
 
   it('report cards use the scheme (GPA here)', async () => {
     await fixture.pool.query(
-      `INSERT INTO grades (institution_id, student_id, section_id, offering_id, assignment_type, assignment_name, obtained_marks, total_marks) VALUES ($1,$2,$3,$4,'Final','Final',90,100)`,
+      `WITH a AS (INSERT INTO assessments (institution_id, offering_id, kind, title, points, status) VALUES ($1,$4,'exam','Final',100,'published') RETURNING id)
+       INSERT INTO grades (institution_id, assessment_id, student_id, points, status, released_at) SELECT $1, a.id, $2, 90, 'released', now() FROM a WHERE $3::int IS NOT NULL`,
       [f.institutions.A.id, f.students.S1.id, f.sections.A1.id, f.subjects.A1math.id]
     );
     const res = await A.get(`/api/pdf/report-card/${f.students.S1.id}`);

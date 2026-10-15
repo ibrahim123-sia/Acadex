@@ -14,7 +14,9 @@
     "db:reset": "tsx src/db/migrate.ts && tsx src/db/seed.ts --reset",
     "db:migrate:prod": "node dist/db/migrate.js",
     "db:generate": "drizzle-kit generate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "worker": "tsx src/worker.ts",
+    "worker:prod": "node dist/worker.js"
   },
   "description": "Acadex API",
   "dependencies": {
@@ -30,6 +32,8 @@
     "drizzle-orm": "^0.45.4",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.1",
+    "fast-xml-parser": "^5.11.2",
+    "fflate": "^0.8.3",
     "file-type": "^22.1.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
@@ -37,11 +41,15 @@
     "nodemailer": "^10.1.0",
     "pdfkit": "^0.20.2",
     "pg": "^8.23.0",
+    "pg-boss": "^12.38.0",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
     "qrcode": "^1.5.4",
     "read-excel-file": "^9.3.12",
+    "sanitize-html": "^2.18.0",
     "sharp": "^0.35.5",
+    "web-push": "^3.6.7",
+    "write-excel-file": "^2.3.10",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -56,7 +64,9 @@
     "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.6",
+    "@types/sanitize-html": "^2.16.2",
     "@types/supertest": "^7.2.1",
+    "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.11",
     "embedded-postgres": "^18.4.0-beta.17",
     "eslint": "^9.39.5",

@@ -15,10 +15,9 @@ beforeAll(async () => {
   const q = (sql: string, p?: unknown[]) => fixture.pool.query(sql, p);
   const { A, B } = f.institutions;
   const { S1 } = f.students;
-  await q(`INSERT INTO grades (institution_id, student_id, section_id, offering_id, assignment_type, assignment_name, obtained_marks, total_marks)
-           VALUES ($1,$2,$3,$4,'Quiz','A-only quiz',9,10)`, [A.id, S1.id, f.sections.A1.id, f.subjects.A1math.id]);
-  await q(`INSERT INTO student_attendance (institution_id, student_id, section_id, att_date, status) VALUES ($1,$2,$3,'2026-03-02','Present')`,
-    [A.id, S1.id, f.sections.A1.id]);
+  await q(`INSERT INTO grades (institution_id, assessment_id, student_id, points, status, released_at) VALUES ($1,$2,$3,9,'released',now())`, [A.id, f.assignments.ASG1.id, S1.id]);
+  const sess = (await q(`INSERT INTO attendance_sessions (institution_id, section_id, date) VALUES ($1,$2,'2026-09-01') RETURNING id`, [A.id, f.sections.A1.id])).rows[0];
+  await q(`INSERT INTO attendance_records (session_id, student_id, institution_id, status) VALUES ($1,$2,$3,'present')`, [sess.id, S1.id, A.id]);
 
   const mk = async (role, email, ref) => {
     const u = (await q(`INSERT INTO users (institution_id, role, email, password_hash, full_name, ref_id) VALUES ($1,$2,$3,'x','Cross',$4) RETURNING *`,
@@ -45,9 +44,10 @@ describe('tenant scoping on self-service endpoints', () => {
     expect(res.body.fee).toBeNull();
   });
 
-  it('student assignments return nothing from another institution', async () => {
-    const res = await as(crossStudent).get('/api/me/student/assignments');
+  it('courses return nothing from another institution', async () => {
+    const res = await as(crossStudent).get('/api/courses');
     expect(res.body).toEqual([]);
+    expect((await as(crossStudent).get(`/api/courses/${f.subjects.A1math.id}`)).status).toBe(404);
   });
 
   it('teacher overview / sections / students / assignments return nothing from another institution', async () => {
@@ -58,8 +58,7 @@ describe('tenant scoping on self-service endpoints', () => {
     expect(overview.subjects).toEqual([]);
     expect(overview.studentCount).toBe(0);
     expect((await t.get('/api/me/teacher/sections')).body).toEqual([]);
-    expect((await t.get('/api/me/teacher/students')).body).toEqual([]);
-    expect((await t.get('/api/me/teacher/assignments')).body).toEqual([]);
+    expect((await t.get('/api/courses')).body).toEqual([]);
   });
 
   it('parent sees no child from another institution', async () => {

@@ -28,6 +28,9 @@ import meRoutes from './routes/me';
 import parentRoutes from './routes/parent';
 import pdfRoutes from './routes/pdf';
 import rolesRoutes from './routes/roles';
+import notificationRoutes, { eventsHandler } from './routes/notifications';
+import lmsRoutes from './routes/lms';
+import './jobs';
 
 export function createApp(config: Config = getConfig()) {
   const app = express();
@@ -113,6 +116,8 @@ export function createApp(config: Config = getConfig()) {
     res.type('html').send(docsHtml);
   });
 
+  // the live stream stays open: it must not hold a request transaction
+  app.get('/api/events', eventsHandler);
   app.use('/api', dbContext);
   app.use('/api/auth', authRoutes);
   app.use('/api/platform', platformRoutes);
@@ -131,6 +136,8 @@ export function createApp(config: Config = getConfig()) {
   app.use('/api/me', meRoutes);
   app.use('/api/parent', parentRoutes);
   app.use('/api/pdf', pdfRoutes);
+  app.use('/api/notifications', notificationRoutes);
+  app.use('/api', lmsRoutes);
 
   app.get('/', (_req, res) => res.json({ message: 'Acadex API' }));
 

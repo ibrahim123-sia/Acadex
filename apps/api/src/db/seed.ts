@@ -331,7 +331,30 @@ function nextSchoolDay(inst: Inst, from: string) {
   return d;
 }
 
-/** Attendance, assessments, fees, assignments and a timetable for a section. */
+/** The bell schedule of an institution (once): six teaching periods with a break. */
+const periodsOf = new Map<number, Row[]>();
+async function bellSchedule(inst: Inst) {
+  const hit = periodsOf.get(inst.id);
+  if (hit) return hit;
+  const plan: [string, string, string, boolean][] = [
+    ['Period 1', '08:00', '08:45', false],
+    ['Period 2', '08:45', '09:30', false],
+    ['Period 3', '09:30', '10:15', false],
+    ['Break', '10:15', '10:45', true],
+    ['Period 4', '10:45', '11:30', false],
+    ['Period 5', '11:30', '12:15', false],
+    ['Period 6', '12:15', '13:00', false],
+  ];
+  const rows = await insertMany('periods', ['institution_id', 'name', 'starts_at', 'ends_at', 'position', 'is_break'], plan.map((p, i) => [inst.id, p[0], p[1], p[2], i + 1, p[3]]), 'id, is_break');
+  const teaching = rows.filter((r) => !r.is_break);
+  periodsOf.set(inst.id, teaching);
+  return teaching;
+}
+
+const PAGE = (course: string, topic: string) =>
+  `<h2>${topic}</h2><p>In this part of <strong>${course}</strong> we look at ${topic.toLowerCase()}. Read the notes, try the examples, then check yourself with the practice questions.</p><ul><li>Key idea one</li><li>Key idea two</li><li>A worked example</li></ul>`;
+
+/** Course space, assessments with released grades, upcoming work, registers, fees and the timetable for a section. */
 async function addActivity(
   inst: Inst,
   section: Row,
@@ -340,20 +363,110 @@ async function addActivity(
   opts: { fee: number[]; assessments: [string, string, number][]; attendanceDays?: number; timetable?: boolean }
 ) {
   const days = pastSchoolDays(inst, opts.attendanceDays ?? 10);
+  const teacherUser = async (teacherId: number) => (await q(`SELECT id FROM users WHERE role = 'teacher' AND ref_id = $1`, [teacherId]))[0]?.id ?? null;
+  const perClass = inst.type === 'university' || inst.type === 'college';
+
+  // registers: one a day for schools, one per class for colleges and universities
+  const sessions = perClass
+    ? await insertMany('attendance_sessions', ['institution_id', 'section_id', 'offering_id', 'date', 'kind'], days.flatMap((d) => offerings.slice(0, 2).map((o) => [inst.id, section.id, o.id, d, 'class'])), 'id')
+    : await insertMany('attendance_sessions', ['institution_id', 'section_id', 'date', 'kind'], days.map((d) => [inst.id, section.id, d, 'day']), 'id');
   await insertMany(
-    'student_attendance',
-    ['institution_id', 'student_id', 'section_id', 'subject', 'att_date', 'status'],
-    students.flatMap((st, k) => days.map((d, di) => [inst.id, st.id, section.id, '', d, (k + di) % 11 === 0 ? 'Absent' : (k + di) % 17 === 0 ? 'Leave' : 'Present']))
+    'attendance_records',
+    ['session_id', 'student_id', 'institution_id', 'status', 'minutes_late', 'method'],
+    sessions.flatMap((s, di) =>
+      students.map((st, k) => {
+        const status = (k + di) % 11 === 0 ? 'absent' : (k + di) % 17 === 0 ? 'leave' : (k + di) % 13 === 0 ? 'late' : 'present';
+        return [s.id, st.id, inst.id, status, status === 'late' ? 10 : null, 'manual'];
+      })
+    ),
+    'session_id'
   );
-  await insertMany(
-    'grades',
-    ['institution_id', 'student_id', 'section_id', 'offering_id', 'assignment_type', 'assignment_name', 'obtained_marks', 'total_marks'],
-    students.flatMap((st, k) =>
-      offerings.flatMap((o) =>
-        opts.assessments.map(([type, name, total]) => [inst.id, st.id, section.id, o.id, type, `${o.name} — ${name}`, Math.round(total * (0.45 + ((k * 13 + o.id * 7) % 50) / 100)), total])
-      )
-    )
-  );
+
+  for (const [oi, o] of offerings.entries()) {
+    const createdBy = await teacherUser(o.teacher_id);
+    // gradebook categories
+    const cats = await insertMany(
+      'grade_categories',
+      ['institution_id', 'offering_id', 'name', 'weight', 'drop_lowest', 'position'],
+      [
+        [inst.id, o.id, 'Assignments', 30, 0, 0],
+        [inst.id, o.id, 'Quizzes', 20, 0, 1],
+        [inst.id, o.id, 'Exams', 50, 0, 2],
+      ],
+      'id, name'
+    );
+    const cat = (kind: string) => cats.find((c) => c.name === (kind === 'quiz' ? 'Quizzes' : kind === 'exam' ? 'Exams' : 'Assignments'))!.id;
+    // course space: three modules of pages, the first two published
+    const mods = await insertMany(
+      'modules',
+      ['institution_id', 'offering_id', 'title', 'description', 'position', 'published'],
+      ['Getting started', 'Unit 1', 'Unit 2'].map((t, i) => [inst.id, o.id, t, i === 0 ? `How ${o.name} works this term.` : '', i, i < 2]),
+      'id'
+    );
+    await insertMany(
+      'content_items',
+      ['institution_id', 'module_id', 'kind', 'title', 'body_html', 'position', 'completion'],
+      [
+        [inst.id, mods[0]!.id, 'page', 'Welcome and course outline', PAGE(o.name, 'Course outline'), 0, 'view'],
+        [inst.id, mods[1]!.id, 'page', `${o.name}: lesson notes`, PAGE(o.name, 'The first unit'), 0, 'mark_done'],
+        [inst.id, mods[1]!.id, 'link', 'Further reading (OpenStax)', '', 1, 'view'],
+        [inst.id, mods[2]!.id, 'page', `${o.name}: unit 2 notes`, PAGE(o.name, 'The second unit'), 0, 'mark_done'],
+      ]
+    );
+    await q(`UPDATE content_items SET url = 'https://openstax.org/subjects' WHERE module_id = $1 AND kind = 'link'`, [mods[1]!.id]);
+
+    // past assessments, graded and released
+    for (const [type, name, total] of opts.assessments) {
+      const kind = /quiz/i.test(type) ? 'quiz' : /mid|final|exam|test/i.test(type) ? 'exam' : /project/i.test(type) ? 'project' : 'assignment';
+      const [a] = await q(
+        `INSERT INTO assessments (institution_id, offering_id, category_id, kind, title, points, due_at, status, submission_types, release_mode, grades_released_at, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'published',$8,'manual',now(),$9) RETURNING id`,
+        [inst.id, o.id, cat(kind), kind, `${o.name} — ${name}`, total, `${dateAdd(TODAY, -between(5, 25))}T17:00:00Z`, kind === 'quiz' || kind === 'exam' ? ['none'] : ['text', 'file'], createdBy]
+      );
+      await insertMany(
+        'grades',
+        ['institution_id', 'assessment_id', 'student_id', 'points', 'status', 'graded_at', 'released_at', 'feedback_html'],
+        students.map((st, k) => [inst.id, a!.id, st.id, Math.round(total * (0.45 + ((k * 13 + o.id * 7) % 50) / 100)), 'released', new Date(), new Date(), k % 3 === 0 ? '<p>Good work — show your steps next time.</p>' : ''])
+      );
+    }
+
+    // upcoming work: an assignment linked into Unit 1, handed in by a few students
+    const [hw] = await q(
+      `INSERT INTO assessments (institution_id, offering_id, category_id, kind, title, instructions_html, points, due_at, status, submission_types, allowed_attempts, late_policy, created_by)
+       VALUES ($1,$2,$3,'assignment',$4,$5,20,$6,'published',ARRAY['text','file','link'],2,'{"mode":"penalty","penalty_percent_per_day":10,"max_penalty_percent":50}',$7) RETURNING id`,
+      [inst.id, o.id, cat('assignment'), `${o.name}: ${pick(['Chapter review', 'Worksheet', 'Mini project', 'Practice problems'])}`, `<p>Complete the ${o.name} task and hand it in before the due date.</p>`, `${nextSchoolDay(inst, dateAdd(TODAY, 4 + (oi % 3) * 2))}T18:59:00Z`, createdBy]
+    );
+    await q(`INSERT INTO content_items (institution_id, module_id, kind, title, assessment_id, completion, position) VALUES ($1,$2,'assessment',$3,$4,'submit',2)`, [inst.id, mods[1]!.id, 'Hand in: unit 1 task', hw!.id]);
+    for (const st of students.slice(0, 2)) {
+      const [sub] = await q(`INSERT INTO submissions (institution_id, assessment_id, student_id, attempt, status, submitted_at) VALUES ($1,$2,$3,1,'submitted',now() - interval '1 day') RETURNING id`, [inst.id, hw!.id, st.id]);
+      await q(`INSERT INTO submission_versions (institution_id, submission_id, version, text_html) VALUES ($1,$2,1,$3)`, [inst.id, sub!.id, `<p>${st.first_name}'s answers for the unit 1 task.</p>`]);
+    }
+
+    // the first course of each section also has a quiz from a question bank
+    if (oi === 0) {
+      const [bank] = await q(`INSERT INTO question_banks (institution_id, course_id, name, created_by) VALUES ($1,(SELECT course_id FROM course_offerings WHERE id = $2),$3,$4) RETURNING id`, [inst.id, o.id, `${o.name} question bank`, createdBy]);
+      const qs: [string, string, unknown][] = [
+        ['mcq', `<p>Which of these best describes the main idea of unit 1 in ${o.name}?</p>`, { options: [{ id: 'a', text: 'The key idea' }, { id: 'b', text: 'A side note' }, { id: 'c', text: 'Something unrelated' }], correct: 'a' }],
+        ['true_false', '<p>Practice makes learning stick.</p>', { correct: true }],
+        ['numeric', '<p>What is 12 × 12?</p>', { answer: 144, tolerance: 0 }],
+        ['short', '<p>Name the first unit of this course.</p>', { accepted: ['unit 1', 'the first unit'], case_sensitive: false }],
+        ['essay', '<p>In two or three sentences, explain one thing you learned this week.</p>', { min_words: 10, max_words: 150 }],
+      ];
+      const qrows = await insertMany('questions', ['institution_id', 'bank_id', 'type', 'prompt_html', 'data', 'points', 'created_by'], qs.map(([t, p, d]) => [inst.id, bank!.id, t, p, JSON.stringify(d), t === 'essay' ? 4 : 2, createdBy]));
+      const [quiz] = await q(
+        `INSERT INTO assessments (institution_id, offering_id, category_id, kind, title, points, due_at, status, submission_types, allowed_attempts, quiz, created_by)
+         VALUES ($1,$2,$3,'quiz',$4,12,$5,'published',ARRAY['none'],2,'{"time_limit_minutes":20,"shuffle_questions":true,"shuffle_options":true,"one_at_a_time":false,"show_results":"after_submit","scoring":"highest"}',$6) RETURNING id`,
+        [inst.id, o.id, cat('quiz'), `${o.name}: unit 1 check`, `${nextSchoolDay(inst, dateAdd(TODAY, 6))}T18:59:00Z`, createdBy]
+      );
+      await insertMany('assessment_questions', ['institution_id', 'assessment_id', 'question_id', 'position'], qrows.map((r, i) => [inst.id, quiz!.id, r.id, i]));
+      await q(`INSERT INTO content_items (institution_id, module_id, kind, title, assessment_id, completion, position) VALUES ($1,$2,'assessment','Quiz: unit 1 check',$3,'submit',3)`, [inst.id, mods[1]!.id, quiz!.id]);
+    }
+    // some progress through the space
+    const firstItems = await q(`SELECT i.id FROM content_items i WHERE i.module_id = ANY($1::int[]) AND i.kind = 'page' ORDER BY i.module_id, i.position LIMIT 2`, [mods.map((m) => m.id)]);
+    const progress = students.flatMap((st, k) => firstItems.slice(0, (k % 3) + 0).map((it) => [st.id, it.id, inst.id, 'done', 100, new Date()]));
+    if (progress.length) await insertMany('content_progress', ['student_id', 'item_id', 'institution_id', 'status', 'percent', 'completed_at'], progress, 'item_id');
+  }
+
   await insertMany(
     'tuition_fee',
     ['institution_id', 'receipt_id', 'student_id', 'total_fee', 'paid_amount', 'remaining_balance', 'payment_status', 'payment_date'],
@@ -363,29 +476,25 @@ async function addActivity(
       return [inst.id, `RCP-${inst.slug.slice(0, 3).toUpperCase()}-${code(6)}`, st.id, total, paid, total - paid, paid >= total ? 'Paid' : paid > 0 ? 'Partial' : 'Pending', paid ? dateAdd(TODAY, -between(1, 20)) : null];
     })
   );
-  const asg = await insertMany(
-    'assignments',
-    ['institution_id', 'section_id', 'offering_id', 'teacher_id', 'title', 'description', 'due_date'],
-    offerings.slice(0, 2).map((o, i) => [
-      inst.id, section.id, o.id, o.teacher_id, `${o.name}: ${pick(['Chapter review', 'Worksheet', 'Mini project', 'Practice problems'])}`,
-      `Complete the ${o.name} task and hand it in before the due date.`, nextSchoolDay(inst, dateAdd(TODAY, 4 + i * 3)),
-    ])
-  );
-  if (asg[0] && students.length) {
-    await insertMany(
-      'submissions',
-      ['institution_id', 'assignment_id', 'student_id', 'title', 'file_link', 'grade'],
-      students.slice(0, 2).map((st) => [inst.id, asg[0]!.id, st.id, `${st.first_name} ${st.last_name} — submission`, 'https://example.com/uploads/submission.pdf', pick(['A', 'B+', 'A-', 'B'])])
-    );
-  }
+
   if (opts.timetable) {
-    const slots = ['08:00-08:45', '08:45-09:30', '09:30-10:15', '10:45-11:30', '11:30-12:15', '12:15-13:00'];
-    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    await insertMany(
-      'timetable',
-      ['institution_id', 'section_id', 'day_of_week', 'time_slot', 'subject', 'teacher_id'],
-      dayNames.flatMap((day, di) => offerings.slice(0, slots.length).map((o, oi) => [inst.id, section.id, day, slots[(oi + di) % slots.length], o.name, o.teacher_id]))
-    );
+    const periods = await bellSchedule(inst);
+    const term = inst.terms.find((t) => t.status === 'active') ?? inst.terms[0];
+    const workdays = [1, 2, 3, 4, 5];
+    await q(`UPDATE course_offerings SET periods_per_week = 5 WHERE id = ANY($1::int[])`, [offerings.map((o) => o.id)]);
+    const slots: unknown[][] = [];
+    const used = new Set<string>();
+    for (const [di, d] of workdays.entries()) {
+      for (const [oi, o] of offerings.slice(0, periods.length).entries()) {
+        const p = periods[(oi + di) % periods.length]!;
+        // a teacher who teaches two sections can't be in both at once
+        const key = `${o.teacher_id}:${d}:${p.id}`;
+        const clash = used.has(key) || (await q(`SELECT 1 FROM timetable_slots WHERE teacher_id = $1 AND weekday = $2 AND period_id = $3 AND term_id IS NOT DISTINCT FROM $4`, [o.teacher_id, d, p.id, term?.id ?? null]))[0];
+        used.add(key);
+        slots.push([inst.id, term?.id ?? null, section.id, o.id, clash ? null : o.teacher_id, d, p.id]);
+      }
+    }
+    await insertMany('timetable_slots', ['institution_id', 'term_id', 'section_id', 'offering_id', 'teacher_id', 'weekday', 'period_id'], slots);
   }
 }
 

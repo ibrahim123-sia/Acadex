@@ -691,7 +691,7 @@ router.delete('/offerings/:id', manage, async (req, res) => {
   const offeringId = id.parse(req.params.id);
   await assertOfferingWritable(offeringId);
   const { rows } = await db.query<{ n: number }>(
-    `SELECT (SELECT count(*) FROM grades WHERE offering_id = $1) + (SELECT count(*) FROM assignments WHERE offering_id = $1) AS n`,
+    `SELECT (SELECT count(*) FROM assessments WHERE offering_id = $1) + (SELECT count(*) FROM modules WHERE offering_id = $1) AS n`,
     [offeringId]
   );
   if (Number(rows[0]?.n ?? 0) > 0) throw conflict('This course has grades or assignments and cannot be deleted', 'IN_USE');

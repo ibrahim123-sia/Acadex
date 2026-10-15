@@ -9,90 +9,84 @@ beforeEach(async () => {
 });
 
 const count = async (table) => Number((await fixture.pool.query(`SELECT count(*) FROM ${table}`)).rows[0].count);
-const attendance = (records, extra = {}) => ({ section_id: f.sections.A1.id, date: '2026-03-02', records, ...extra });
-const grades = (records, extra = {}) => ({
-  section_id: f.sections.A1.id,
-  offering_id: f.subjects.A1math.id,
-  assignment_name: 'Quiz',
-  total_marks: 10,
-  records,
-  ...extra,
-});
+const attendance = (records, extra = {}) => ({ section_id: f.sections.A1.id, date: '2026-09-01', records, ...extra });
+const grades = (records) => ({ grades: records });
+const gradeUrl = () => `/api/assessments/${f.assignments.ASG1.id}/grades`;
 
 describe('teacher attendance input', () => {
   it('rejects a student from another class of the same institution, writing nothing', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/attendance', attendance([
-      { student_id: f.students.S1.id, status: 'Present' },
-      { student_id: f.students.S3.id, status: 'Absent' },
+    const res = await as(f.tokens.t1).put('/api/attendance/register', attendance([
+      { student_id: f.students.S1.id, status: 'present' },
+      { student_id: f.students.S3.id, status: 'absent' },
     ]));
     expect(res.status).toBe(400);
-    expect(await count('student_attendance')).toBe(0);
+    expect(await count('attendance_records')).toBe(0);
   });
 
   it('rejects a student from another institution', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/attendance', attendance([{ student_id: f.students.SB.id, status: 'Absent' }]));
+    const res = await as(f.tokens.t1).put('/api/attendance/register', attendance([{ student_id: f.students.SB.id, status: 'absent' }]));
     expect(res.status).toBe(400);
-    expect(await count('student_attendance')).toBe(0);
+    expect(await count('attendance_records')).toBe(0);
   });
 
   it('rejects an unknown status', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/attendance', attendance([{ student_id: f.students.S1.id, status: 'Banana' }]));
+    const res = await as(f.tokens.t1).put('/api/attendance/register', attendance([{ student_id: f.students.S1.id, status: 'Banana' }]));
     expect(res.status).toBe(400);
   });
 
   it('rejects an invalid date', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/attendance', attendance([{ student_id: f.students.S1.id, status: 'Present' }], { date: '2026-02-30' }));
+    const res = await as(f.tokens.t1).put('/api/attendance/register', attendance([{ student_id: f.students.S1.id, status: 'present' }], { date: '2026-02-30' }));
     expect(res.status).toBe(400);
   });
 
   it('rejects the same student twice in one batch', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/attendance', attendance([
-      { student_id: f.students.S1.id, status: 'Present' },
-      { student_id: f.students.S1.id, status: 'Absent' },
+    const res = await as(f.tokens.t1).put('/api/attendance/register', attendance([
+      { student_id: f.students.S1.id, status: 'present' },
+      { student_id: f.students.S1.id, status: 'absent' },
     ]));
     expect(res.status).toBe(400);
   });
 
   it('re-saving a day replaces only that day for that class', async () => {
     const t1 = as(f.tokens.t1);
-    await t1.post('/api/me/teacher/attendance', attendance([{ student_id: f.students.S1.id, status: 'Present' }]));
-    const res = await t1.post('/api/me/teacher/attendance', attendance([{ student_id: f.students.S1.id, status: 'Absent' }]));
+    await t1.put('/api/attendance/register', attendance([{ student_id: f.students.S1.id, status: 'present' }]));
+    const res = await t1.put('/api/attendance/register', attendance([{ student_id: f.students.S1.id, status: 'absent' }]));
     expect(res.status).toBe(200);
-    const { rows } = await fixture.pool.query('SELECT status FROM student_attendance');
-    expect(rows).toEqual([{ status: 'Absent' }]);
+    const { rows } = await fixture.pool.query('SELECT status FROM attendance_records');
+    expect(rows).toEqual([{ status: 'absent' }]);
   });
 });
 
 describe('teacher grade input', () => {
   it('rejects a student from another institution, writing nothing', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/grades', grades([
-      { student_id: f.students.S1.id, obtained_marks: 5 },
-      { student_id: f.students.SB.id, obtained_marks: 5 },
+    const res = await as(f.tokens.t1).put(gradeUrl(), grades([
+      { student_id: f.students.S1.id, points: 5 },
+      { student_id: f.students.SB.id, points: 5 },
     ]));
     expect(res.status).toBe(400);
     expect(await count('grades')).toBe(0);
   });
 
   it('rejects a student from another class', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/grades', grades([{ student_id: f.students.S3.id, obtained_marks: 5 }]));
+    const res = await as(f.tokens.t1).put(gradeUrl(), grades([{ student_id: f.students.S3.id, points: 5 }]));
     expect(res.status).toBe(400);
     expect(await count('grades')).toBe(0);
   });
 
-  it('rejects marks above the total', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/grades', grades([{ student_id: f.students.S1.id, obtained_marks: 11 }]));
+  it('rejects marks far above the total (a typo)', async () => {
+    const res = await as(f.tokens.t1).put(gradeUrl(), grades([{ student_id: f.students.S1.id, points: 250 }]));
     expect(res.status).toBe(400);
   });
 
   it('rejects negative marks', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/grades', grades([{ student_id: f.students.S1.id, obtained_marks: -1 }]));
+    const res = await as(f.tokens.t1).put(gradeUrl(), grades([{ student_id: f.students.S1.id, points: -1 }]));
     expect(res.status).toBe(400);
   });
 
   it('saves a whole valid batch', async () => {
-    const res = await as(f.tokens.t1).post('/api/me/teacher/grades', grades([
-      { student_id: f.students.S1.id, obtained_marks: 7 },
-      { student_id: f.students.S2.id, obtained_marks: 9.5 },
+    const res = await as(f.tokens.t1).put(gradeUrl(), grades([
+      { student_id: f.students.S1.id, points: 70 },
+      { student_id: f.students.S2.id, points: 95.5 },
     ]));
     expect(res.status).toBe(200);
     expect(await count('grades')).toBe(2);
@@ -130,7 +124,7 @@ describe('admin writes', () => {
   });
 
   it('rejects an unknown announcement audience', async () => {
-    const res = await as(f.tokens.adminA).post('/api/institution/announcements', { title: 'x', description: 'y', target_audience: 'Aliens' });
+    const res = await as(f.tokens.adminA).post('/api/announcements', { title: 'x', description: 'y', target_audience: 'Aliens' });
     expect(res.status).toBe(400);
   });
 });

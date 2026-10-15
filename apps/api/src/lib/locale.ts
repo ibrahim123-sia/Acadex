@@ -20,3 +20,10 @@ export function formatDate(
     new Date(value)
   );
 }
+
+/** Minutes after local midnight of `at` in `timeZone`. */
+export function minutesIn(timeZone: string, at: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(at);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return get('hour') * 60 + get('minute');
+}

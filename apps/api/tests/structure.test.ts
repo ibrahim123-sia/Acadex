@@ -170,7 +170,8 @@ describe('courses, offerings and enrolment', () => {
 
   it('a course with grades cannot be deleted', async () => {
     await fixture.pool.query(
-      `INSERT INTO grades (institution_id, student_id, section_id, offering_id, assignment_type, assignment_name, obtained_marks, total_marks) VALUES ($1,$2,$3,$4,'Quiz','Q',5,10)`,
+      `WITH a AS (INSERT INTO assessments (institution_id, offering_id, kind, title, points, status) VALUES ($1,$4,'exam','Final',10,'published') RETURNING id)
+       INSERT INTO grades (institution_id, assessment_id, student_id, points, status, released_at) SELECT $1, a.id, $2, 5, 'released', now() FROM a WHERE $3::int IS NOT NULL`,
       [f.institutions.A.id, f.students.S1.id, f.sections.A1.id, f.subjects.A1math.id]
     );
     expect((await A.delete(`/api/institution/offerings/${f.subjects.A1math.id}`)).status).toBe(409);

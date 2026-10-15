@@ -61,7 +61,7 @@ describe('pagination', () => {
   });
 
   it('the unread notification count is not capped by the page size', async () => {
-    const res = await as(f.tokens.t1).get('/api/me/notifications');
+    const res = await as(f.tokens.t1).get('/api/notifications');
     expect(res.body.items).toHaveLength(20);
     expect(res.body.unread).toBe(40);
   });

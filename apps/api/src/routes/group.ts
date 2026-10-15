@@ -24,8 +24,8 @@ router.get('/overview', async (req, res) => {
                 (SELECT count(*)::int FROM sections x WHERE x.institution_id = i.id AND x.status = 'active' AND x.deleted_at IS NULL) sections,
                 (SELECT COALESCE(sum(f.paid_amount), 0)::float8 FROM tuition_fee f WHERE f.institution_id = i.id) fee_collected,
                 (SELECT COALESCE(sum(f.remaining_balance), 0)::float8 FROM tuition_fee f WHERE f.institution_id = i.id) fee_outstanding,
-                (SELECT round(100.0 * count(*) FILTER (WHERE a.status = 'Present') / NULLIF(count(*), 0), 1) FROM student_attendance a
-                  WHERE a.institution_id = i.id AND a.att_date >= (now() AT TIME ZONE i.timezone)::date - 7) attendance_rate
+                (SELECT round(100.0 * count(*) FILTER (WHERE a.status IN ('present', 'late')) / NULLIF(count(*) FILTER (WHERE a.status IN ('present', 'late', 'absent')), 0), 1) FROM attendance_records a
+                  JOIN attendance_sessions sn ON sn.id = a.session_id WHERE a.institution_id = i.id AND sn.date >= (now() AT TIME ZONE i.timezone)::date - 7) attendance_rate
            FROM institutions i WHERE i.group_id = ANY($1::int[]) ORDER BY i.name`,
         [groups]
       ),

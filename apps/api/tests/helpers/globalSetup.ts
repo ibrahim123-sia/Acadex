@@ -101,6 +101,8 @@ export async function setup() {
   process.env.DATABASE_SSL = 'false';
   process.env.JWT_SECRET = 'test-secret-that-is-at-least-32-characters-long';
   process.env.NODE_ENV = 'test';
+  process.env.JOBS_DRIVER = 'inline';
+  process.env.PUSH_DRIVER = 'fake';
 }
 
 export async function teardown() {

@@ -17,12 +17,34 @@ const MB = 1024 * 1024;
 
 const IMAGE = ['image/jpeg', 'image/png', 'image/webp'];
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const OFFICE = [
+  XLSX,
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/msword',
+  'application/vnd.ms-excel',
+  'application/vnd.ms-powerpoint',
+  'application/x-cfb',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.presentation',
+  'application/vnd.oasis.opendocument.spreadsheet',
+];
+const MEDIA = ['audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/x-m4a', 'video/mp4', 'video/webm', 'video/quicktime', 'video/ogg'];
+const ZIP = ['application/zip', 'application/x-zip-compressed'];
 
 export const PURPOSES = {
   photo: { maxBytes: 5 * MB, types: IMAGE, resize: 600 },
   logo: { maxBytes: 2 * MB, types: IMAGE, resize: 512 },
   document: { maxBytes: 10 * MB, types: ['application/pdf', ...IMAGE], resize: 2000 },
   import: { maxBytes: 5 * MB, types: ['text/csv', XLSX] },
+  /** course materials */
+  course: { maxBytes: 200 * MB, types: ['application/pdf', ...IMAGE, 'image/gif', ...OFFICE, ...MEDIA, ...ZIP], resize: 2400 },
+  /** students' work */
+  submission: { maxBytes: 100 * MB, types: ['application/pdf', ...IMAGE, ...OFFICE, ...MEDIA, ...ZIP], resize: 2400 },
+  /** teachers' feedback (marked-up files, audio and video comments) */
+  feedback: { maxBytes: 100 * MB, types: ['application/pdf', ...IMAGE, ...OFFICE, ...MEDIA], resize: 2400 },
+  /** SCORM, Common Cartridge, Moodle and QTI packages */
+  package: { maxBytes: 300 * MB, types: [...ZIP] },
 } as const satisfies Record<string, { maxBytes: number; types: readonly string[]; resize?: number }>;
 export type FilePurpose = keyof typeof PURPOSES;
 

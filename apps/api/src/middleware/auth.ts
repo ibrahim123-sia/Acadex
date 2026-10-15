@@ -153,6 +153,17 @@ export function requirePermission(permission: Permission, ctx?: (req: Request) =
   };
 }
 
+/** Allow the request if the user holds any one of these permissions (e.g. a teacher's or a manager's). */
+export function requireAny(...permissions: Permission[]): RequestHandler {
+  return (req, res, next) => {
+    if (!req.user || !permissions.some((p) => can(req.user!, p))) {
+      res.status(403).json({ error: 'You do not have permission to do this', code: 'FORBIDDEN', permission: permissions[0] });
+      return;
+    }
+    next();
+  };
+}
+
 /** For routes that only make sense inside an institution (platform staff have none). */
 export const requireInstitutionUser: RequestHandler = (req, res, next) => {
   if (!req.user?.institution_id) {
