@@ -73,3 +73,30 @@ Never committed. Required in production: `DATABASE_URL`, `JWT_SECRET` (≥ 32 ch
 access tokens and pending 2FA sign-ins; refresh tokens are not JWTs, so the web app
 silently obtains new access tokens and nobody is signed out. Rotating `MFA_ENCRYPTION_KEY` requires
 users to re-enrol 2FA.
+
+## Background jobs
+
+Jobs (notification delivery, due reminders, attendance alerts, the nightly recycle-bin purge)
+run on pg-boss in the `pgboss` schema of the same database; the schema is created on first
+start. By default the API process runs the workers (`JOBS_WORKER=true`). To scale them
+separately, set `JOBS_WORKER=false` on the web processes and run `npm run worker -w @acadex/api`
+(or `node dist/worker.js` from the build) as its own process. Failed jobs are retried three
+times with backoff; their state is in `pgboss.job`.
+
+Live updates and the job queue use a **direct** (not pooled) database connection:
+`DATABASE_DIRECT_URL`, or the pooled `DATABASE_URL` with Neon's `-pooler` removed from the
+host. Behind PgBouncer in transaction mode, set `DATABASE_DIRECT_URL` explicitly.
+
+## Push notifications
+
+Browser push needs a VAPID key pair: `npx web-push generate-vapid-keys`, then
+`PUSH_DRIVER=webpush`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT`
+(a `mailto:` address). Without them push is off and people still get in-app and email
+notifications. Every delivery attempt is recorded in `delivery_logs`; subscriptions the
+browser reports as gone are removed.
+
+## End-to-end tests
+
+`npm run e2e` runs the Playwright journeys against the dev servers and the database in
+`apps/api/.env` with demo data (`npm run db:seed`). Each run adds a module, a page and an
+assignment named `E2E …` to a Greenwood course; reseed to clear them.

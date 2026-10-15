@@ -67,9 +67,65 @@ People: `users` (one primary role), `students`, `teachers` (all staff, teaching 
 `files`, `person_documents`, `id_cards`, `document_templates`, `issued_documents`,
 `import_jobs`.
 
-Teaching and office (reworked in Phases 2–3): `student_attendance`, `teacher_attendance`,
-`grades`, `assignments`, `submissions`, `tuition_fee`, `timetable`, `exam_schedule`,
-`announcements`, `notifications`, `audit_log`.
+The LMS (Phase 2; `schema/lms.ts`, `schedule.ts`, `engagement.ts`):
+- Course space: `modules` (of an offering, or of a `course_blueprints` template; drip release
+  by `unlock_at`, `prerequisite_module_id`, `mastery_percent`) → `content_items` (page, file,
+  link, video, assessment, live, scorm; a completion rule) → `content_progress` per student.
+  Copies keep `source_*_id` so blueprint updates can be pushed; `locally_modified` protects
+  a course's own edits.
+- Assessment: `assessments` (kind, points, dates, late policy, group set, peer review,
+  rubric, AI policy, quiz settings, release mode), `assessment_extensions`,
+  `accommodations`, `submissions` (per student or group, per attempt) →
+  `submission_versions` → `submission_annotations`; `peer_reviews`; `rubrics` →
+  `rubric_criteria`; `group_sets` → `student_groups` → `group_members`.
+- Quizzes: `question_banks` (per course) → `questions`; `assessment_questions` (fixed or
+  "N from this bank/tag"); `quiz_attempts` (the student's own layout, deadline) →
+  `attempt_answers`, `attempt_events` (integrity signals).
+- Gradebook: `grade_categories` (weight, drop lowest), `grades` (points, excused, missing,
+  late penalty, feedback, rubric scores, draft / released) → `grade_history`;
+  `final_grade_overrides`; `course_offerings.gradebook_locked_at`.
+- Time: `attendance_sessions` (a day register or one class) → `attendance_records`
+  (present / absent / late / excused / leave, how it was taken); `leave_requests`;
+  `teacher_attendance`; `rooms`, `periods` (bell schedule), `timetable_slots` (unique
+  per section, teacher and room per period), `teacher_unavailability`, `substitutions`;
+  `live_sessions` → `live_joins`.
+- Engagement: `discussions` → `discussion_posts`, `polls` → `poll_votes`, `surveys` →
+  `survey_responses` (anonymous ones keep only a hash to stop double answers),
+  `announcements` (scoped to a campus, section or course), `certificate_templates` →
+  `certificates`, `badges` → `badge_awards`, `points_ledger`; `scorm_packages` →
+  `scorm_attempts`, `xapi_statements`, `content_imports`.
+- Notifications: `notifications` (in-app, optional dedupe key), `notification_preferences`,
+  `push_subscriptions`, `delivery_logs`, `calendar_feeds`.
+
+Office: `tuition_fee`, `exam_schedule` (Phase 3 reworks exams), `audit_log`.
+
+Who may do what in a course is decided in one place, `lib/lms/access.ts`: staff (assigned
+teachers, or holders of `courses.manage_any`), students (the roster: the whole section, or
+enrolled for open courses) and guardians (linked to a student on the roster; released
+grades only). Grade arithmetic (late penalties, weighted categories, drop lowest) is in
+`lib/lms/gradebook.ts`; question types and auto-marking in `packages/shared/src/quiz.ts`.
+
+Rich text (pages, instructions, feedback, posts) is sanitised on the server
+(`lib/html.ts`: an allow-list with KaTeX markup and video embeds from a few hosts) and again
+in the browser. SCORM packages run in a sandboxed iframe (an opaque origin with no access
+to Acadex or the session); a small runtime injected into each package page reports the data
+model to the player, which saves it with the person's own session.
+
+## Background jobs and live updates
+
+`src/jobs/queue.ts` runs jobs on pg-boss (schema `pgboss` in the same database); a job
+queued in a request is inserted in the request's transaction, so it exists only if the work
+commits. Workers run in the API process (`JOBS_WORKER=true`) or separately
+(`npm run worker -w @acadex/api`). Jobs: notification delivery (email through the outbox,
+web push with VAPID keys, honouring preferences and quiet hours, logged in
+`delivery_logs`), due-date reminders (hourly), attendance alerts (daily), and emptying the
+recycle bin after 30 days (nightly). Tests use `JOBS_DRIVER=inline` and run jobs with
+`drainJobs()` / `runJob()`.
+
+Live updates: `publish()` sends a PostgreSQL NOTIFY (delivered on commit); each API
+process LISTENs on one direct connection (`DATABASE_DIRECT_URL`, derived for Neon) and
+writes server-sent events to `GET /api/events` streams, which the web app reads with
+`fetch` (the access token goes in the header) and reconnects with a fresh token.
 
 Terminology, grading presets, institution-type defaults and the grading maths
 (`gradeFor`, credit-weighted `gpa`) live in `packages/shared/src/academics.ts`.
@@ -98,7 +154,13 @@ Databases created before the TypeScript rewrite have the baseline recorded inste
   empty and error states, toasts). Semantic colour tokens with light/dark themes; logical
   CSS properties so right-to-left languages lay out correctly.
 - Portals are lazy-loaded (`pages/platform|admin|teacher|student|parent`); charts load only
-  with the dashboards.
+  with the dashboards. The LMS pages (`pages/lms`) serve every role: `/teach/courses/…` and
+  `/learn/courses/…` are the same pages, and the person's role in the course decides what
+  each shows. `/attendance`, `/timetable`, `/calendar`, `/announcements`, `/notifications`
+  and `/surveys` are shared too.
+- `lib/lms.ts`: the live-event stream and the offline queue for registers taken without a
+  connection (localStorage; sent when the browser is back online).
+- `components/RichText.tsx`: a light rich-text editor and the viewer (KaTeX for `$…$`).
 - i18n: English strings are the defaults in code; `locales/ur.json` and `ar.json`
   translate the shell, sign-in and common UI. Money and dates are formatted with `Intl` in
   the institution's currency and timezone.
@@ -107,7 +169,9 @@ Databases created before the TypeScript rewrite have the baseline recorded inste
 
 All settings are environment variables validated at startup (`apps/api/src/config.ts`);
 see `apps/api/.env.example` and `apps/web/.env.example`. External providers sit behind
-interfaces with a development driver (mail: `log` / `smtp`).
+interfaces with a development driver (mail: `log` / `smtp`; jobs: `pgboss` / `inline`;
+push: `none` / `webpush` / `fake`; Google Classroom import: `CLASSROOM_DRIVER` `none` /
+`fake` until the institution connects Google Workspace).
 
 ## Deployment
 

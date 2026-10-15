@@ -41,9 +41,32 @@ letters with public verification, a recycle bin and a full audit trail.
 vouchers, announcements, **custom roles & permissions** (also limited to one campus),
 invitations instead of shared passwords.
 
-**Teaching** — my classes, roster, keyboard-fast attendance (P / A / L), gradebook,
-assignments. **Learning** — my grades, attendance, fees, assignments and submissions.
-**Family** — linked children's progress, report cards.
+**Courses (the LMS)** — a course space per offering: modules with drip release (by date,
+after another module, or after reaching a score), rich pages with maths and code, files,
+videos (YouTube / Vimeo / Loom / Drive), links, SCORM 1.2 / 2004 packages; progress and
+"continue where you left off"; blueprints built once and pushed to every section.
+Assignments with drafts and saved versions, group work, peer review, late policies,
+extensions and accommodations, rubrics, feedback files (marked-up PDFs, audio and video
+comments), draft vs released grades with a change history. Quizzes from shared question
+banks (12 question types, random pools, timers, extra time), auto-marking, essay marking,
+item analysis and regrading. A weighted gradebook (categories, drop lowest, excused /
+missing, late penalties, overrides, lock, CSV / Excel export). Discussions with Q&A mode
+and moderation, polls, anonymous course evaluations, live classes (Jitsi / Zoom / Meet /
+Teams — joining marks attendance), course certificates with public verification, optional
+badges and points. Import from Common Cartridge (Canvas, Blackboard, Schoology), Moodle
+backups, QTI and Google Classroom; starter templates and open-resource libraries.
+
+**Attendance & timetable** — registers per day or per class with "all present", working
+offline on a phone and syncing later, rotating QR check-in, late minutes, leave requests
+approved by the class teacher that mark the register, staff attendance, attendance
+percentages with the exam-eligibility threshold and alerts. The bell schedule, rooms, a
+timetable grid with clash checks, a generator, substitutions, and every week aware of
+holidays.
+
+**Every day** — role dashboards ("what to do today" for teachers, students, families and the
+office), announcements by scope (institution, campus, section, course), my calendar with a
+private feed for Google / Outlook / Apple Calendar, notifications in the app, by email and
+by browser push with per-type choices and quiet hours, live updates without reloading.
 
 **Foundation**
 - 🔒 **Tenant isolation twice over** — every query is scoped in code *and* by Postgres
@@ -105,7 +128,10 @@ npm test          # API (embedded Postgres, no setup needed) and web unit tests
 npm run typecheck
 npm run lint
 npm run build
+npm run e2e       # browser tests: the full teacher → student journey on desktop and at 360 px
 ```
+The end-to-end tests (Playwright) run against the dev servers (started automatically) and the
+database in `apps/api/.env` with the demo data. First time: `npx playwright install chromium`.
 Every endpoint has denial tests (cross-role, cross-teacher, cross-institution), and the
 RLS suite checks isolation directly in the database as a non-superuser role. To use an
 existing server instead of the embedded one, set `TEST_DATABASE_URL` to a **separate**

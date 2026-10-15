@@ -1,5 +1,108 @@
 # Changelog
 
+## Phase 2 — The LMS core (2026-10-15)
+
+A teacher can build a course, set work, collect it, grade it and release the grades, and a
+student can work through the course and hand everything in — on a computer or a phone.
+The old assignments, marks, day attendance and free-text timetable were moved into the new
+model by migration 0011 (nothing was lost; the old tables were dropped afterwards).
+
+### Course space
+- Modules with drip release: on a date, after finishing another module, or after reaching a
+  score in it; students see why something is locked.
+- Rich pages (headings, lists, links, quotes, code, maths with KaTeX), files (PDF viewer,
+  images, audio, video), videos from YouTube / Vimeo / Loom / Google Drive, links, SCORM
+  1.2 / 2004 packages and live classes. Everything is sanitised on the server.
+- Progress per item ("opens it" or "marks it done"), a progress bar, "continue where you
+  left off", previous / next.
+- Blueprints: build a course once (or copy one), copy it into many sections, push later
+  changes — what a section changed itself is kept.
+- Starter templates (weekly course, school units, bootcamp) and a list of open educational
+  resource libraries.
+
+### Work and grading
+- Assignments, quizzes, exams, projects and participation, with points, open / due / close
+  dates (a due date on a holiday is refused with the next open day suggested), categories,
+  rubrics, group work, peer review, an AI-help policy, and "release grades when I say" or
+  "as soon as each is graded".
+- Hand-in as text, files, links, audio or video; drafts; every save kept as a version;
+  resubmission up to the allowed attempts; late work allowed, penalised per day or refused;
+  per-student or per-group extensions; standing accommodations (extra time).
+- Grading one student after another with the rubric, points, feedback, feedback files
+  (marked-up PDFs, audio and video comments) and annotations; drafts stay hidden until
+  released; changing a released grade needs a reason and is kept in the history; "mark
+  missing work".
+- Question banks shared by every section of a course; 12 question types (one answer,
+  several answers, true/false, short answer, numeric with tolerance, formula with values per
+  student, essay, matching, ordering, fill in the blanks, file upload, audio); random pools
+  by tag; shuffling; time limits with extra time; attempts; answers saved as you go; focus
+  changes reported to the teacher; essay marking; item analysis; regrade (rescore or full
+  marks).
+- Gradebook: weighted categories (scaled when they don't add up to 100), drop lowest,
+  excused and missing work, late penalties, course grade on the student's grading scheme,
+  hand-set overrides with a reason, locking (only an administrator unlocks), CSV and Excel
+  export. Students and parents see released grades only. Report cards use it.
+
+### Attendance and timetable
+- Registers for the whole day (schools) or per class (colleges), one tap per student,
+  "all present", late minutes, offline queue on the phone that sends itself when back
+  online, rotating QR check-in (the code changes every 20 seconds), joining a live class
+  marks the student present.
+- Leave requests from students, parents and staff; the class teacher (or the office)
+  approves; approved leave shows on the register and replaces absences; staff leave marks
+  staff attendance.
+- Attendance percentage (present and late count; excused and leave don't), the threshold
+  (75% unless the institution sets another), per-course eligibility, alerts to the student,
+  guardians and class teacher, and a same-day note to guardians when a child is absent.
+- Bell schedule, rooms, the timetable grid with clash checks in plain words (section,
+  teacher, room), teacher unavailability, an automatic generator (spreads a course over the
+  week), substitutions with a list of free teachers, and weeks that hide holidays.
+
+### Communication
+- Role dashboards: what to do today for teachers (classes, registers, marking), students
+  (due work, classes, progress), families (each child's day, attendance, grades, fees) and
+  the office (registers taken, low attendance, leave waiting).
+- Discussions with Q&A mode (answer first, then see the others), replies, hiding posts,
+  locking and pinning; quick polls; anonymous surveys and course evaluations (no breakdown
+  under three answers).
+- Announcements to the whole institution, a campus, a section or a course.
+- Notifications in the app, by email and by browser push, chosen per type, with quiet
+  hours; delivery is logged; open tabs update live.
+- My calendar (work due, live classes, holidays) and a private feed link for Google,
+  Outlook and Apple calendars.
+- Course certificates issued automatically when progress and grade conditions are met,
+  verifiable by QR; optional badges, points and a course leaderboard.
+
+### Content import
+- IMS Common Cartridge (Canvas, Blackboard, Schoology exports), Moodle backups (.mbz), QTI
+  1.2 / 2.x question files, Google Classroom (behind a provider; needs the institution's
+  Google Workspace connection — a fake provider is used in tests). Imported content arrives
+  unpublished.
+- SCORM packages play sandboxed; a minimal xAPI statement store.
+
+### Platform
+- Background jobs on pg-boss (in PostgreSQL; queued in the same transaction as the work);
+  a separate worker process is optional. The recycle bin now empties itself after 30 days.
+- Live events over PostgreSQL LISTEN / NOTIFY and server-sent events.
+- New permissions: `courses.manage_any`, `blueprints.manage`, `attendance.manage`,
+  `leave.request`, `leave.approve`, `timetable.manage`, `surveys.manage`,
+  `gamification.manage`, `content.import`.
+- Fixed: editing a record with only some fields (PATCH) could reset fields that have a
+  default (e.g. a campus address when renaming it).
+
+### Known gaps
+- Exams-office features (secure exam mode, paper exams, results and transcripts, outcomes)
+  come in Phase 3.
+- The rich-text editor is a light contentEditable editor, not a block editor; tables and
+  images are kept when imported or pasted but can't be inserted from the toolbar yet.
+- Annotations are stored and listed; drawing them on a PDF in the browser comes later.
+- Video uploads are kept as files; there is no transcoding or streaming provider yet.
+- Google Classroom needs OAuth with the institution's Google Workspace (not configured).
+- QR scanning uses the browser's built-in barcode detector (Chrome, Edge, Android);
+  elsewhere students type the code.
+- Pages are slow against a far-away database (~0.25 s per round trip to Neon); deploy the
+  API next to the database.
+
 ## Phase 1 — Universal structure & people (2026-10-14)
 
 Acadex now fits any kind of institution. The four demo tenants each look native: a school,
