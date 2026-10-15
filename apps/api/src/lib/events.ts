@@ -4,7 +4,7 @@
 // one LISTEN connection and passes messages to the streams of the people they are for.
 import pg from 'pg';
 import { db, inContext } from '../db/context';
-import { pool } from '../db/pool';
+import { directDatabaseUrl, pool } from '../db/pool';
 import { logger } from './logger';
 
 const CHANNEL = 'acadex_events';
@@ -42,7 +42,7 @@ function dispatch(raw: string) {
 }
 
 async function connect(): Promise<void> {
-  const c = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: (pool.options as pg.PoolConfig).ssl });
+  const c = new pg.Client({ connectionString: directDatabaseUrl(), ssl: (pool.options as pg.PoolConfig).ssl });
   c.on('notification', (m) => m.payload && dispatch(m.payload));
   c.on('error', (err) => {
     logger.warn({ err }, 'live events connection lost');

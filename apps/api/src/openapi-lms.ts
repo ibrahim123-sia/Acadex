@@ -180,7 +180,7 @@ export const lmsRoutes = (r: R): RouteDoc[] => [
   r('post', '/api/discussions/:id/posts', 'Engagement', 'Create discussions posts', 'session', { body: postBody }),
   r('patch', '/api/posts/:id', 'Engagement', 'Update posts', 'session', { body: postBody }),
   r('post', '/api/posts/:id/moderate', 'Engagement', 'Create posts moderate', 'session', { body: moderateBody }),
-  r('get', '/api/announcements', 'Engagement', 'Announcements for me: the whole institution, my campus, my section, my courses', 'session', { permission: 'announcements.view' }),
+  r('get', '/api/announcements', 'Engagement', 'Announcements for me: the whole institution, my campus, my section, my courses', 'session'),
   r('post', '/api/announcements', 'Engagement', 'Post an announcement: administrators to any scope (within their campuses), teachers to their courses', 'session', { body: announcementBody }),
   r('delete', '/api/announcements/:id', 'Engagement', 'Delete announcements', 'session'),
   r('get', '/api/courses/:id/polls', 'Engagement', 'Get courses polls', 'session'),

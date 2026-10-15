@@ -33,3 +33,13 @@ export interface Queryable {
 }
 
 export default pool;
+
+/**
+ * A direct (not pooled) connection string, for the few connections that need a session of
+ * their own: LISTEN for live events and the job queue. DATABASE_DIRECT_URL if set; for Neon's
+ * pooled hosts (…-pooler.…) the direct host is the same name without "-pooler".
+ */
+export function directDatabaseUrl(): string | undefined {
+  const url = process.env.DATABASE_DIRECT_URL || process.env.DATABASE_URL;
+  return url?.replace(/-pooler\./, '.');
+}

@@ -11,6 +11,7 @@ import { PgBoss } from 'pg-boss';
 import { getConfig } from '../config';
 import { afterCommit, db, inContext } from '../db/context';
 import { logger } from '../lib/logger';
+import { directDatabaseUrl } from '../db/pool';
 
 export interface JobDef<T = Record<string, unknown>> {
   name: string;
@@ -84,7 +85,7 @@ function sslOption() {
 async function getBoss(): Promise<PgBoss> {
   if (boss) return boss;
   starting ??= (async () => {
-    const b = new PgBoss({ connectionString: process.env.DATABASE_URL, ssl: sslOption(), max: 4, schema: 'pgboss', application_name: 'acadex-jobs' });
+    const b = new PgBoss({ connectionString: directDatabaseUrl(), ssl: sslOption(), max: 4, schema: 'pgboss', application_name: 'acadex-jobs' });
     b.on('error', (err) => logger.error({ err }, 'job queue error'));
     await b.start();
     for (const def of registry.values()) await b.createQueue(def.name, { retryLimit: def.retryLimit ?? 3, retryBackoff: true });

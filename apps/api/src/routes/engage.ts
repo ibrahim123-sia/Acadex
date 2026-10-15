@@ -35,7 +35,7 @@ import { todayIn } from '../lib/locale';
 import { notify } from '../lib/notify';
 import { softDelete } from '../lib/soft-delete';
 import { campusClause, campusesFor } from '../lib/structure';
-import { currentUser, institutionId, requirePermission, userCan } from '../middleware/auth';
+import { currentUser, institutionId, requireAny, requirePermission, userCan } from '../middleware/auth';
 
 const router = Router();
 
@@ -169,7 +169,7 @@ router.post('/posts/:id/moderate', async (req, res) => {
 // ---------------------------------------------------------------- announcements by scope
 
 /** Announcements for me: the whole institution, my campus, my section, my courses. */
-router.get('/announcements', requirePermission('announcements.view'), async (req, res) => {
+router.get('/announcements', requireAny('announcements.view', 'announcements.read'), async (req, res) => {
   const u = currentUser(req);
   const s = institutionId(req);
   const audience = { teacher: ['All', 'Teachers'], student: ['All', 'Students'], parent: ['All', 'Parents', 'Students'] }[u.role as 'teacher'] ?? ['All', 'Teachers', 'Students', 'Parents'];

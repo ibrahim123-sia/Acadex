@@ -38,7 +38,7 @@ const ENDPOINTS: Endpoint[] = [
   ['get', '/api/me/student/overview', ['s1']],
   ['post', '/api/assessments/{ASG1}/submission', ['s1'], () => ({ text_html: '<p>mine</p>', submit: false })],
 
-  ['get', '/api/announcements', ['t1', 's1', 'p1']],
+  ['get', '/api/announcements', ['adminA', 't1', 's1', 'p1']],
   ['get', '/api/notifications', ALL_ROLES],
   ['get', '/api/me/dashboard', ['adminA', 't1', 's1', 'p1']],
   ['get', '/api/timetable/me', ['t1', 's1', 'p1']],
