@@ -11,6 +11,7 @@ import { formatDate, formatDateTime } from '@/lib/format';
 import { KIND_LABEL, dueLabel, type Assessment, type CourseRole } from '@/lib/lms';
 import { cn } from '@/lib/cn';
 import { Alert, Badge, Button, Card, DataTable, Dialog, EmptyState, ErrorState, Field, Input, PageHeader, Select, Spinner, Textarea, useToast } from '@/components/ui';
+import { AiGradingTools, useActivityTracker } from '@/pages/ai/CourseAi';
 import { RichEditor, RichText } from '@/components/RichText';
 
 interface WorkRow {
@@ -442,6 +443,7 @@ function StudentWork({ a }: { a: Assessment }) {
   const handedIn = (mine.data?.submissions ?? []).filter((s) => s.status !== 'draft');
   const allowed = a.my?.attempts_allowed;
   const canSubmit = a.role === 'student' && !isQuiz && !a.submission_types.includes('none') && (allowed == null || handedIn.length < allowed);
+  const tracker = useActivityTracker(a.id, canSubmit && a.submission_types.includes('text'));
   const submit = useMutation({
     mutationFn: (final: boolean) => api.post<{ late: boolean }>(`/assessments/${a.id}/submission`, { text_html: text, link_url: link, file_ids: files.map((f) => f.id), submit: final }),
     onSuccess: (r, final) => {
@@ -544,7 +546,11 @@ function StudentWork({ a }: { a: Assessment }) {
       {canSubmit && (
         <Card className="mb-4 space-y-4 p-4">
           <h2 className="font-semibold">{handedIn.length ? t('lms.resubmit', 'Hand in again') : t('lms.yourWork', 'Your work')}</h2>
-          {a.submission_types.includes('text') && <RichEditor label={t('lms.yourAnswer', 'Your answer')} value={text} onChange={setText} />}
+          {a.submission_types.includes('text') && (
+            <div ref={tracker}>
+              <RichEditor label={t('lms.yourAnswer', 'Your answer')} value={text} onChange={setText} />
+            </div>
+          )}
           {a.submission_types.includes('link') && (
             <Field label={t('lms.link', 'Link')} optional>
               {(x) => <Input {...x} type="url" dir="ltr" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" />}
@@ -956,6 +962,7 @@ function GradePanel({ a, row, onPrev, onNext, onBack, onSaved }: { a: Assessment
           ))}
         </div>
       )}
+      {!isQuiz && row.submission_id && <AiGradingTools submissionId={row.submission_id} hasRubric={!!a.rubric} onApplied={() => void grade.refetch()} />}
       {a.rubric && (
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">{a.rubric.title}</legend>

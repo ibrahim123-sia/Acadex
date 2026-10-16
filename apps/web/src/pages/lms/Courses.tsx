@@ -29,6 +29,7 @@ import { dueLabel, type CourseHome, type CourseSummary, type Item, type Module }
 import { cn } from '@/lib/cn';
 import { useAuth } from '@/lib/auth';
 import { Alert, Badge, Button, Card, Dialog, EmptyState, ErrorState, Field, Input, PageHeader, Select, Spinner, Tabs, useToast } from '@/components/ui';
+import { CopilotTab, TutorTab } from '@/pages/ai/CourseAi';
 import { RichEditor } from '@/components/RichText';
 import { WorkList } from './Work';
 import { GradebookTab } from './Gradebook';
@@ -153,6 +154,8 @@ export function CourseHomePage() {
           { id: 'discussions', label: t('lms.discussions', 'Discussions'), content: () => <DiscussionsTab courseId={id} role={c.role} /> },
           { id: 'live', label: t('lms.live', 'Live classes'), content: () => <LiveTab courseId={id} role={c.role} canEdit={c.can_edit} /> },
           { id: 'progress', label: t('lms.people', 'People & progress'), hidden: !staff, content: () => <ProgressTab courseId={id} /> },
+          { id: 'tutor', label: t('ai.tutor', 'Ask the tutor'), hidden: c.role !== 'student', content: () => <TutorTab courseId={id} /> },
+          { id: 'copilot', label: t('ai.copilot', 'Copilot'), hidden: !staff || !c.can_edit, content: () => <CopilotTab courseId={id} /> },
           { id: 'settings', label: t('lms.settings', 'Settings'), hidden: !staff || !c.can_edit, content: () => <CourseSettingsTab home={c} /> },
         ]}
       />

@@ -33,6 +33,12 @@ const PayReturnRoute = lazy(() => Office().then((m) => ({ default: m.PayReturnRo
 const ExamsRoutes = lazy(() => Office().then((m) => ({ default: m.ExamsRoutes })));
 const OutcomesRoute = lazy(() => Office().then((m) => ({ default: m.OutcomesRoute })));
 const AdmissionsRoutes = lazy(() => Office().then((m) => ({ default: m.AdmissionsRoutes })));
+const Ai = () => import('@/pages/ai');
+const AiSettingsRoute = lazy(() => Ai().then((m) => ({ default: m.AiSettingsRoute })));
+const SuccessRoute = lazy(() => Ai().then((m) => ({ default: m.SuccessRoute })));
+const AskRoute = lazy(() => Ai().then((m) => ({ default: m.AskRoute })));
+const HelpRoute = lazy(() => Ai().then((m) => ({ default: m.HelpRoute })));
+const VivaRoute = lazy(() => Ai().then((m) => ({ default: m.VivaRoute })));
 const Apply = () => import('@/pages/public/Apply');
 const ApplyPage = lazy(() => Apply().then((m) => ({ default: m.ApplyPage })));
 const ApplicationStatusPage = lazy(() => Apply().then((m) => ({ default: m.ApplicationStatusPage })));
@@ -83,6 +89,12 @@ export default function App() {
         <Route path="/surveys/*" element={<SurveyRoutes />} />
         <Route path="/family" element={<FamilyRoute />} />
         <Route path="/verify/:code" element={<VerifyPage />} />
+        <Route path="/ai/settings" element={<AiSettingsRoute />} />
+        <Route path="/success" element={<SuccessRoute />} />
+        <Route path="/ask" element={<AskRoute />} />
+        <Route path="/help" element={<HelpRoute />} />
+        <Route path="/help/:slug" element={<HelpRoute />} />
+        <Route path="/learn/viva" element={<VivaRoute />} />
         <Route path="/finance/*" element={<FinanceRoutes />} />
         <Route path="/fees" element={<MyFeesRoute />} />
         <Route path="/pay/return" element={<PayReturnRoute />} />

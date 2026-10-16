@@ -192,3 +192,31 @@ export const api = {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   },
 };
+
+/** POST and read a server-sent-events reply (the AI tutor streams as it writes). */
+export async function streamPost(path: string, body: unknown, onEvent: (event: string, data: unknown) => void, retried = false): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...baseHeaders(), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401 && !retried && (await refreshSession())) return streamPost(path, body, onEvent, true);
+  if (!res.ok) throw await toError(res);
+  const reader = res.body!.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i: number;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const block = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      const event = /^event: (.*)$/m.exec(block)?.[1] ?? 'message';
+      const data = /^data: (.*)$/m.exec(block)?.[1];
+      if (data) onEvent(event, JSON.parse(data));
+    }
+  }
+}

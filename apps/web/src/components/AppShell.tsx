@@ -42,6 +42,10 @@ import {
   ClipboardCheck,
   Target,
   UserPlus,
+  HeartPulse,
+  Sparkles,
+  MessageCircleQuestion,
+  HelpCircle,
 } from 'lucide-react';
 import type { Permission, Role } from '@acadex/shared';
 import { useAuth } from '@/lib/auth';
@@ -113,6 +117,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/attendance/staff', label: t('nav.staffAttendance', 'Staff attendance'), icon: GraduationCap, permission: 'attendance.manage' },
         { to: '/exams/office', label: t('nav.examsOffice', 'Exams office'), icon: ClipboardCheck, any: ['exams.manage', 'exams.publish', 'exams.moderate'] },
         { to: '/outcomes', label: t('nav.outcomes', 'Learning outcomes'), icon: Target, any: ['outcomes.manage', 'academics.read'] },
+        { to: '/success', label: t('nav.success', 'Student success'), icon: HeartPulse, permission: 'risk.read' },
+        { to: '/ask', label: t('nav.ask', 'Ask Acadex'), icon: Sparkles, permission: 'ai.ask' },
         { to: '/admin/year-end', label: t('nav.yearEnd', 'Year end'), icon: ArrowUpRight, permission: 'year_end.manage' },
       ],
     },
@@ -125,6 +131,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/admin/recycle-bin', label: t('bin.title', 'Recycle bin'), icon: Trash2, permission: 'recycle_bin.manage' },
         { to: '/admin/roles', label: t('nav.roles', 'Roles & permissions'), icon: UserCog, permission: 'roles.manage' },
         { to: '/admin/settings', label: t('nav.settings', 'Settings'), icon: Settings, permission: 'settings.manage' },
+        { to: '/ai/settings', label: t('nav.ai', 'AI'), icon: Sparkles, permission: 'ai.manage' },
       ],
     },
     {
@@ -135,6 +142,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/attendance', label: t('nav.attendance', 'Attendance'), icon: CalendarCheck, permission: 'attendance.mark', end: true },
         { to: '/exams/marks', label: t('nav.examMarks', 'Exam marks'), icon: ClipboardCheck, permission: 'teaching.access' },
         { to: '/outcomes', label: t('nav.outcomes', 'Learning outcomes'), icon: Target, permission: 'teaching.access' },
+        { to: '/success', label: t('nav.success', 'Student success'), icon: HeartPulse, permission: 'teaching.access' },
       ],
     },
     {
@@ -147,6 +155,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/learn/achievements', label: t('nav.achievements', 'Achievements'), icon: Award, permission: 'learner.access' },
         { to: '/exams/me', label: t('nav.exams', 'Exams'), icon: ClipboardCheck, permission: 'learner.access' },
         { to: '/fees', label: t('nav.fees', 'Fees'), icon: Wallet, permission: 'learner.access' },
+        { to: '/learn/viva', label: t('nav.viva', 'Explain your work'), icon: MessageCircleQuestion, permission: 'learner.access' },
       ],
     },
     {
@@ -166,6 +175,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, any: ['announcements.view'] },
         { to: '/attendance/leave', label: t('nav.leave', 'Leave'), icon: Plane, any: ['leave.request', 'leave.approve'] },
         { to: '/surveys', label: t('nav.surveys', 'Surveys'), icon: ClipboardList },
+        { to: '/help', label: t('nav.help', 'Help'), icon: HelpCircle },
       ],
     },
   ];
