@@ -17,6 +17,7 @@ const FILES = {
   'notifications.ts': ['/api/notifications', 'Notifications'],
   'finance.ts': ['/api', 'Finance'],
   'exams.ts': ['/api', 'Exams'],
+  'outcomes.ts': ['/api', 'Outcomes'],
   'payments.ts': ['/api/payments', 'Payments'],
 };
 const VERB: Record<string, string> = { get: 'Get', post: 'Create', put: 'Save', patch: 'Update', delete: 'Delete' };
