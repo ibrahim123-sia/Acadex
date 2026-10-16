@@ -27,6 +27,7 @@ const MOUNTS: Record<string, string> = {
   'public.ts': '/api/public',
   'notifications.ts': '/api/notifications',
   'finance.ts': '/api',
+  'exams.ts': '/api',
   'payments.ts': '/api/payments',
   'courses.ts': '/api',
   'assessments.ts': '/api',

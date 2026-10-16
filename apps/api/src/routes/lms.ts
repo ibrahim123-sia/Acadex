@@ -7,6 +7,7 @@ import attendance from './attendance';
 import content, { scormContentRouter } from './content';
 import courses from './courses';
 import engage from './engage';
+import exams from './exams';
 import finance from './finance';
 import gradebook from './gradebook';
 import quizzes from './quizzes';
@@ -15,6 +16,6 @@ import timetable from './timetable';
 const lms = Router();
 lms.use(scormContentRouter);
 lms.use(auth, requireInstitutionUser);
-for (const r of [courses, assessments, quizzes, gradebook, attendance, timetable, engage, content, finance]) lms.use(r);
+for (const r of [courses, assessments, quizzes, gradebook, attendance, timetable, engage, content, finance, exams]) lms.use(r);
 
 export default lms;

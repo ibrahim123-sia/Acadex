@@ -18,6 +18,7 @@ import {
   questionPatch,
   quizItemsBody,
   regradeBody,
+  secureExamBody,
   studentView,
   type QuestionType,
 } from '@acadex/shared';
@@ -25,6 +26,7 @@ import { db, withTransaction } from '../db/context';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
 import { cleanHtml } from '../lib/html';
 import { effectiveDue } from '../lib/lms/gradebook';
+import { VIOLATIONS, assertMayStart, hashAccessCode, ipAllowed, parseCidr, proctoring, staffSecure, publicSecure, type SecureSettings } from '../lib/lms/secure';
 import { completeAssessmentItems } from '../lib/lms/space';
 import { softDelete } from '../lib/soft-delete';
 import { currentUser, institutionId, requireAny, requirePermission, userCan } from '../middleware/auth';
@@ -209,6 +211,7 @@ interface AttemptRow {
   score: string | null;
   max_score: string;
   layout: LayoutItem[];
+  position: number;
 }
 
 const shuffled = <T,>(xs: T[]) => {
@@ -333,6 +336,8 @@ async function finishAttempt(a: AssessmentRow, attempt: AttemptRow) {
 }
 
 const GRACE_MS = 30_000;
+/** Secure mode with locked navigation: students see and answer only the current question. */
+const locked = (a: AssessmentRow, t: AttemptRow, staff: boolean) => !staff && t.status === 'in_progress' && !!(a.secure?.enabled && a.secure.lock_navigation);
 const expired = (t: AttemptRow) => t.status === 'in_progress' && t.deadline_at && t.deadline_at.getTime() + GRACE_MS < Date.now();
 
 router.post('/assessments/:id/attempts', requirePermission('submissions.create'), async (req, res) => {
@@ -346,11 +351,19 @@ router.post('/assessments/:id/attempts', requirePermission('submissions.create')
   const due = await effectiveDue(a.id, sid);
   if (due.available_until && due.available_until < now) throw conflict('This quiz has closed', 'CLOSED');
   if (due.due_at && due.due_at < now && a.late_policy.mode === 'block') throw conflict('The due date has passed', 'LATE_BLOCKED');
+  const code = typeof req.body?.access_code === 'string' ? req.body.access_code.slice(0, 40) : undefined;
+  let fresh = false;
   const out = await withTransaction(async () => {
     await db.query(`SELECT pg_advisory_xact_lock($1, $2)`, [a.id, sid]);
     const { rows: prev } = await db.query<AttemptRow>(`SELECT * FROM quiz_attempts WHERE assessment_id = $1 AND student_id = $2 ORDER BY attempt_no DESC`, [a.id, sid]);
     const open = prev.find((p) => p.status === 'in_progress');
-    if (open && !expired(open)) return open;
+    // resuming needs the campus network; a new attempt also needs the access code
+    if (open && !expired(open)) {
+      if (a.secure?.enabled && !ipAllowed(req.ip, a.secure.ip_allowlist)) throw forbidden('This exam can only be taken on the campus network', 'NETWORK');
+      return open;
+    }
+    assertMayStart(a.id, a.secure, req.ip, code);
+    fresh = true;
     if (open) await finishAttempt(a, open);
     const allowed = a.allowed_attempts == null ? null : a.allowed_attempts + due.extra_attempts;
     if (allowed != null && prev.length >= allowed) throw conflict(allowed === 1 ? 'You have already taken this quiz' : `You have used all ${allowed} attempts`, 'NO_ATTEMPTS_LEFT');
@@ -364,7 +377,8 @@ router.post('/assessments/:id/attempts', requirePermission('submissions.create')
     );
     return rows[0]!;
   });
-  res.status(201).json({ id: out.id, attempt_no: out.attempt_no, deadline_at: out.deadline_at });
+  const launch = fresh && a.secure?.enabled ? await proctoring().onStart({ id: out.id, student_id: out.student_id, assessment_id: a.id }) : undefined;
+  res.status(201).json({ id: out.id, attempt_no: out.attempt_no, deadline_at: out.deadline_at, secure: publicSecure(a.secure), proctoring_url: launch?.launch_url ?? null });
 });
 
 /** When the student may see right answers. */
@@ -401,10 +415,13 @@ router.get('/attempts/:id', async (req, res) => {
     started_at: attempt.started_at,
     deadline_at: attempt.deadline_at,
     submitted_at: attempt.submitted_at,
-    one_at_a_time: ((a.quiz ?? {}) as { one_at_a_time?: boolean }).one_at_a_time ?? false,
+    one_at_a_time: (((a.quiz ?? {}) as { one_at_a_time?: boolean }).one_at_a_time ?? false) || !!(a.secure?.enabled && a.secure.lock_navigation),
+    secure: staff ? staffSecure(a.secure) : publicSecure(a.secure),
+    position: attempt.position,
+    total_questions: attempt.layout.length,
     score: show || attempt.status === 'graded' ? attempt.score : null,
     max_score: attempt.max_score,
-    questions: attempt.layout.map((l, i) => {
+    questions: attempt.layout.map((l, i) => ({ l, i })).filter(({ i }) => !locked(a, attempt, staff) || i === attempt.position).map(({ l, i }) => {
       const q = qs.find((x) => x.id === l.question_id);
       const ans = answers.find((x) => x.question_id === l.question_id);
       return {
@@ -433,6 +450,8 @@ router.put('/attempts/:id/answers', requirePermission('submissions.create'), asy
   }
   const b = answerBody.parse(req.body);
   if (!attempt.layout.some((l) => l.question_id === b.question_id)) throw badRequest('That question is not in this attempt');
+  if (a.secure?.enabled && !ipAllowed(req.ip, a.secure.ip_allowlist)) throw forbidden('This exam can only be taken on the campus network', 'NETWORK');
+  if (locked(a, attempt, false) && attempt.layout[attempt.position]?.question_id !== b.question_id) throw conflict('You can only answer the current question', 'LOCKED');
   const raw = JSON.stringify(b.response ?? null);
   if (raw.length > 100_000) throw badRequest('The answer is too long');
   // file answers must be the student's own uploads
@@ -450,11 +469,67 @@ router.put('/attempts/:id/answers', requirePermission('submissions.create'), asy
 });
 
 router.post('/attempts/:id/events', async (req, res) => {
-  const { attempt, access } = await loadAttempt(req, id.parse(req.params.id));
+  const { attempt, a, access } = await loadAttempt(req, id.parse(req.params.id));
   if (access.role !== 'student' || attempt.status !== 'in_progress') return void res.status(204).end();
   const b = attemptEventBody.parse(req.body);
   await db.query(`INSERT INTO attempt_events (institution_id, attempt_id, kind, data) VALUES ($1,$2,$3,$4)`, [institutionId(req), attempt.id, b.kind, b.data ? JSON.stringify(b.data) : null]);
+  if (a.secure?.enabled) await proctoring().onEvent?.({ id: attempt.id }, b.kind, b.data);
+  const max = a.secure?.enabled ? a.secure.max_violations : null;
+  if (max && VIOLATIONS.includes(b.kind)) {
+    const { rows } = await db.query<{ n: number }>(`SELECT count(*)::int n FROM attempt_events WHERE attempt_id = $1 AND kind = ANY($2::text[])`, [attempt.id, VIOLATIONS]);
+    const n = rows[0]!.n;
+    if (n >= max) {
+      await withTransaction(() => finishAttempt(a, attempt));
+      return void res.json({ violations: n, max, auto_submitted: true });
+    }
+    return void res.json({ violations: n, max, auto_submitted: false });
+  }
   res.status(204).end();
+});
+
+/** One question at a time, no going back: move on to the next question. */
+router.post('/attempts/:id/next', requirePermission('submissions.create'), async (req, res) => {
+  const { attempt, a, access } = await loadAttempt(req, id.parse(req.params.id));
+  if (access.role !== 'student') throw forbidden();
+  if (attempt.status !== 'in_progress') throw conflict('This attempt has been handed in', 'SUBMITTED');
+  if (!locked(a, attempt, false)) throw badRequest('This quiz lets you move freely between questions');
+  const position = Math.min(attempt.position + 1, attempt.layout.length - 1);
+  await db.query(`UPDATE quiz_attempts SET position = $2 WHERE id = $1`, [attempt.id, position]);
+  res.json({ position, last: position === attempt.layout.length - 1 });
+});
+
+// ---------------------------------------------------------------- secure exam settings (staff)
+
+router.get('/assessments/:id/secure', async (req, res) => {
+  const { a, access } = await assessmentFor(req, id.parse(req.params.id));
+  if (access.role !== 'staff') throw forbidden();
+  res.json(staffSecure(a.secure) ?? { enabled: false, has_access_code: false, ip_allowlist: [], require_fullscreen: true, lock_navigation: false, block_copy_paste: true, max_violations: null });
+});
+
+router.put('/assessments/:id/secure', async (req, res) => {
+  const { a } = await assessmentFor(req, id.parse(req.params.id), { edit: true });
+  if (a.kind !== 'quiz' && a.kind !== 'exam') throw badRequest('Secure mode is for quizzes and online exams');
+  const b = secureExamBody.parse(req.body);
+  for (const e of b.ip_allowlist) {
+    try {
+      parseCidr(e);
+    } catch (err) {
+      throw badRequest((err as Error).message, { ip_allowlist: e });
+    }
+  }
+  const prev = a.secure;
+  const next: SecureSettings = {
+    enabled: b.enabled,
+    access_code_hash: b.access_code === undefined ? (prev?.access_code_hash ?? null) : b.access_code === null ? null : hashAccessCode(a.id, b.access_code),
+    ip_allowlist: b.ip_allowlist,
+    require_fullscreen: b.require_fullscreen,
+    lock_navigation: b.lock_navigation,
+    block_copy_paste: b.block_copy_paste,
+    max_violations: b.max_violations,
+    proctoring: null,
+  };
+  await db.query(`UPDATE assessments SET secure = $2, updated_at = now() WHERE id = $1`, [a.id, JSON.stringify(next)]);
+  res.json(staffSecure(next));
 });
 
 router.post('/attempts/:id/submit', requirePermission('submissions.create'), async (req, res) => {

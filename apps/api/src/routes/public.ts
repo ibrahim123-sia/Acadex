@@ -44,6 +44,16 @@ router.get('/verify/:code', async (req, res) => {
         valid_until: r.valid_until,
       };
     }
+    const admit = await db.query(
+      `SELECT a.eligible, x.name AS series, x.status AS series_status, i.name AS institution, st.first_name, st.last_name
+         FROM admit_cards a JOIN exam_series x ON x.id = a.series_id JOIN institutions i ON i.id = a.institution_id JOIN students st ON st.id = a.student_id
+        WHERE a.verify_code = $1`,
+      [c]
+    );
+    if (admit.rows[0]) {
+      const r = admit.rows[0];
+      return { kind: 'admit_card', title: `Admit card — ${r.series}`, status: r.eligible ? 'valid' : 'withheld', valid: r.eligible, institution: r.institution, name: maskName(r.first_name ?? '', r.last_name ?? '') };
+    }
     const doc = await db.query(
       `SELECT d.title, d.serial_no, d.issued_at, d.revoked_at, i.name AS institution, st.first_name, st.last_name
          FROM issued_documents d JOIN institutions i ON i.id = d.institution_id LEFT JOIN students st ON st.id = d.student_id

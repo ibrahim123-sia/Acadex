@@ -31,6 +31,7 @@ import { notify } from '../lib/notify';
 import { softDelete } from '../lib/soft-delete';
 import { assertOpenDay, nextOpenDay } from '../lib/structure';
 import { HttpError } from '../lib/errors';
+import { publicSecure, staffSecure, type SecureSettings } from '../lib/lms/secure';
 import { currentUser, institutionId, requireAny, requirePermission, userCan } from '../middleware/auth';
 
 const router = Router();
@@ -56,6 +57,7 @@ export interface AssessmentRow {
   rubric_id: number | null;
   ai_policy: string;
   quiz: Record<string, unknown> | null;
+  secure: SecureSettings | null;
   release_mode: string;
   grades_released_at: Date | null;
 }
@@ -197,7 +199,7 @@ router.get('/assessments/:id', async (req, res) => {
   const { rows: rubric } = a.rubric_id
     ? await db.query(`SELECT r.id, r.title, COALESCE((SELECT json_agg(c ORDER BY c.position, c.id) FROM rubric_criteria c WHERE c.rubric_id = r.id), '[]') AS criteria FROM rubrics r WHERE r.id = $1`, [a.rubric_id])
     : { rows: [] };
-  const base = { ...a, course: { id: access.course.id, name: access.course.name, section_name: access.course.section_name }, role: access.role, can_edit: access.canEdit, rubric: rubric[0] ?? null };
+  const base = { ...a, secure: access.role === 'staff' ? staffSecure(a.secure) : publicSecure(a.secure), course: { id: access.course.id, name: access.course.name, section_name: access.course.section_name }, role: access.role, can_edit: access.canEdit, rubric: rubric[0] ?? null };
   if (access.role === 'staff') {
     const { rows: ext } = await db.query(
       `SELECT e.*, st.first_name || ' ' || st.last_name AS student_name, g.name AS group_name FROM assessment_extensions e
@@ -234,7 +236,7 @@ router.patch('/assessments/:id', async (req, res) => {
   const { rows } = await db.query<AssessmentRow>(`UPDATE assessments SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, vals);
   if (b.title) await db.query(`UPDATE content_items SET title = $2 WHERE assessment_id = $1`, [a.id, b.title]);
   if (a.status === 'draft' && rows[0]!.status === 'published') await announceNewWork(rows[0]!, access.course.name);
-  res.json(rows[0]);
+  res.json({ ...rows[0], secure: staffSecure(rows[0]!.secure) });
 });
 
 router.delete('/assessments/:id', async (req, res) => {

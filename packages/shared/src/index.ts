@@ -14,3 +14,4 @@ export * from './notifications';
 export * from './quiz';
 export * from './schemas/lms';
 export * from './schemas/finance';
+export * from './schemas/exams';
