@@ -266,6 +266,8 @@ export const courseOfferings = pgTable(
     capacity: integer('capacity'),
     waitlistEnabled: boolean('waitlist_enabled').notNull().default(true),
     /** after results are published the gradebook can't change */
+    /** AI features in this course (the institution's settings still apply) */
+    aiEnabled: boolean('ai_enabled').notNull().default(true),
     gradebookLockedAt: timestamp('gradebook_locked_at', { withTimezone: true }),
     /** how many timetable periods a week this course needs (timetable generator) */
     periodsPerWeek: integer('periods_per_week').notNull().default(0),

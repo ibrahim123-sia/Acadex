@@ -107,7 +107,7 @@ export const files = pgTable(
     foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'files_institution_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.createdBy], foreignColumns: [users.id], name: 'files_created_by_fkey' }).onDelete('set null'),
     unique('files_storage_key_key').on(t.storageKey),
-    check('files_purpose_check', sql`${t.purpose} IN ('photo', 'document', 'import', 'logo')`),
+    check('files_purpose_check', sql`${t.purpose} IN ('photo', 'document', 'import', 'logo', 'course', 'submission', 'feedback', 'package')`),
     check('files_scan_status_check', sql`${t.scanStatus} IN ('pending', 'clean', 'infected', 'skipped')`),
   ]
 );

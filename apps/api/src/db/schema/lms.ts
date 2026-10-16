@@ -677,6 +677,8 @@ export const grades = pgTable(
     feedbackHtml: text('feedback_html').notNull().default(''),
     feedbackFileIds: integer('feedback_file_ids').array().notNull().default(sql`ARRAY[]::integer[]`),
     rubricScores: jsonb('rubric_scores'),
+    /** suggested by the AI grading assistant and accepted by the teacher */
+    aiAssisted: boolean('ai_assisted').notNull().default(false),
     status: text('status').notNull().default('draft'),
     gradedBy: integer('graded_by'),
     gradedAt: timestamp('graded_at', { withTimezone: true }),

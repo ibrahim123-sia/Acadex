@@ -12,7 +12,8 @@ describe('schema drift', () => {
   it('every table and column in the TypeScript schema exists with the same nullability', async () => {
     const { rows } = await pool.query<{ table_name: string; column_name: string; is_nullable: string }>(
       `SELECT table_name, column_name, is_nullable FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name <> 'schema_migrations'`
+        WHERE table_schema = 'public' AND table_name <> 'schema_migrations'
+          AND table_name IN (SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE')`
     );
     const db = new Set(rows.map((r) => `${r.table_name}.${r.column_name}:${r.is_nullable === 'YES' ? 'null' : 'not null'}`));
     const ts = new Set(

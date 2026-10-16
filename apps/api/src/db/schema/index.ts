@@ -12,3 +12,4 @@ export * from './admissions';
 export * from './operations';
 export * from './identity';
 export * from './auth';
+export * from './ai';
