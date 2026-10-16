@@ -1,5 +1,67 @@
 # Changelog
 
+## Phase 3 — Exams, finance and admissions (2026-10-16)
+
+A full fee cycle (invoice → online payment → receipt → reconciliation) and a full exam cycle
+(date sheet → marks → approvals → published results) work end to end, in API tests and in
+the browser. The old `tuition_fee` and `exam_schedule` records were moved into invoices /
+payments and exam series / papers by migration 0014 before those tables were dropped.
+
+### Fees and finance
+- Fee structures per year, campus, program and level: fee heads charged every instalment or
+  once, instalments with due dates, late fines (once, or per day with a cap and grace days).
+- Discounts, scholarships and waivers (percent or amount, on chosen heads); sibling
+  discounts applied automatically from the n-th child of the same guardian.
+- Invoices generated once per student and instalment (with a preview), one-off invoices,
+  adjustments, cancellations; payments by cash, bank or cheque with receipts; part
+  payments; refunds (at the provider too for online payments).
+- Online payment through each institution's own merchant account: **Stripe** (checkout +
+  signed webhooks), **JazzCash** (hosted checkout, secure hash on the form and the return),
+  **Easypaisa** (hosted checkout, confirmed with the inquiry API), **bank transfer / Raast**
+  (bank details and the invoice number as reference), and a test provider. Keys are stored
+  encrypted; webhooks are verified and applied exactly once.
+- Pay links for payers without an account (on vouchers, in reminders, for applicants);
+  voucher PDFs with bank details and a QR code; receipt PDFs; student statements.
+- Defaulters with guardians' phone numbers; reminders before and after the due date in the
+  app, by email, SMS and WhatsApp (Twilio or the WhatsApp Cloud API), sent once per step;
+  a daily job charges late fines and sends the day's reminders.
+- Reconciliation against provider settlements or an uploaded bank statement (CSV / Excel);
+  expenses; income and expense report; collections; Tally XML and QuickBooks CSV exports.
+- Fee visibility: hide fees from students; guardians see them when their link allows.
+
+### Exams
+- Secure exam mode for online quizzes and exams: an access code given out in the room (kept
+  as a keyed hash), a campus-network allowlist, full screen with every exit logged, copy /
+  paste blocked, an automatic hand-in after leaving the exam too often, one question at a
+  time with no going back (enforced by the server), and a hook for a proctoring service.
+- Exam series with a date-sheet generator (one paper a day per class, shared courses on the
+  same day, holidays skipped) and clash checks per student.
+- Seating plans that mix papers across rooms by capacity, seating charts, invigilation duties
+  (automatic: fewest duties first, never one's own subject; clash-checked).
+- Admit cards with eligibility (attendance threshold, overdue fees), an office override, and
+  a verification QR code.
+- Marks entry grid for the paper's teacher, then head of department, then exam controller;
+  grace and scaling moderation with a log; return for correction.
+- Publishing into the gradebook (and withdrawing), results with class positions (board
+  style) or SGPA (university style), merit lists, Excel export, result cards and a
+  verifiable transcript with SGPA per term and CGPA.
+
+### Outcome-based education
+- Program (PLO) and course (CLO) outcomes with Bloom levels, the CLO → PLO matrix, and
+  alignment of assessments, questions, rubric criteria and paper exams to CLOs.
+- Attainment per student, class and program; accreditation reports (Excel / PDF); each
+  student's mastery view and skills transcript.
+
+### Admissions
+- Public, branded application forms with custom questions, documents and an application
+  fee; a private link for each applicant (status, documents, fee, test, offer).
+- Entrance tests in a hall (scores entered) or online (drawn from a question bank,
+  auto-marked, timed); merit lists weighting test and interview; offers with an expiry and a
+  waiting list; applicants accept or decline online.
+- One-click enrolment: student, guardian (an existing one is reused so siblings link) and
+  portal invitations.
+- Enquiries with sources, follow-ups and next follow-up dates, linked to later applications.
+
 ## Phase 2 — The LMS core (2026-10-15)
 
 A teacher can build a course, set work, collect it, grade it and release the grades, and a

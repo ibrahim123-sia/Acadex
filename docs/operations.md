@@ -95,8 +95,43 @@ Browser push needs a VAPID key pair: `npx web-push generate-vapid-keys`, then
 notifications. Every delivery attempt is recorded in `delivery_logs`; subscriptions the
 browser reports as gone are removed.
 
+## Payments
+
+Each institution connects its own merchant accounts in **Finance → Settings → Payment
+methods** (keys are encrypted with `MFA_ENCRYPTION_KEY` and never shown again). Use the
+providers' sandbox keys first. Providers send results to
+`API_PUBLIC_URL/payments/webhook/<provider>/<account id>` (shown next to each account):
+- **Stripe**: add that URL as a webhook endpoint for `checkout.session.completed`,
+  `checkout.session.async_payment_succeeded` / `_failed`, `checkout.session.expired` and
+  `charge.refunded`; paste the endpoint's signing secret as `webhook_secret`.
+- **JazzCash**: merchant id, password and integrity salt; the return URL is sent with each
+  payment (the payer's browser comes back through it).
+- **Easypaisa**: store id and hash key for checkout; the API username / password and account
+  number let Acadex confirm each payment with Easypaisa's inquiry API (the postback is not
+  signed, so it is never trusted on its own).
+- **Bank / Raast**: the bank, account title, IBAN and Raast ID printed on vouchers; payments
+  are recorded at the counter or matched from the bank statement in reconciliation.
+
+Every callback is stored in `payment_provider_events` once per provider event id; replays
+are acknowledged and ignored. Run **Reconciliation** regularly: matched payments are marked
+reconciled, and anything received but not recorded (or the reverse) is listed. The test
+provider is refused in production.
+
+## Text messages and WhatsApp
+
+`SMS_DRIVER` / `WHATSAPP_DRIVER`: `log` (printed, the default), `twilio` (needs
+`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` / `TWILIO_WHATSAPP_FROM`) or,
+for WhatsApp, `meta` (the WhatsApp Cloud API: `META_WHATSAPP_TOKEN`, `META_WHATSAPP_PHONE_ID`
+and an approved template `META_WHATSAPP_TEMPLATE` with one text parameter). Local numbers
+(03xx…) are sent as +92. Every attempt is in `delivery_logs`.
+
+The `fees.daily` job (03:00 UTC) charges late fines and sends the day's reminders for every
+institution, each once per invoice, step and channel.
+
 ## End-to-end tests
 
 `npm run e2e` runs the Playwright journeys against the dev servers and the database in
 `apps/api/.env` with demo data (`npm run db:seed`). Each run adds a module, a page and an
-assignment named `E2E …` to a Greenwood course; reseed to clear them.
+assignment named `E2E …` to a Greenwood course, and the Phase 3 journeys pay one of the demo
+guardian's invoices with the test provider and publish an `E2E exam …` series; reseed to
+clear them.

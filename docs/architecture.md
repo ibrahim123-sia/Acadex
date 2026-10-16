@@ -97,7 +97,32 @@ The LMS (Phase 2; `schema/lms.ts`, `schedule.ts`, `engagement.ts`):
 - Notifications: `notifications` (in-app, optional dedupe key), `notification_preferences`,
   `push_subscriptions`, `delivery_logs`, `calendar_feeds`.
 
-Office: `tuition_fee`, `exam_schedule` (Phase 3 reworks exams), `audit_log`.
+Finance (Phase 3; `schema/finance.ts`): `fee_structures` → `fee_structure_items`,
+`fee_installments`; `discounts` → `student_discounts`; `invoices` (a student's, or an
+applicant's) → `invoice_items` (fees, discounts, fines with the day they were charged for,
+waivers), `payments` (unique per provider reference) → `refunds`; `checkout_sessions`
+(our reference for an online payment), `payment_provider_events` (one row per provider event
+id — the idempotency key; platform-only RLS), `payment_accounts` (an institution's merchant
+account; secrets sealed with AES-GCM), `reconciliations`, `invoice_reminders`, `expenses`.
+Money moves only through `lib/finance/ledger.ts` (totals, generation, payments, refunds,
+provider events, fines, reconciliation); providers sit behind one interface in
+`lib/finance/providers.ts` (Stripe, JazzCash, Easypaisa, bank, fake).
+
+Exams and outcomes (`schema/exams.ts`): `exam_series` → `exam_sessions` (a paper; its
+gradebook column once published) → `exam_seats`, `invigilator_duties`, `exam_marks`
+(marks, absent, moderation adjustment), `exam_moderations` (every step of the approval
+chain); `admit_cards`; `learning_outcomes` (PLO / CLO), `outcome_mappings`,
+`outcome_alignments` (a question, rubric criterion, assessment or paper measuring a CLO).
+Secure exam settings are `assessments.secure`; `quiz_attempts.position` enforces one
+question at a time. Results are computed in `lib/exams/results.ts`, attainment in
+`lib/outcomes.ts`.
+
+Admissions (`schema/admissions.ts`): `admission_forms` (public slug, questions, documents,
+fee, online test), `applications` (a hashed private token, status, test, merit, offer) →
+`application_documents`; `enquiries` → `enquiry_followups`. Public endpoints live in
+`routes/apply.ts` and `routes/payments.ts`, looked up only by unguessable tokens.
+
+`audit_log` records every change to money, exams, outcomes and admissions (triggers).
 
 Who may do what in a course is decided in one place, `lib/lms/access.ts`: staff (assigned
 teachers, or holders of `courses.manage_any`), students (the roster: the whole section, or

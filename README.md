@@ -37,9 +37,28 @@ teaching load, bulk import from CSV / Excel (OneRoster columns) with a dry run, 
 invitations, ID cards with QR codes, leaving / character certificates and bonafide
 letters with public verification, a recycle bin and a full audit trail.
 
-**Institute office** — dashboards with a campus-by-campus comparison, fee collection with
-vouchers, announcements, **custom roles & permissions** (also limited to one campus),
-invitations instead of shared passwords.
+**Institute office** — dashboards with a campus-by-campus comparison, announcements,
+**custom roles & permissions** (also limited to one campus), invitations instead of shared
+passwords.
+
+**Fees & finance** — fee structures with instalments and late fines, discounts,
+scholarships and automatic sibling discounts, invoices and part payments, vouchers with bank
+details and a QR code, receipts, refunds and waivers; online payment with **Stripe,
+JazzCash, Easypaisa and bank transfer / Raast** on each institution's own merchant account
+(verified webhooks, applied once), pay links for families without an account, reminders in
+the app, by email, SMS and WhatsApp, defaulters, reconciliation with the provider or a bank
+statement, expenses, reports and Tally / QuickBooks exports; fees can be hidden from students.
+
+**Exams** — secure online exams (access code, campus network only, full screen, no going
+back, automatic hand-in), date sheets with a generator, seating plans, invigilation, admit
+cards with eligibility, marks entry with teacher → head of department → controller approval
+and moderation, published results with positions or SGPA, merit lists, result cards and a
+verifiable transcript. **Outcome-based education**: CLOs, PLOs, mapping, attainment and
+accreditation reports, skills transcripts.
+
+**Admissions** — branded online application forms with documents and an application fee,
+an enquiry tracker with follow-ups, online or in-hall entrance tests, merit lists, offers
+and a waiting list, and one-click enrolment with guardian and portal accounts.
 
 **Courses (the LMS)** — a course space per offering: modules with drip release (by date,
 after another module, or after reaching a score), rich pages with maths and code, files,
@@ -121,6 +140,11 @@ Four institutions that each look native, plus the platform and a group:
 | Parent | `parent1@greenwood.edu` | | | |
 
 Platform admin: `superadmin@acadex.com` · Group admin (Greenwood + Sunrise): `group@acadex.com`
+
+Try Phase 3 in the demo: sign in as `parent1@greenwood.edu` → **Fees** → **Pay** with the
+**Test payment** provider (no money moves); Greenwood's public admission form is at
+`/apply/greenwood/class-one-2027`; the office has a mid-term date sheet under **Exams office**
+and learning outcomes for Class 9 mathematics under **Learning outcomes**.
 
 ## 🧪 Tests & checks
 ```bash
