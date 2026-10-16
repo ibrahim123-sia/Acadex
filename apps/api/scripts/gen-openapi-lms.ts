@@ -18,6 +18,8 @@ const FILES = {
   'finance.ts': ['/api', 'Finance'],
   'exams.ts': ['/api', 'Exams'],
   'outcomes.ts': ['/api', 'Outcomes'],
+  'admissions.ts': ['/api', 'Admissions'],
+  'apply.ts': ['/api/apply', 'Apply (public)'],
   'payments.ts': ['/api/payments', 'Payments'],
 };
 const VERB: Record<string, string> = { get: 'Get', post: 'Create', put: 'Save', patch: 'Update', delete: 'Delete' };
@@ -47,7 +49,7 @@ for (const [file, [prefix, tag]] of Object.entries(FILES)) {
     const bodySchema = /(\w+Body)\.parse\(req\.body/.exec(body)?.[1];
     const querySchema = /(\w+Query)\.parse\(req\.query/.exec(body)?.[1];
     for (const s of [bodySchema, querySchema]) if (s) schemas.add(s);
-    const auth = routerName === 'scormContentRouter' || file === 'payments.ts' ? 'public' : 'session';
+    const auth = routerName === 'scormContentRouter' || file === 'payments.ts' || file === 'apply.ts' ? 'public' : 'session';
     const extra = [permission && `permission: '${permission}'`, bodySchema && `body: ${bodySchema}`, querySchema && `query: ${querySchema}`].filter(Boolean);
     out.push(`  r('${method}', '${prefix}${p}', '${tag}', '${summary.slice(0, 160)}', '${auth}'${extra.length ? `, { ${extra.join(', ')} }` : ''}),`);
   }

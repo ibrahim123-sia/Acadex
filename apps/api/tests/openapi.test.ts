@@ -29,6 +29,8 @@ const MOUNTS: Record<string, string> = {
   'finance.ts': '/api',
   'exams.ts': '/api',
   'outcomes.ts': '/api',
+  'admissions.ts': '/api',
+  'apply.ts': '/api/apply',
   'payments.ts': '/api/payments',
   'courses.ts': '/api',
   'assessments.ts': '/api',

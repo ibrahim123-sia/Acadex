@@ -31,6 +31,7 @@ import rolesRoutes from './routes/roles';
 import notificationRoutes, { eventsHandler } from './routes/notifications';
 import lmsRoutes from './routes/lms';
 import paymentRoutes from './routes/payments';
+import applyRoutes from './routes/apply';
 import './jobs';
 
 export function createApp(config: Config = getConfig()) {
@@ -141,6 +142,7 @@ export function createApp(config: Config = getConfig()) {
   app.use('/api/pdf', pdfRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/payments', paymentRoutes);
+  app.use('/api/apply', applyRoutes);
   app.use('/api', lmsRoutes);
 
   app.get('/', (_req, res) => res.json({ message: 'Acadex API' }));

@@ -85,7 +85,7 @@ export async function quotaFor(institutionId: number, db: Queryable = defaultDb)
 }
 
 export async function storeUpload(
-  input: { institutionId: number; userId: number; purpose: FilePurpose; body: Buffer; originalName: string },
+  input: { institutionId: number; userId: number | null; purpose: FilePurpose; body: Buffer; originalName: string },
   db: Queryable = defaultDb
 ): Promise<StoredFile> {
   const rule = PURPOSES[input.purpose];
