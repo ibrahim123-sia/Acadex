@@ -1,10 +1,10 @@
-import { Route, Routes } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 import { RequireAuth } from '@/components/RequireAuth';
 import { AdminDashboard } from './Dashboard';
 import { AdminGuardians, AdminStudents, AdminTeachers } from './People';
 import { AdminStudentProfile } from './StudentProfile';
 import { AdminStaffProfile } from './StaffProfile';
-import { AdminAnnouncements, AdminFees } from './Office';
+import { AdminAnnouncements } from './Office';
 import { AdminSectionDetail, AdminSections } from './Sections';
 import { AdminCourses, AdminOfferingDetail } from './Courses';
 import { AdminStructure } from './Structure';
@@ -35,7 +35,7 @@ export default function AdminRoutes() {
       <Route path="offerings/:id" element={<RequireAuth permission="structure.read"><AdminOfferingDetail /></RequireAuth>} />
       <Route path="structure" element={<RequireAuth permission="structure.read"><AdminStructure /></RequireAuth>} />
       <Route path="calendar" element={<RequireAuth permission="structure.read"><AdminCalendar /></RequireAuth>} />
-      <Route path="fees" element={<RequireAuth permission="fees.read"><AdminFees /></RequireAuth>} />
+      <Route path="fees" element={<Navigate to="/finance" replace />} />
       <Route path="announcements" element={<RequireAuth permission="announcements.read"><AdminAnnouncements /></RequireAuth>} />
       <Route path="imports" element={<RequireAuth permission="imports.run"><AdminImports /></RequireAuth>} />
       <Route path="documents" element={<RequireAuth permission="documents.issue"><AdminDocuments /></RequireAuth>} />

@@ -698,6 +698,93 @@ async function seedGreenwood(groupId: number) {
   await notify(inst, [parent!], 'fee', 'Fee reminder', 'A tuition fee instalment is due for your child this week.');
   await notify(inst, [parent!], 'grade', 'New result published', 'Mid-term results are now available.');
 
+  // ---- Phase 3 demo: discounts, an open admission form with applicants and enquiries, a
+  // mid-term date sheet, and learning outcomes for Class 9 mathematics
+  await insertMany('discounts', ['institution_id', 'name', 'kind', 'method', 'value', 'heads', 'sibling_from'], [
+    [inst.id, 'Sibling discount', 'sibling', 'percent', 10, ['Tuition'], 2],
+    [inst.id, 'Merit scholarship', 'scholarship', 'percent', 25, ['Tuition'], null],
+  ]);
+  const [merit] = await q(`SELECT id FROM discounts WHERE institution_id = $1 AND kind = 'scholarship'`, [inst.id]);
+  await q(`INSERT INTO student_discounts (institution_id, student_id, discount_id, reason, approved_by) VALUES ($1,$2,$3,'Top of class last year',$4)`, [inst.id, all[2]!.id, merit!.id, admin.id]);
+
+  const [bank] = await q(`INSERT INTO question_banks (institution_id, name, created_by) VALUES ($1, 'Entrance test — Class 1', $2) RETURNING id`, [inst.id, admin.id]);
+  await insertMany('questions', ['institution_id', 'bank_id', 'type', 'prompt_html', 'data', 'points', 'created_by'], [2, 3, 4, 5, 6].map((n) => [
+    inst.id, bank!.id, 'numeric', `<p>What is ${n} + ${n}?</p>`, JSON.stringify({ answer: n * 2, tolerance: 0 }), 1, admin.id,
+  ]));
+  const [form] = await q(
+    `INSERT INTO admission_forms (institution_id, slug, title, description, program_id, program_level_id, fields, documents, application_fee, entrance_test, seats, status, created_by)
+     VALUES ($1, 'class-one-2027', 'Class 1 admissions 2027', 'Admissions for Class 1 are open. Apply online, upload the B-form and take a short entrance test.', $2, $3, $4, $5, 1500, $6, 30, 'open', $7) RETURNING id`,
+    [
+      inst.id, programs.PRI!.id, level('PRI', 'Class 1'),
+      JSON.stringify([{ key: 'religion', label: 'Religion', type: 'select', options: ['Islam', 'Christianity', 'Hinduism', 'Other'], required: true }, { key: 'siblings', label: 'Siblings at Greenwood', type: 'text', required: false }]),
+      JSON.stringify([{ key: 'b_form', label: 'B-form / birth certificate', required: true }, { key: 'photo', label: 'Photograph', required: false }]),
+      JSON.stringify({ bank_id: bank!.id, count: 5, minutes: 20 }),
+      admin.id,
+    ]
+  );
+  const applicants = [
+    ['Hania', 'Rauf', 'submitted', null],
+    ['Daniyal', 'Khan', 'tested', 4],
+    ['Mahnoor', 'Iqbal', 'offered', 5],
+  ] as const;
+  for (const [i, [fn, ln, st, score]] of applicants.entries()) {
+    await q(
+      `INSERT INTO applications (institution_id, form_id, number, token_hash, first_name, last_name, email, phone, guardian_name, guardian_phone, guardian_email, guardian_relationship, data, status, test_score, test_max, merit_rank, offer_expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'father',$12,$13,$14,$15,$16,$17)`,
+      [
+        inst.id, form!.id, `APP-${TODAY.slice(0, 4)}-${String(i + 1).padStart(5, '0')}`, crypto.createHash('sha256').update(crypto.randomBytes(24)).digest('hex'),
+        fn, ln, `${fn.toLowerCase()}.${ln.toLowerCase()}@family.example`, `+92300555000${i}`, `Mr ${ln}`, `+92300555100${i}`, `${ln.toLowerCase()}.parent@family.example`,
+        JSON.stringify({ religion: 'Islam' }), st, score, score == null ? null : 5, st === 'offered' ? 1 : null, st === 'offered' ? `${dateAdd(TODAY, 14)}T23:59:00Z` : null,
+      ]
+    );
+  }
+  const enquiries = await insertMany(
+    'enquiries',
+    ['institution_id', 'name', 'phone', 'student_name', 'source', 'status', 'next_follow_up_at', 'notes', 'created_by'],
+    [
+      [inst.id, 'Bushra Naveed', '+923211234501', 'Ayaan', 'website', 'new', `${dateAdd(TODAY, 1)}T10:00:00Z`, 'Asked about transport', admin.id],
+      [inst.id, 'Kamran Ali', '+923211234502', 'Zoya', 'walk_in', 'visited', `${dateAdd(TODAY, -1)}T10:00:00Z`, 'Visited with family; liked the science lab', admin.id],
+      [inst.id, 'Sadia Farooq', '+923211234503', 'Hamza', 'referral', 'contacted', `${dateAdd(TODAY, 3)}T10:00:00Z`, '', admin.id],
+      [inst.id, 'Tariq Mehmood', '+923211234504', 'Eman', 'social', 'lost', null, 'Chose a school closer to home', admin.id],
+    ]
+  );
+  await insertMany('enquiry_followups', ['institution_id', 'enquiry_id', 'channel', 'note', 'user_id'], [
+    [inst.id, enquiries[1]!.id, 'phone', 'Called to book a visit', admin.id],
+    [inst.id, enquiries[1]!.id, 'visit', 'School tour done', admin.id],
+    [inst.id, enquiries[2]!.id, 'whatsapp', 'Sent the admission form link', admin.id],
+  ]);
+
+  const [series] = await q(
+    `INSERT INTO exam_series (institution_id, term_id, name, kind, result_style, status, instructions, created_by) VALUES ($1,$2,'Mid-term examinations','midterm','board','scheduled','Bring your admit card, pens and a geometry box. Mobile phones are not allowed.',$3) RETURNING id`,
+    [inst.id, term.id, admin.id]
+  );
+  const c9 = await q(`SELECT o.id FROM course_offerings o JOIN courses c ON c.id = o.course_id WHERE o.section_id = $1 ORDER BY c.code`, [sections['C9-A']!.id]);
+  await insertMany('exam_sessions', ['institution_id', 'series_id', 'offering_id', 'date', 'starts_at', 'ends_at', 'total_marks', 'pass_marks'], c9.map((o, i) => [
+    inst.id, series!.id, o.id, nextSchoolDay(inst, dateAdd(`${y}-12-08` < TODAY ? dateAdd(TODAY, 14) : `${y}-12-08`, i)), '09:00', '12:00', 75, 25,
+  ]));
+
+  const sec = programs.SEC!.id;
+  const plos = await insertMany('learning_outcomes', ['institution_id', 'level', 'program_id', 'code', 'description', 'position'], [
+    [inst.id, 'program', sec, 'PLO1', 'Solve problems using mathematical and scientific reasoning', 0],
+    [inst.id, 'program', sec, 'PLO2', 'Communicate ideas clearly in writing', 1],
+  ]);
+  const clos = await insertMany('learning_outcomes', ['institution_id', 'level', 'course_id', 'code', 'description', 'bloom_level', 'position'], [
+    [inst.id, 'course', C.MATH!.id, 'CLO1', 'Apply algebraic methods to solve equations', 'apply', 0],
+    [inst.id, 'course', C.MATH!.id, 'CLO2', 'Explain the steps of a geometric proof', 'understand', 1],
+  ]);
+  await insertMany('outcome_mappings', ['institution_id', 'clo_id', 'plo_id', 'strength'], [
+    [inst.id, clos[0]!.id, plos[0]!.id, 3],
+    [inst.id, clos[1]!.id, plos[0]!.id, 1],
+    [inst.id, clos[1]!.id, plos[1]!.id, 2],
+  ]);
+  const mathWork = await q(
+    `SELECT a.id, a.kind FROM assessments a JOIN course_offerings o ON o.id = a.offering_id WHERE o.section_id = $1 AND o.course_id = $2 AND a.kind IN ('quiz', 'exam') ORDER BY a.id`,
+    [sections['C9-A']!.id, C.MATH!.id]
+  );
+  if (mathWork.length) {
+    await insertMany('outcome_alignments', ['institution_id', 'clo_id', 'target_type', 'target_id'], mathWork.flatMap((a) => [[inst.id, clos[a.kind === 'exam' ? 0 : 1]!.id, 'assessment', a.id]]));
+  }
+
   // ID cards for Class 10
   const validUntil = String(inst.year.ends_on);
   await insertMany('id_cards', ['institution_id', 'holder_type', 'holder_id', 'verify_code', 'valid_until', 'issued_by'],

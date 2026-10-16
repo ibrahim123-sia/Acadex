@@ -10,7 +10,7 @@ import { api, errorMessage } from '@/lib/api';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { KIND_LABEL, dueLabel, type Assessment, type CourseRole } from '@/lib/lms';
 import { cn } from '@/lib/cn';
-import { Badge, Button, Card, DataTable, Dialog, EmptyState, ErrorState, Field, Input, PageHeader, Select, Spinner, Textarea, useToast } from '@/components/ui';
+import { Alert, Badge, Button, Card, DataTable, Dialog, EmptyState, ErrorState, Field, Input, PageHeader, Select, Spinner, Textarea, useToast } from '@/components/ui';
 import { RichEditor, RichText } from '@/components/RichText';
 
 interface WorkRow {
@@ -456,8 +456,9 @@ function StudentWork({ a }: { a: Assessment }) {
     onSuccess: (f) => setFiles((x) => [...x, { id: f.id, name: f.original_name }]),
     onError: (e) => toast('error', errorMessage(e)),
   });
+  const [code, setCode] = useState('');
   const startQuiz = useMutation({
-    mutationFn: () => api.post<{ id: number }>(`/assessments/${a.id}/attempts`, {}),
+    mutationFn: () => api.post<{ id: number }>(`/assessments/${a.id}/attempts`, code ? { access_code: code } : {}),
     onSuccess: (r) => navigate(`/attempts/${r.id}`),
     onError: (e) => toast('error', errorMessage(e)),
   });
@@ -512,7 +513,30 @@ function StudentWork({ a }: { a: Assessment }) {
             )}
             {allowed != null && ` · ${t('lms.attemptsLeft', '{{n}} attempt(s) allowed', { n: allowed })}`}
           </div>
-          <Button onClick={() => startQuiz.mutate()} loading={startQuiz.isPending}>
+          {a.secure && (
+            <Alert tone="warning" title={t('lms.secureExam', 'Secure exam')}>
+              <ul className="list-disc ps-5 text-sm">
+                {a.secure.require_fullscreen && <li>{t('lms.secureFullscreen', 'The exam opens full screen; leaving it is recorded.')}</li>}
+                {a.secure.lock_navigation && <li>{t('lms.secureLocked', 'One question at a time — you cannot go back.')}</li>}
+                {a.secure.block_copy_paste && <li>{t('lms.secureNoCopy', 'Copying and pasting are switched off.')}</li>}
+                {a.secure.max_violations && <li>{t('lms.secureMax', 'Leaving the exam {{n}} times hands it in automatically.', { n: a.secure.max_violations })}</li>}
+                {a.secure.network_restricted && <li>{t('lms.secureNetwork', 'Only on the campus network.')}</li>}
+              </ul>
+            </Alert>
+          )}
+          {a.secure?.requires_code && (
+            <Field label={t('lms.accessCode', 'Access code from your invigilator')}>
+              {(f) => <Input {...f} value={code} autoComplete="off" onChange={(e) => setCode(e.target.value)} className="max-w-48 uppercase" />}
+            </Field>
+          )}
+          <Button
+            onClick={async () => {
+              if (a.secure?.require_fullscreen) await document.documentElement.requestFullscreen?.().catch(() => {});
+              startQuiz.mutate();
+            }}
+            loading={startQuiz.isPending}
+            disabled={!!a.secure?.requires_code && code.trim().length < 4}
+          >
             {t('lms.startQuiz', 'Start')}
           </Button>
         </Card>

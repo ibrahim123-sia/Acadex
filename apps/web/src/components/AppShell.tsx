@@ -39,6 +39,9 @@ import {
   Wallet,
   X,
   type LucideIcon,
+  ClipboardCheck,
+  Target,
+  UserPlus,
 } from 'lucide-react';
 import type { Permission, Role } from '@acadex/shared';
 import { useAuth } from '@/lib/auth';
@@ -92,7 +95,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/admin/students', label: term('student', true), icon: Users, permission: 'students.read' },
         { to: '/admin/teachers', label: t('nav.staff', 'Staff'), icon: GraduationCap, permission: 'staff.read' },
         { to: '/admin/guardians', label: term('guardian', true), icon: HeartHandshake, permission: 'guardians.read' },
-        { to: '/admin/fees', label: t('nav.fees', 'Fees'), icon: Wallet, permission: 'fees.read' },
+        { to: '/finance', label: t('nav.finance', 'Finance'), icon: Wallet, any: ['fees.read', 'finance.reports', 'finance.expenses'] },
+        { to: '/admissions', label: t('nav.admissions', 'Admissions'), icon: UserPlus, any: ['admissions.manage', 'enquiries.manage'] },
         { to: '/admin/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, permission: 'announcements.read' },
       ],
     },
@@ -107,6 +111,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/admin/blueprints', label: t('nav.blueprints', 'Blueprints'), icon: Layers, permission: 'blueprints.manage' },
         { to: '/attendance', label: t('nav.registers', 'Registers'), icon: CalendarCheck, permission: 'attendance.manage', end: true },
         { to: '/attendance/staff', label: t('nav.staffAttendance', 'Staff attendance'), icon: GraduationCap, permission: 'attendance.manage' },
+        { to: '/exams/office', label: t('nav.examsOffice', 'Exams office'), icon: ClipboardCheck, any: ['exams.manage', 'exams.publish', 'exams.moderate'] },
+        { to: '/outcomes', label: t('nav.outcomes', 'Learning outcomes'), icon: Target, any: ['outcomes.manage', 'academics.read'] },
         { to: '/admin/year-end', label: t('nav.yearEnd', 'Year end'), icon: ArrowUpRight, permission: 'year_end.manage' },
       ],
     },
@@ -127,6 +133,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/teacher', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'teaching.access', end: true },
         { to: '/teach', label: term('course', true), icon: Library, permission: 'teaching.access' },
         { to: '/attendance', label: t('nav.attendance', 'Attendance'), icon: CalendarCheck, permission: 'attendance.mark', end: true },
+        { to: '/exams/marks', label: t('nav.examMarks', 'Exam marks'), icon: ClipboardCheck, permission: 'teaching.access' },
+        { to: '/outcomes', label: t('nav.outcomes', 'Learning outcomes'), icon: Target, permission: 'teaching.access' },
       ],
     },
     {
@@ -137,6 +145,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/attendance', label: t('nav.attendance', 'Attendance'), icon: CalendarCheck, permission: 'learner.access', end: true },
         { to: '/attendance/checkin', label: t('nav.checkIn', 'Check in'), icon: QrCode, permission: 'learner.access' },
         { to: '/learn/achievements', label: t('nav.achievements', 'Achievements'), icon: Award, permission: 'learner.access' },
+        { to: '/exams/me', label: t('nav.exams', 'Exams'), icon: ClipboardCheck, permission: 'learner.access' },
+        { to: '/fees', label: t('nav.fees', 'Fees'), icon: Wallet, permission: 'learner.access' },
       ],
     },
     {
@@ -144,6 +154,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
       items: [
         { to: '/parent', label: t('nav.children', 'My children'), icon: Baby, permission: 'guardian.access', end: true },
         { to: '/learn', label: term('course', true), icon: Library, permission: 'guardian.access', end: true },
+        { to: '/exams/me', label: t('nav.exams', 'Exams'), icon: ClipboardCheck, permission: 'guardian.access' },
+        { to: '/fees', label: t('nav.fees', 'Fees'), icon: Wallet, permission: 'guardian.access' },
       ],
     },
     {

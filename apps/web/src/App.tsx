@@ -25,6 +25,18 @@ const NotificationsRoute = lazy(() => Lms().then((m) => ({ default: m.Notificati
 const AttemptRoute = lazy(() => Lms().then((m) => ({ default: m.AttemptRoute })));
 const FamilyRoute = lazy(() => Lms().then((m) => ({ default: m.FamilyRoute })));
 const VerifyPage = lazy(() => import('@/pages/public/Verify').then((m) => ({ default: m.VerifyPage })));
+const Office = () => import('@/pages/office');
+const FinanceRoutes = lazy(() => Office().then((m) => ({ default: m.FinanceRoutes })));
+const MyFeesRoute = lazy(() => Office().then((m) => ({ default: m.MyFeesRoute })));
+const PayLinkRoute = lazy(() => Office().then((m) => ({ default: m.PayLinkRoute })));
+const PayReturnRoute = lazy(() => Office().then((m) => ({ default: m.PayReturnRoute })));
+const ExamsRoutes = lazy(() => Office().then((m) => ({ default: m.ExamsRoutes })));
+const OutcomesRoute = lazy(() => Office().then((m) => ({ default: m.OutcomesRoute })));
+const AdmissionsRoutes = lazy(() => Office().then((m) => ({ default: m.AdmissionsRoutes })));
+const Apply = () => import('@/pages/public/Apply');
+const ApplyPage = lazy(() => Apply().then((m) => ({ default: m.ApplyPage })));
+const ApplicationStatusPage = lazy(() => Apply().then((m) => ({ default: m.ApplicationStatusPage })));
+const EntranceTestPage = lazy(() => Apply().then((m) => ({ default: m.EntranceTestPage })));
 
 function NotFound() {
   const { t } = useTranslation();
@@ -71,6 +83,16 @@ export default function App() {
         <Route path="/surveys/*" element={<SurveyRoutes />} />
         <Route path="/family" element={<FamilyRoute />} />
         <Route path="/verify/:code" element={<VerifyPage />} />
+        <Route path="/finance/*" element={<FinanceRoutes />} />
+        <Route path="/fees" element={<MyFeesRoute />} />
+        <Route path="/pay/return" element={<PayReturnRoute />} />
+        <Route path="/pay/:token" element={<PayLinkRoute />} />
+        <Route path="/exams/*" element={<ExamsRoutes />} />
+        <Route path="/outcomes" element={<OutcomesRoute />} />
+        <Route path="/admissions/*" element={<AdmissionsRoutes />} />
+        <Route path="/apply/status" element={<ApplicationStatusPage />} />
+        <Route path="/apply/test" element={<EntranceTestPage />} />
+        <Route path="/apply/:institution/:form" element={<ApplyPage />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -11,6 +11,7 @@ import { api, errorMessage } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { Alert, Badge, Button, Card, DataTable, EmptyState, ErrorState, Field, Input, PageHeader, Select, Spinner, Textarea, useToast } from '@/components/ui';
 import { RichEditor, RichText } from '@/components/RichText';
+import type { SecureInfo } from '@/lib/lms';
 
 interface Bank {
   id: number;
@@ -94,6 +95,7 @@ export function QuizBuilderPage() {
           </Button>
         }
       />
+      <SecureSettings workId={workId} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-4">
           <h2 className="mb-3 font-semibold">{t('lms.inThisQuiz', 'In this quiz')}</h2>
@@ -317,6 +319,10 @@ interface AttemptView {
   deadline_at: string | null;
   score: string | null;
   max_score: string;
+  one_at_a_time: boolean;
+  position: number;
+  total_questions: number;
+  secure: SecureInfo | null;
   questions: { n: number; question_id: number; type: QuestionType; prompt_html: string; points: number; view: Record<string, unknown>; response: unknown; earned?: number | null; feedback?: string; answer?: Record<string, unknown> }[];
 }
 
@@ -344,19 +350,61 @@ export function AttemptPage() {
     const h = setInterval(tick, 1000);
     return () => clearInterval(h);
   }, [q.data, inProgress]);
-  // integrity signals (shown to the teacher; never decide anything by themselves)
+  // integrity signals, shown to the teacher; in secure mode leaving the exam too often hands it in
+  const secure = q.data?.secure ?? null;
+  const [warning, setWarning] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement);
   useEffect(() => {
     if (!inProgress) return;
-    const report = (kind: string) => api.post(`/attempts/${id}/events`, { kind }).catch(() => {});
+    const report = (kind: string) =>
+      api
+        .post<{ violations: number; max: number; auto_submitted: boolean } | undefined>(`/attempts/${id}/events`, { kind })
+        .then((r) => {
+          if (r?.auto_submitted) {
+            void qc.invalidateQueries({ queryKey: ['attempt', id] });
+            setWarning(t('lms.autoSubmitted', 'You left the exam too many times, so it was handed in.'));
+          } else if (r?.max) setWarning(t('lms.violationWarn', 'You left the exam ({{n}} of {{max}}). At {{max}} it is handed in automatically.', { n: r.violations, max: r.max }));
+        })
+        .catch(() => {});
     const onVis = () => document.visibilityState === 'hidden' && report('visibility_hidden');
-    const onPaste = () => report('paste');
+    const onBlur = () => secure && report('blur');
+    const onPaste = (e: ClipboardEvent) => {
+      report('paste');
+      if (secure?.block_copy_paste) e.preventDefault();
+    };
+    const onCopy = (e: ClipboardEvent) => {
+      if (!secure?.block_copy_paste) return;
+      e.preventDefault();
+      report('copy');
+    };
+    const onMenu = (e: MouseEvent) => secure?.block_copy_paste && e.preventDefault();
+    const onFs = () => {
+      setFullscreen(!!document.fullscreenElement);
+      if (secure?.require_fullscreen) report(document.fullscreenElement ? 'fullscreen_enter' : 'fullscreen_exit');
+    };
     document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('blur', onBlur);
     document.addEventListener('paste', onPaste);
+    document.addEventListener('copy', onCopy);
+    document.addEventListener('contextmenu', onMenu);
+    document.addEventListener('fullscreenchange', onFs);
     return () => {
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('blur', onBlur);
       document.removeEventListener('paste', onPaste);
+      document.removeEventListener('copy', onCopy);
+      document.removeEventListener('contextmenu', onMenu);
+      document.removeEventListener('fullscreenchange', onFs);
     };
-  }, [inProgress, id]);
+  }, [inProgress, id, secure, qc, t]);
+  const next = useMutation({
+    mutationFn: async (qid: number) => {
+      await flush(qid);
+      return api.post<{ position: number; last: boolean }>(`/attempts/${id}/next`, {});
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attempt', id] }),
+    onError: (e) => toast('error', errorMessage(e)),
+  });
   const submit = useMutation({
     mutationFn: async () => {
       await Promise.all(Object.keys(timers.current).map((k) => flush(Number(k))));
@@ -420,6 +468,16 @@ export function AttemptPage() {
           )
         }
       />
+      {warning && <Alert tone="danger" className="mb-4">{warning}</Alert>}
+      {inProgress && secure?.require_fullscreen && !fullscreen && !staff && (
+        <Alert tone="warning" className="mb-4">
+          {t('lms.backToFullscreen', 'This exam must stay full screen.')}{' '}
+          <Button size="sm" onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}>{t('lms.goFullscreen', 'Return to full screen')}</Button>
+        </Alert>
+      )}
+      {inProgress && a.one_at_a_time && !staff && (
+        <p className="mb-2 text-sm text-fg-muted">{t('lms.questionOf', 'Question {{n}} of {{total}}', { n: a.position + 1, total: a.total_questions })}</p>
+      )}
       {!inProgress && a.status === 'submitted' && !staff && <Alert className="mb-4">{t('lms.waitingMarking', 'Some answers are marked by your teacher; your score will follow.')}</Alert>}
       <ol className="space-y-4">
         {a.questions.map((x) => (
@@ -435,6 +493,11 @@ export function AttemptPage() {
               <RichText html={x.prompt_html} className="mb-3" />
               <AnswerInput q={x} value={answers[x.question_id]} disabled={!inProgress} onChange={(v) => answer(x.question_id, v)} />
               {x.feedback && <p className="mt-2 rounded bg-surface-2 p-2 text-sm">{x.feedback}</p>}
+              {inProgress && a.one_at_a_time && !staff && a.position < a.total_questions - 1 && (
+                <div className="mt-3 flex justify-end">
+                  <Button loading={next.isPending} onClick={() => next.mutate(x.question_id)}>{t('lms.nextQuestion', 'Next question')}</Button>
+                </div>
+              )}
               {staff && !inProgress && <MarkAnswer attemptId={a.id} q={x} />}
             </Card>
           </li>
@@ -623,5 +686,75 @@ export function ItemAnalysisPage() {
         ]}
       />
     </>
+  );
+}
+
+
+// ---------------------------------------------------------------- secure exam mode (staff)
+
+interface SecureForm { enabled: boolean; has_access_code: boolean; ip_allowlist: string[]; require_fullscreen: boolean; lock_navigation: boolean; block_copy_paste: boolean; max_violations: number | null }
+
+/** Secure exam mode: access code, campus network, full screen, no going back, automatic hand-in. */
+function SecureSettings({ workId }: { workId: number }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ['secure', workId], queryFn: () => api.get<SecureForm>(`/assessments/${workId}/secure`) });
+  const [v, setV] = useState<SecureForm | null>(null);
+  const [code, setCode] = useState('');
+  const cur = v ?? q.data;
+  const save = useMutation({
+    mutationFn: (removeCode?: boolean) =>
+      api.put(`/assessments/${workId}/secure`, {
+        enabled: cur!.enabled,
+        ip_allowlist: cur!.ip_allowlist,
+        require_fullscreen: cur!.require_fullscreen,
+        lock_navigation: cur!.lock_navigation,
+        block_copy_paste: cur!.block_copy_paste,
+        max_violations: cur!.max_violations,
+        ...(removeCode ? { access_code: null } : code ? { access_code: code } : {}),
+      }),
+    onSuccess: () => {
+      setCode('');
+      setV(null);
+      void qc.invalidateQueries({ queryKey: ['secure', workId] });
+      toast('success', t('common.saved', 'Saved'));
+    },
+    onError: (e) => toast('error', errorMessage(e)),
+  });
+  if (!cur) return null;
+  const set = (p: Partial<SecureForm>) => setV({ ...cur, ...p });
+  return (
+    <details className="mb-4 rounded-xl border border-border bg-surface p-4" open={cur.enabled}>
+      <summary className="cursor-pointer font-semibold">
+        {t('lms.secureMode', 'Secure exam mode')} {cur.enabled && <Badge tone="warning" className="ms-1">{t('common.on', 'On')}</Badge>}
+      </summary>
+      <div className="mt-3 space-y-3">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={cur.enabled} onChange={(e) => set({ enabled: e.target.checked })} /> {t('lms.secureOn', 'Use secure exam mode')}
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label={t('lms.accessCodeSet', 'Access code given out in the room')} hint={cur.has_access_code ? t('lms.codeIsSet', 'A code is set; type a new one to change it') : undefined} optional>
+            {(a) => <Input {...a} value={code} autoComplete="off" onChange={(e) => setCode(e.target.value)} placeholder={cur.has_access_code ? '••••••' : ''} />}
+          </Field>
+          <Field label={t('lms.allowedNetworks', 'Campus networks only (one per line, e.g. 203.0.113.0/24)')} optional>
+            {(a) => <Textarea {...a} rows={2} value={cur.ip_allowlist.join('\n')} onChange={(e) => set({ ip_allowlist: e.target.value.split('\n').map((x) => x.trim()).filter(Boolean) })} />}
+          </Field>
+        </div>
+        <div className="flex flex-wrap gap-4 text-sm">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={cur.require_fullscreen} onChange={(e) => set({ require_fullscreen: e.target.checked })} /> {t('lms.fullscreen', 'Full screen')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={cur.lock_navigation} onChange={(e) => set({ lock_navigation: e.target.checked })} /> {t('lms.lockNav', 'One question at a time, no going back')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={cur.block_copy_paste} onChange={(e) => set({ block_copy_paste: e.target.checked })} /> {t('lms.noCopy', 'Block copy and paste')}</label>
+        </div>
+        <Field label={t('lms.maxViolations', 'Hand in automatically after leaving the exam this many times')} optional className="max-w-xs">
+          {(a) => <Input {...a} type="number" min={1} value={cur.max_violations ?? ''} onChange={(e) => set({ max_violations: e.target.value ? Number(e.target.value) : null })} />}
+        </Field>
+        <p className="text-xs text-fg-muted">{t('lms.proctoringNote', 'Webcam proctoring is not built in; every leave, paste and full-screen exit is logged for you to review.')}</p>
+        <div className="flex gap-2">
+          <Button size="sm" loading={save.isPending} onClick={() => save.mutate(false)}>{t('common.save', 'Save')}</Button>
+          {cur.has_access_code && <Button size="sm" variant="ghost" onClick={() => save.mutate(true)}>{t('lms.removeCode', 'Remove the code')}</Button>}
+        </div>
+      </div>
+    </details>
   );
 }

@@ -92,6 +92,8 @@ export interface Assessment {
   ai_policy: string;
   quiz: { time_limit_minutes: number | null; shuffle_questions: boolean; shuffle_options: boolean; one_at_a_time: boolean; show_results: string; scoring: string } | null;
   release_mode: 'manual' | 'on_grading';
+  /** secure exam mode: students get what to expect; staff get the settings (never the code) */
+  secure: SecureInfo | null;
   course: { id: number; name: string; section_name: string | null };
   role: CourseRole;
   can_edit: boolean;
@@ -99,6 +101,18 @@ export interface Assessment {
   my?: { due_at: string | null; available_until: string | null; extra_attempts: number; extra_time_percent: number; attempts_allowed: number | null };
   grade?: { points: string | null; excused: boolean; missing: boolean; late_penalty_percent: string; feedback_html: string; feedback_file_ids: number[]; rubric_scores: Record<string, { points: number; comment: string }> | null } | null;
   extensions?: { id: number; student_name: string | null; group_name: string | null; due_at: string | null; extra_attempts: number; reason: string }[];
+}
+
+export interface SecureInfo {
+  requires_code?: boolean;
+  network_restricted?: boolean;
+  enabled?: boolean;
+  has_access_code?: boolean;
+  ip_allowlist?: string[];
+  require_fullscreen: boolean;
+  lock_navigation: boolean;
+  block_copy_paste: boolean;
+  max_violations: number | null;
 }
 
 export const KIND_LABEL: Record<Assessment['kind'], string> = {

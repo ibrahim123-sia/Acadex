@@ -38,7 +38,7 @@ router.get('/courses', async (req, res) => {
   params.push(pg.limit, pg.offset);
   const studentId = u.role === 'student' ? u.ref_id : null;
   const { rows } = await db.query(
-    `SELECT o.id, c.code, c.name, NULLIF(trim(sec.name || ' ' || COALESCE(sec.label, '')), '') AS section_name, tm.name AS term_name,
+    `SELECT o.id, o.course_id, c.code, c.name, NULLIF(trim(sec.name || ' ' || COALESCE(sec.label, '')), '') AS section_name, tm.name AS term_name,
             (SELECT string_agg(t.first_name || ' ' || t.last_name, ', ') FROM section_staff ss JOIN teachers t ON t.id = ss.teacher_id WHERE ss.offering_id = o.id) AS teachers,
             (SELECT count(*)::int FROM content_items i JOIN modules m ON m.id = i.module_id WHERE m.offering_id = o.id AND m.published AND i.published AND i.deleted_at IS NULL) AS items,
             ${studentId ? `(SELECT count(*)::int FROM content_progress p JOIN content_items i ON i.id = p.item_id JOIN modules m ON m.id = i.module_id WHERE m.offering_id = o.id AND p.student_id = ${Number(studentId)} AND p.status = 'done' AND m.published AND i.published)` : 'NULL::int'} AS done,
