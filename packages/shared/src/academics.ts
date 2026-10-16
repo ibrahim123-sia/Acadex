@@ -3,6 +3,7 @@
 // report cards) and the web app (labels, previews).
 import { z } from 'zod';
 import { feeSettingsBody } from './schemas/finance';
+import { aiSettingsBody } from './schemas/ai';
 
 export const INSTITUTION_TYPES = ['school', 'chain', 'college', 'university', 'academy', 'training_center'] as const;
 export type InstitutionType = (typeof INSTITUTION_TYPES)[number];
@@ -398,6 +399,8 @@ export const institutionSettings = z.object({
   due_reminder_hours: z.number().int().min(1).max(168).optional(),
   /** fee visibility and reminders */
   fees: feeSettingsBody.partial().optional(),
+  /** AI features, provider and budget */
+  ai: aiSettingsBody.partial().optional(),
 });
 
 export const DEFAULT_ATTENDANCE_THRESHOLD = 75;

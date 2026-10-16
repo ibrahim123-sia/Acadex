@@ -79,6 +79,19 @@ const schema = z.object({
   META_WHATSAPP_PHONE_ID: z.string().optional(),
   /** a pre-approved WhatsApp template for notices (Meta requires templates outside a 24h chat) */
   META_WHATSAPP_TEMPLATE: z.string().default('acadex_notice'),
+  /** AI: the platform's provider (fake = no network, deterministic) and keys; institutions may bring their own */
+  AI_PROVIDER: z.enum(['auto', 'fake', 'openai', 'anthropic', 'gemini', 'groq']).default('auto'),
+  AI_DISABLED: bool(false),
+  /** AI requests per person per minute */
+  AI_RATE_LIMIT: z.coerce.number().int().positive().default(30),
+  OPENAI_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GROQ_API_KEY: z.string().optional(),
+  /** monthly spend cap per plan in USD (calls on an institution's own key don't count) */
+  AI_BUDGET_FREE_USD: z.coerce.number().min(0).default(2),
+  AI_BUDGET_PRO_USD: z.coerce.number().min(0).default(50),
+  AI_BUDGET_ENTERPRISE_USD: z.coerce.number().min(0).default(500),
 });
 
 export interface Config {
@@ -113,6 +126,13 @@ export interface Config {
   jobsWorker: boolean;
   push: { driver: 'none' | 'webpush' | 'fake'; publicKey?: string; privateKey?: string; subject: string };
   apiPublicUrl: string;
+  ai: {
+    provider: 'fake' | 'openai' | 'anthropic' | 'gemini' | 'groq';
+    disabled: boolean;
+    rateLimit: number;
+    keys: { openai?: string; anthropic?: string; gemini?: string; groq?: string };
+    budgets: Record<string, number>;
+  };
   messaging: {
     sms: 'none' | 'log' | 'fake' | 'twilio';
     whatsapp: 'none' | 'log' | 'fake' | 'twilio' | 'meta';
@@ -205,6 +225,26 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     jobsWorker: c.JOBS_WORKER,
     push: { driver: c.PUSH_DRIVER, publicKey: c.VAPID_PUBLIC_KEY, privateKey: c.VAPID_PRIVATE_KEY, subject: c.VAPID_SUBJECT },
     apiPublicUrl: (c.API_PUBLIC_URL ?? `${c.APP_URL.replace(/\/+$/, '')}/api`).replace(/\/+$/, ''),
+    ai: {
+      provider:
+        c.AI_PROVIDER !== 'auto'
+          ? c.AI_PROVIDER
+          : c.NODE_ENV === 'test'
+            ? 'fake'
+            : c.ANTHROPIC_API_KEY
+              ? 'anthropic'
+              : c.OPENAI_API_KEY
+                ? 'openai'
+                : c.GEMINI_API_KEY
+                  ? 'gemini'
+                  : c.GROQ_API_KEY
+                    ? 'groq'
+                    : 'fake',
+      disabled: c.AI_DISABLED,
+      rateLimit: c.AI_RATE_LIMIT,
+      keys: { openai: c.OPENAI_API_KEY, anthropic: c.ANTHROPIC_API_KEY, gemini: c.GEMINI_API_KEY, groq: c.GROQ_API_KEY },
+      budgets: { free: c.AI_BUDGET_FREE_USD, pro: c.AI_BUDGET_PRO_USD, enterprise: c.AI_BUDGET_ENTERPRISE_USD },
+    },
     messaging: {
       sms: c.SMS_DRIVER,
       whatsapp: c.WHATSAPP_DRIVER,

@@ -2,5 +2,6 @@
 import '../lib/notify';
 import './maintenance';
 import '../lib/finance/reminders';
+import '../ai/risk';
 
 export { drainJobs, enqueue, pendingJobs, runJob, startWorkers, clearJobs } from './queue';

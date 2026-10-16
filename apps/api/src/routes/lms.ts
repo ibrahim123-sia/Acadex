@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { auth, requireInstitutionUser } from '../middleware/auth';
 import admissions from './admissions';
+import ai from './ai';
 import assessments from './assessments';
 import attendance from './attendance';
 import content, { scormContentRouter } from './content';
@@ -18,6 +19,6 @@ import timetable from './timetable';
 const lms = Router();
 lms.use(scormContentRouter);
 lms.use(auth, requireInstitutionUser);
-for (const r of [courses, assessments, quizzes, gradebook, attendance, timetable, engage, content, finance, exams, outcomes, admissions]) lms.use(r);
+for (const r of [courses, assessments, quizzes, gradebook, attendance, timetable, engage, content, finance, exams, outcomes, admissions, ai]) lms.use(r);
 
 export default lms;

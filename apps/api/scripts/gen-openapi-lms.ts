@@ -19,6 +19,7 @@ const FILES = {
   'exams.ts': ['/api', 'Exams'],
   'outcomes.ts': ['/api', 'Outcomes'],
   'admissions.ts': ['/api', 'Admissions'],
+  'ai.ts': ['/api', 'AI'],
   'apply.ts': ['/api/apply', 'Apply (public)'],
   'payments.ts': ['/api/payments', 'Payments'],
 };

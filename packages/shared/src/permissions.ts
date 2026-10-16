@@ -59,6 +59,10 @@ export const PERMISSIONS = {
   'outcomes.manage': 'Set up program and course learning outcomes (PLO / CLO) and their mapping',
   'admissions.manage': 'Run admissions: forms, applications, entrance tests, merit lists and offers',
   'enquiries.manage': 'Track admission enquiries and follow-ups',
+  'ai.manage': 'Turn AI features on or off, choose models, set the budget and see AI usage',
+  'ai.ask': "Ask questions about the institution's data in plain language",
+  'risk.read': 'See early-warning risk scores of students',
+  'risk.manage': 'Record and follow up interventions for at-risk students',
 
   // teaching (limited to the teacher's own sections)
   'teaching.access': 'Use the teacher workspace for assigned sections',
@@ -140,6 +144,10 @@ const INSTITUTION_ADMIN: Permission[] = [
   'outcomes.manage',
   'admissions.manage',
   'enquiries.manage',
+  'ai.manage',
+  'ai.ask',
+  'risk.read',
+  'risk.manage',
 ];
 
 /** Built-in roles. Their keys match the users.role "primary role" values. */

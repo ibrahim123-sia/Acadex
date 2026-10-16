@@ -69,6 +69,11 @@ export function createApp(config: Config = getConfig()) {
     message: { error: 'Too many login attempts. Please wait 15 minutes and try again.' },
   });
   app.use('/api/auth/login', loginLimiter);
+  // AI calls cost money: a tighter limit per person (keyed by their token, else the address)
+  app.use(
+    '/api/ai',
+    rateLimit({ windowMs: 60 * 1000, limit: config.ai.rateLimit, standardHeaders: 'draft-8', legacyHeaders: false, keyGenerator: (req) => String(req.headers.authorization ?? ipKeyGenerator(req.ip ?? '')) })
+  );
   // second factor, email links and reset requests: per IP (+ email where there is one)
   const sensitive = (limit: number, skipSuccessfulRequests: boolean) =>
     rateLimit({

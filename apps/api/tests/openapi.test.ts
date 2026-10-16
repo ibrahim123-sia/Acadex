@@ -30,6 +30,7 @@ const MOUNTS: Record<string, string> = {
   'exams.ts': '/api',
   'outcomes.ts': '/api',
   'admissions.ts': '/api',
+  'ai.ts': '/api',
   'apply.ts': '/api/apply',
   'payments.ts': '/api/payments',
   'courses.ts': '/api',

@@ -16,7 +16,8 @@
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "worker": "tsx src/worker.ts",
-    "worker:prod": "node dist/worker.js"
+    "worker:prod": "node dist/worker.js",
+    "ai:eval:real": "tsx scripts/ai-eval-real.ts"
   },
   "description": "Acadex API",
   "dependencies": {
@@ -37,6 +38,7 @@
     "file-type": "^22.1.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.13.0",
     "multer": "^2.4.0",
     "nodemailer": "^10.1.0",
     "pdfkit": "^0.20.2",
@@ -48,6 +50,7 @@
     "read-excel-file": "^9.3.12",
     "sanitize-html": "^2.18.0",
     "sharp": "^0.35.5",
+    "unpdf": "^1.9.0",
     "web-push": "^3.6.7",
     "write-excel-file": "^2.3.10",
     "zod": "^4.6.7"

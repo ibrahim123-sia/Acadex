@@ -16,3 +16,5 @@ export * from './schemas/lms';
 export * from './schemas/finance';
 export * from './schemas/exams';
 export * from './schemas/admissions';
+export * from './schemas/ai';
+export * from './help';

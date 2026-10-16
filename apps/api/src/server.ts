@@ -22,6 +22,9 @@ const stopWorkers = config.jobsWorker ? await startWorkers().catch((err) => {
   return async () => {};
 }) : async () => {};
 
+// help articles for the help assistant (local embeddings, no spend)
+void import('./ai/kb').then((m) => m.indexHelp()).catch((err) => logger.warn({ err }, 'help index failed'));
+
 const server = createApp(config).listen(config.port, () => logger.info(`Acadex API listening on port ${config.port}`));
 
 // Finish in-flight requests on redeploys instead of dropping them.
