@@ -2,6 +2,7 @@
 // grading schemes (with the maths), and term systems. Used by the API (onboarding, seed,
 // report cards) and the web app (labels, previews).
 import { z } from 'zod';
+import { feeSettingsBody } from './schemas/finance';
 
 export const INSTITUTION_TYPES = ['school', 'chain', 'college', 'university', 'academy', 'training_center'] as const;
 export type InstitutionType = (typeof INSTITUTION_TYPES)[number];
@@ -395,6 +396,8 @@ export const institutionSettings = z.object({
   gamification: z.object({ enabled: z.boolean(), leaderboard: z.boolean() }).optional(),
   /** reminders this many hours before work is due */
   due_reminder_hours: z.number().int().min(1).max(168).optional(),
+  /** fee visibility and reminders */
+  fees: feeSettingsBody.partial().optional(),
 });
 
 export const DEFAULT_ATTENDANCE_THRESHOLD = 75;

@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { DEFAULT_ATTENDANCE_THRESHOLD, attendancePercent, institutionSettings } from '@acadex/shared';
 import { db } from '../db/context';
 import { institutionTimeZone } from '../lib/institution';
+import { FEE_TOTALS_SQL, SHOW_TO_STUDENTS_SQL } from '../lib/finance/summary';
 import { rosterSql } from '../lib/lms/access';
 import { ATTENDANCE_COUNTS_SQL, RELEASED_GRADES_SQL } from '../lib/lms/student';
 import { todayIn } from '../lib/locale';
@@ -20,13 +21,15 @@ const ref = (req: Parameters<typeof currentUser>[0]) => currentUser(req).ref_id;
 router.get('/student/overview', async (req, res) => {
   const s = institutionId(req);
   const stu = ref(req);
-  const [profile, grades, attendance, fee] = await Promise.all([
+  const [profile, grades, attendance, fee, show] = await Promise.all([
     db.query(`SELECT st.*, c.name section_name FROM students st LEFT JOIN sections c ON c.id=st.section_id WHERE st.id=$1 AND st.institution_id=$2`, [stu, s]),
     db.query(RELEASED_GRADES_SQL, [stu, s]),
     db.query(ATTENDANCE_COUNTS_SQL, [stu, s]),
-    db.query(`SELECT total_fee, paid_amount, remaining_balance, payment_status, receipt_id FROM tuition_fee WHERE student_id=$1 AND institution_id=$2 ORDER BY id DESC LIMIT 1`, [stu, s]),
+    db.query(FEE_TOTALS_SQL, [stu, s]),
+    db.query<{ show: boolean }>(SHOW_TO_STUDENTS_SQL, [s]),
   ]);
-  res.json({ profile: profile.rows[0] || null, grades: grades.rows, attendance: attendance.rows, fee: fee.rows[0] || null });
+  const feeRow = show.rows[0]?.show && fee.rows[0]?.invoices ? fee.rows[0] : null;
+  res.json({ profile: profile.rows[0] || null, grades: grades.rows, attendance: attendance.rows, fee: feeRow });
 });
 
 // ---------- TEACHER self ----------
@@ -200,11 +203,11 @@ router.get('/dashboard', requireInstitutionUser, async (req, res) => {
           [c.id]
         ),
         c.can_view_grades ? db.query(RELEASED_GRADES_SQL.replace('LIMIT 200', 'LIMIT 5'), [c.id, s]) : { rows: null },
-        c.can_view_fees ? db.query(`SELECT remaining_balance, payment_status FROM tuition_fee WHERE student_id = $1 ORDER BY id DESC LIMIT 1`, [c.id]) : { rows: [] },
+        c.can_view_fees ? db.query(FEE_TOTALS_SQL, [c.id, s]) : { rows: [] },
       ]);
       const counts = Object.fromEntries(att.rows.map((r: { status: string; c: number }) => [r.status.toLowerCase(), r.c]));
       const pct = attendancePercent(counts);
-      out.push({ ...c, today: today_.rows[0]?.status ?? null, attendance: { percent: pct, threshold, below: pct != null && pct < threshold }, due: due.rows, recent_grades: grades.rows, fee: fee.rows[0] ?? null });
+      out.push({ ...c, today: today_.rows[0]?.status ?? null, attendance: { percent: pct, threshold, below: pct != null && pct < threshold }, due: due.rows, recent_grades: grades.rows, fee: fee.rows[0]?.invoices ? fee.rows[0] : null });
     }
     return void res.json({ role: 'parent', today, holiday, children: out });
   }

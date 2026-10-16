@@ -125,6 +125,11 @@ async function createInstitution(def: InstitutionDef): Promise<Inst> {
     [def.name, def.slug, def.color, def.plan, `info@${def.slug}.edu`, def.phone, def.address, def.type, def.groupId ?? null, def.settings ?? {}]
   );
   const id = inst!.id as number;
+  // the bank account printed on fee vouchers, and the test payment provider (demo only: no money moves)
+  await q(
+    `INSERT INTO payment_accounts (institution_id, provider, mode, public_config) VALUES ($1, 'bank', 'live', $2), ($1, 'fake', 'sandbox', '{}')`,
+    [id, JSON.stringify({ bank_name: 'Meezan Bank', branch: 'Main branch', account_title: def.name, iban: `PK36MEZN00${String(1000000000000000 + id * 7919).slice(0, 14)}` })]
+  );
   const campuses = await insertMany(
     'campuses',
     ['institution_id', 'name', 'code', 'address', 'phone', 'is_main'],
@@ -467,15 +472,52 @@ async function addActivity(
     if (progress.length) await insertMany('content_progress', ['student_id', 'item_id', 'institution_id', 'status', 'percent', 'completed_at'], progress, 'item_id');
   }
 
-  await insertMany(
-    'tuition_fee',
-    ['institution_id', 'receipt_id', 'student_id', 'total_fee', 'paid_amount', 'remaining_balance', 'payment_status', 'payment_date'],
-    students.map((st, k) => {
-      const total = pick(opts.fee);
-      const paid = [total, total, Math.round(total / 2), 0][k % 4]!;
-      return [inst.id, `RCP-${inst.slug.slice(0, 3).toUpperCase()}-${code(6)}`, st.id, total, paid, total - paid, paid >= total ? 'Paid' : paid > 0 ? 'Partial' : 'Pending', paid ? dateAdd(TODAY, -between(1, 20)) : null];
-    })
+  // fees: a structure for the section with two instalments (one past due, one coming up),
+  // invoices for every student, and a mix of paid, part-paid and unpaid
+  const total = pick(opts.fee);
+  const half = Math.round(total / 2);
+  const [structure] = await q(
+    `INSERT INTO fee_structures (institution_id, name, academic_year_id, late_fine) VALUES ($1,$2,$3,'{"kind":"per_day","amount":50,"grace_days":3,"max":1500}') RETURNING id`,
+    [inst.id, `${section.name} fees`, section.academic_year_id ?? null]
   );
+  await q(`INSERT INTO fee_structure_items (institution_id, structure_id, head, amount, frequency, position) VALUES ($1,$2,'Tuition',$3,'per_installment',0), ($1,$2,'Exam fee',1500,'once',1)`, [inst.id, structure!.id, half]);
+  const insts = await insertMany('fee_installments', ['institution_id', 'structure_id', 'label', 'due_date', 'position'], [
+    [inst.id, structure!.id, 'First instalment', dateAdd(TODAY, -25), 0],
+    [inst.id, structure!.id, 'Second instalment', dateAdd(TODAY, 12), 1],
+  ]);
+  const year = TODAY.slice(0, 4);
+  const currency = (await q(`SELECT currency FROM institutions WHERE id = $1`, [inst.id]))[0]!.currency as string;
+  const invoiceRows: unknown[][] = [];
+  students.forEach((st, k) => {
+    insts.forEach((ins, n) => {
+      const amount = half + (n === 0 ? 1500 : 0);
+      const paid = n === 0 ? [amount, amount, Math.round(amount / 2), 0][k % 4]! : k % 4 === 0 ? amount : 0;
+      invoiceRows.push([
+        inst.id, `INV-${year}-${inst.slug.slice(0, 3).toUpperCase()}${String(st.id).padStart(5, '0')}${n}`, st.id, structure!.id, ins.id,
+        `${section.name} fees — ${n === 0 ? 'First' : 'Second'} instalment`, dateAdd(TODAY, n === 0 ? -40 : -3), dateAdd(TODAY, n === 0 ? -25 : 12),
+        paid >= amount ? 'paid' : paid > 0 ? 'partially_paid' : 'issued', currency, amount, paid, crypto.randomBytes(18).toString('base64url'),
+      ]);
+    });
+  });
+  const invoices = await insertMany(
+    'invoices',
+    ['institution_id', 'number', 'student_id', 'structure_id', 'installment_id', 'title', 'issue_date', 'due_date', 'status', 'currency', 'total', 'paid', 'pay_token'],
+    invoiceRows,
+    'id, student_id, total, paid, number'
+  );
+  await insertMany(
+    'invoice_items',
+    ['institution_id', 'invoice_id', 'kind', 'head', 'label', 'amount'],
+    invoices.flatMap((v, i) => (i % 2 === 0 ? [[inst.id, v.id, 'fee', 'Tuition', 'Tuition', half], [inst.id, v.id, 'fee', 'Exam fee', 'Exam fee', 1500]] : [[inst.id, v.id, 'fee', 'Tuition', 'Tuition', half]]))
+  );
+  const pays = invoices.filter((v) => Number(v.paid) > 0);
+  if (pays.length) {
+    await insertMany(
+      'payments',
+      ['institution_id', 'invoice_id', 'student_id', 'receipt_no', 'amount', 'method', 'received_at'],
+      pays.map((v, i) => [inst.id, v.id, v.student_id, `RCT-${year}-${String(v.id).padStart(6, '0')}`, v.paid, i % 3 === 0 ? 'bank' : 'cash', `${dateAdd(TODAY, -between(1, 20))}T10:00:00Z`])
+    );
+  }
 
   if (opts.timetable) {
     const periods = await bellSchedule(inst);

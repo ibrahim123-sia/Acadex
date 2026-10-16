@@ -15,6 +15,10 @@ export const NOTIFICATION_TYPES = {
   discussion_reply: { label: 'Replies in discussions', email: false, push: true },
   live_class: { label: 'Live classes starting', email: false, push: true },
   certificate_issued: { label: 'Certificates', email: true, push: false },
+  fee_due: { label: 'Fee reminders and dues', email: true, push: true },
+  payment_received: { label: 'Payment receipts', email: true, push: false },
+  exam_update: { label: 'Exam schedules, admit cards and results', email: true, push: true },
+  admission_update: { label: 'Admission applications', email: true, push: false },
   system: { label: 'Account and system messages', email: true, push: false },
 } as const;
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;

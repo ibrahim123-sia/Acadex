@@ -298,7 +298,9 @@ export const deliveryLogs = pgTable(
     id: serial('id').primaryKey(),
     institutionId: integer('institution_id'),
     notificationId: integer('notification_id'),
-    userId: integer('user_id').notNull(),
+    userId: integer('user_id'),
+    /** phone number for SMS / WhatsApp */
+    toAddress: text('to_address'),
     channel: text('channel').notNull(),
     status: text('status').notNull(),
     error: text('error'),
@@ -309,7 +311,7 @@ export const deliveryLogs = pgTable(
     index('idx_delivery_logs_notification').on(t.notificationId),
     foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'delivery_logs_institution_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.userId], foreignColumns: [users.id], name: 'delivery_logs_user_id_fkey' }).onDelete('cascade'),
-    check('delivery_logs_channel_check', sql`${t.channel} IN ('email', 'push')`),
+    check('delivery_logs_channel_check', sql`${t.channel} IN ('email', 'push', 'sms', 'whatsapp')`),
     check('delivery_logs_status_check', sql`${t.status} IN ('sent', 'failed', 'skipped')`),
   ]
 );

@@ -1,12 +1,13 @@
-import crypto from 'node:crypto';
 import { Router, type Request } from 'express';
 import { collectFeeBody, id, optionalId } from '@acadex/shared';
-import { db } from '../db/context';
+import { db, withTransaction } from '../db/context';
 import { assertInInstitution } from '../lib/access';
 import { audit } from '../lib/audit';
 import { badRequest, forbidden, notFound } from '../lib/errors';
 import { institutionTimeZone } from '../lib/institution';
 import { todayIn } from '../lib/locale';
+import { createAdhocInvoice, loadInvoice, recordPayment } from '../lib/finance/ledger';
+import { LIVE_INVOICE, invoiceLabel } from '../lib/finance/summary';
 import { parsePage, sendPage } from '../lib/pagination';
 import { assertCampusAllowed, campusesFor } from '../lib/structure';
 import { inviteUser } from '../auth/invites';
@@ -38,7 +39,8 @@ router.get('/dashboard', requirePermission('institution.dashboard.read'), async 
                      AND (sec.id IS NOT NULL OR ($2::int[] IS NULL AND $3::int IS NULL AND st.section_id IS NULL))),
           staff AS (SELECT id, campus_id FROM teachers WHERE institution_id = $1 AND status <> 'left'
                        AND (campus_id IN (SELECT id FROM scope) OR ($2::int[] IS NULL AND $3::int IS NULL AND campus_id IS NULL))),
-          fee AS (SELECT f.paid_amount, f.remaining_balance, f.payment_status, stu.campus_id FROM tuition_fee f JOIN stu ON stu.id = f.student_id),
+          fee AS (SELECT f.paid AS paid_amount, f.total - f.paid AS remaining_balance, ${invoiceLabel('f')} AS payment_status, stu.campus_id
+                    FROM invoices f JOIN stu ON stu.id = f.student_id WHERE f.${LIVE_INVOICE}),
           att AS (SELECT initcap(a.status) AS status, stu.campus_id FROM attendance_records a JOIN attendance_sessions sn ON sn.id = a.session_id JOIN stu ON stu.id = a.student_id
                    WHERE sn.date >= (SELECT today FROM inst) - 7)
      SELECT json_build_object(
@@ -79,10 +81,12 @@ router.get('/dashboard', requirePermission('institution.dashboard.read'), async 
 router.get('/fees', requirePermission('fees.read'), async (req, res) => {
   const pg = parsePage(req.query);
   const { rows } = await db.query(
-    `SELECT f.id, f.receipt_id, f.total_fee, f.paid_amount, f.remaining_balance, f.payment_status, f.payment_date,
+    `SELECT f.id, f.number AS receipt_id, f.number, f.title, f.total AS total_fee, f.paid AS paid_amount, f.total - f.paid AS remaining_balance,
+            ${invoiceLabel('f')} AS payment_status, f.status, f.due_date,
+            (SELECT max(p.received_at)::date FROM payments p WHERE p.invoice_id = f.id) AS payment_date,
             st.first_name||' '||st.last_name student, st.roll_no, count(*) OVER() _total
-       FROM tuition_fee f JOIN students st ON st.id=f.student_id
-      WHERE f.institution_id=$1 ORDER BY f.id DESC LIMIT $2 OFFSET $3`,
+       FROM invoices f JOIN students st ON st.id=f.student_id
+      WHERE f.institution_id=$1 AND f.${LIVE_INVOICE} ORDER BY f.id DESC LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
@@ -91,8 +95,8 @@ router.get('/fees', requirePermission('fees.read'), async (req, res) => {
 // Fee totals for the whole institution (the fees list is paginated, so the UI can't add it up)
 router.get('/fees/summary', requirePermission('fees.read'), async (req, res) => {
   const { rows } = await db.query(
-    `SELECT COALESCE(SUM(paid_amount),0)::float8 collected, COALESCE(SUM(remaining_balance),0)::float8 outstanding
-       FROM tuition_fee WHERE institution_id=$1`,
+    `SELECT COALESCE(SUM(paid),0)::float8 collected, COALESCE(SUM(total - paid),0)::float8 outstanding
+       FROM invoices WHERE institution_id=$1 AND ${LIVE_INVOICE}`,
     [institutionId(req)]
   );
   res.json(rows[0]);
@@ -146,9 +150,11 @@ router.get('/timetable', requirePermission('academics.read'), async (req, res) =
 router.get('/exams', requirePermission('academics.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 100 });
   const { rows } = await db.query(
-    `SELECT e.exam_name, e.subject, e.exam_date, e.time_slot, e.total_marks, c.name section_name, count(*) OVER() _total
-       FROM exam_schedule e LEFT JOIN sections c ON c.id=e.section_id
-      WHERE e.institution_id=$1 ORDER BY e.exam_date, e.id LIMIT $2 OFFSET $3`,
+    `SELECT s.id, x.name exam_name, co.name subject, s.date exam_date, to_char(s.starts_at, 'HH24:MI') || '-' || to_char(s.ends_at, 'HH24:MI') time_slot,
+            s.total_marks::float8 total_marks, c.name section_name, count(*) OVER() _total
+       FROM exam_sessions s JOIN exam_series x ON x.id = s.series_id JOIN course_offerings o ON o.id = s.offering_id
+       JOIN courses co ON co.id = o.course_id LEFT JOIN sections c ON c.id = o.section_id
+      WHERE s.institution_id=$1 ORDER BY s.date, s.starts_at, s.id LIMIT $2 OFFSET $3`,
     [institutionId(req), pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
@@ -191,17 +197,15 @@ router.post('/fees', requirePermission('fees.manage'), async (req, res) => {
   const s = institutionId(req);
   const { student_id, total_fee: total, paid_amount: paid } = collectFeeBody.parse(req.body);
   await assertInInstitution('students', student_id, s);
-  const remaining = total - paid;
-  const status = remaining <= 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Pending';
-  const receipt = 'RCP-' + crypto.randomBytes(5).toString('hex').toUpperCase();
-  const paidOn = todayIn(await institutionTimeZone(s));
-  const { rows } = await db.query(
-    `INSERT INTO tuition_fee (institution_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status, payment_date)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-    [s, receipt, student_id, total, paid, remaining, status, paidOn]
-  );
-  await auditAs(req, 'collect_fee', 'TuitionFee', receipt);
-  res.status(201).json(rows[0]);
+  // a one-off invoice for the amount, with what was paid at the counter recorded against it
+  const today = todayIn(await institutionTimeZone(s));
+  const inv = await withTransaction(async () => {
+    const created = await createAdhocInvoice(s, { studentId: student_id, title: 'Fee', lines: [{ head: 'Tuition', label: 'Fee', amount: total }], issueDate: today, dueDate: today, userId: currentUser(req).id });
+    const receipt = paid > 0 ? await recordPayment(created, { amount: paid, method: 'cash', receivedBy: currentUser(req).id }) : null;
+    return { ...(await loadInvoice(created.id, s)), receipt_id: receipt?.receipt_no ?? null };
+  });
+  await auditAs(req, 'collect_fee', 'Invoice', inv.number);
+  res.status(201).json({ ...inv, total_fee: inv.total, paid_amount: inv.paid, remaining_balance: (Number(inv.total) - Number(inv.paid)).toFixed(2) });
 });
 
 export default router;

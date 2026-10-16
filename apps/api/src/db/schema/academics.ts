@@ -433,20 +433,4 @@ export const studentPromotions = pgTable(
 
 
 
-export const examSchedule = pgTable(
-  'exam_schedule',
-  {
-    id: serial('id').primaryKey(),
-    institutionId: integer('institution_id').notNull(),
-    sectionId: integer('section_id'),
-    examName: text('exam_name').notNull(),
-    subject: text('subject').notNull(),
-    examDate: date('exam_date').notNull(),
-    timeSlot: text('time_slot').default(''),
-    totalMarks: integer('total_marks').default(100),
-  },
-  (t) => [
-    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'exam_schedule_institution_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.sectionId], foreignColumns: [sections.id], name: 'exam_schedule_section_id_fkey' }).onDelete('cascade'),
-  ]
-);
+

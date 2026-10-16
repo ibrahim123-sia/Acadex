@@ -48,6 +48,17 @@ export const PERMISSIONS = {
   'timetable.manage': 'Set up rooms, the bell schedule and the timetable; arrange substitutions',
   'surveys.manage': 'Run course evaluations, surveys and forms',
   'gamification.manage': 'Turn badges and points on and set them up',
+  'fees.setup': 'Set up fee structures, discounts and scholarships; generate and adjust invoices',
+  'fees.refund': 'Refund payments and waive fees',
+  'finance.reports': 'View finance reports, defaulters and reconciliation; export to Excel, Tally and QuickBooks',
+  'finance.expenses': 'Record expenses',
+  'payments.configure': 'Connect payment providers and the bank account shown on vouchers',
+  'exams.manage': 'Run the exams office: series, papers, seating, invigilation and admit cards',
+  'exams.moderate': 'Approve and moderate marks as head of department',
+  'exams.publish': 'Approve marks as exam controller and publish results',
+  'outcomes.manage': 'Set up program and course learning outcomes (PLO / CLO) and their mapping',
+  'admissions.manage': 'Run admissions: forms, applications, entrance tests, merit lists and offers',
+  'enquiries.manage': 'Track admission enquiries and follow-ups',
 
   // teaching (limited to the teacher's own sections)
   'teaching.access': 'Use the teacher workspace for assigned sections',
@@ -118,6 +129,17 @@ const INSTITUTION_ADMIN: Permission[] = [
   'surveys.manage',
   'gamification.manage',
   'content.import',
+  'fees.setup',
+  'fees.refund',
+  'finance.reports',
+  'finance.expenses',
+  'payments.configure',
+  'exams.manage',
+  'exams.moderate',
+  'exams.publish',
+  'outcomes.manage',
+  'admissions.manage',
+  'enquiries.manage',
 ];
 
 /** Built-in roles. Their keys match the users.role "primary role" values. */

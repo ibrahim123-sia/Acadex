@@ -216,7 +216,7 @@ export const quizItemsBody = z.object({
     .max(500),
 });
 export const answerBody = z.object({ question_id: id, response: z.unknown() });
-export const attemptEventBody = z.object({ kind: z.enum(['blur', 'focus', 'visibility_hidden', 'paste', 'fullscreen_exit']), data: z.record(z.string(), z.unknown()).optional() });
+export const attemptEventBody = z.object({ kind: z.enum(['blur', 'focus', 'visibility_hidden', 'paste', 'copy', 'fullscreen_exit', 'fullscreen_enter', 'context_menu']), data: z.record(z.string(), z.unknown()).optional() });
 export const manualGradeBody = z.object({
   answers: z.array(z.object({ question_id: id, points: points, feedback: text(5000).default('') })).min(1).max(500),
 });
@@ -395,3 +395,18 @@ export const awardBody = z.object({ student_id: id, offering_id: optionalId });
 
 export const importContentQuery = z.object({ format: z.enum(['imscc', 'mbz', 'qti', 'scorm']) });
 export const classroomImportBody = z.object({ course_ref: requiredText(200) });
+
+/** Secure exam mode for a quiz or online exam (the access code is stored hashed). */
+export const secureExamBody = z.object({
+  enabled: z.boolean().default(true),
+  /** a code the invigilator gives out in the room; '' keeps the current one, null removes it */
+  access_code: z.string().trim().min(4).max(40).nullable().optional(),
+  /** only from these networks (CIDR, e.g. 203.0.113.0/24 for the campus) */
+  ip_allowlist: z.array(z.string().trim().max(50)).max(20).default([]),
+  require_fullscreen: z.boolean().default(true),
+  /** one question at a time, no going back */
+  lock_navigation: z.boolean().default(false),
+  block_copy_paste: z.boolean().default(true),
+  /** hand in automatically after this many times leaving the exam (null: only log) */
+  max_violations: z.coerce.number().int().min(1).max(50).nullable().default(null),
+});

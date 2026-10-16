@@ -65,6 +65,20 @@ const schema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().default('mailto:admin@acadex.app'),
+  /** where payment providers send results (webhooks); defaults to APP_URL/api */
+  API_PUBLIC_URL: z.string().url().optional(),
+  /** text messages: none | log (printed) | fake (tests) | twilio */
+  SMS_DRIVER: z.enum(['none', 'log', 'fake', 'twilio']).default('log'),
+  /** WhatsApp: none | log | fake | twilio | meta (WhatsApp Cloud API) */
+  WHATSAPP_DRIVER: z.enum(['none', 'log', 'fake', 'twilio', 'meta']).default('log'),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_SMS_FROM: z.string().optional(),
+  TWILIO_WHATSAPP_FROM: z.string().optional(),
+  META_WHATSAPP_TOKEN: z.string().optional(),
+  META_WHATSAPP_PHONE_ID: z.string().optional(),
+  /** a pre-approved WhatsApp template for notices (Meta requires templates outside a 24h chat) */
+  META_WHATSAPP_TEMPLATE: z.string().default('acadex_notice'),
 });
 
 export interface Config {
@@ -98,6 +112,13 @@ export interface Config {
   jobsDriver: 'pgboss' | 'inline';
   jobsWorker: boolean;
   push: { driver: 'none' | 'webpush' | 'fake'; publicKey?: string; privateKey?: string; subject: string };
+  apiPublicUrl: string;
+  messaging: {
+    sms: 'none' | 'log' | 'fake' | 'twilio';
+    whatsapp: 'none' | 'log' | 'fake' | 'twilio' | 'meta';
+    twilio: { accountSid?: string; authToken?: string; smsFrom?: string; whatsappFrom?: string };
+    meta: { token?: string; phoneId?: string; template: string };
+  };
 }
 
 function parseKey(raw: string): Buffer | null {
@@ -128,6 +149,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     problems.push('  - COOKIE_SAMESITE=none requires COOKIE_SECURE=true');
   }
   if (c.STORAGE_DRIVER === 's3' && !c.S3_BUCKET) problems.push('  - S3_BUCKET: required when STORAGE_DRIVER=s3');
+  if ((c.SMS_DRIVER === 'twilio' || c.WHATSAPP_DRIVER === 'twilio') && (!c.TWILIO_ACCOUNT_SID || !c.TWILIO_AUTH_TOKEN)) {
+    problems.push('  - TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN: required when SMS_DRIVER or WHATSAPP_DRIVER is twilio');
+  }
+  if (c.WHATSAPP_DRIVER === 'meta' && (!c.META_WHATSAPP_TOKEN || !c.META_WHATSAPP_PHONE_ID)) {
+    problems.push('  - META_WHATSAPP_TOKEN / META_WHATSAPP_PHONE_ID: required when WHATSAPP_DRIVER=meta');
+  }
   if (c.PUSH_DRIVER === 'webpush' && (!c.VAPID_PUBLIC_KEY || !c.VAPID_PRIVATE_KEY)) {
     problems.push('  - VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY: required when PUSH_DRIVER=webpush (npx web-push generate-vapid-keys)');
   }
@@ -177,6 +204,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     jobsDriver: c.JOBS_DRIVER,
     jobsWorker: c.JOBS_WORKER,
     push: { driver: c.PUSH_DRIVER, publicKey: c.VAPID_PUBLIC_KEY, privateKey: c.VAPID_PRIVATE_KEY, subject: c.VAPID_SUBJECT },
+    apiPublicUrl: (c.API_PUBLIC_URL ?? `${c.APP_URL.replace(/\/+$/, '')}/api`).replace(/\/+$/, ''),
+    messaging: {
+      sms: c.SMS_DRIVER,
+      whatsapp: c.WHATSAPP_DRIVER,
+      twilio: { accountSid: c.TWILIO_ACCOUNT_SID, authToken: c.TWILIO_AUTH_TOKEN, smsFrom: c.TWILIO_SMS_FROM, whatsappFrom: c.TWILIO_WHATSAPP_FROM },
+      meta: { token: c.META_WHATSAPP_TOKEN, phoneId: c.META_WHATSAPP_PHONE_ID, template: c.META_WHATSAPP_TEMPLATE },
+    },
   };
 }
 

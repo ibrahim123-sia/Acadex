@@ -65,6 +65,14 @@ const INSTITUTION_TABLES = {
   terms: 'Term',
   guardians: 'Guardian',
   grading_schemes: 'Grading scheme',
+  fee_structures: 'Fee structure',
+  discounts: 'Discount',
+  rooms: 'Room',
+  files: 'File',
+  question_banks: 'Question bank',
+  exam_series: 'Exam series',
+  learning_outcomes: 'Outcome',
+  admission_forms: 'Admission form',
 } as const;
 export type InstitutionTable = keyof typeof INSTITUTION_TABLES;
 

@@ -5,10 +5,13 @@ import { courseResults } from '../lib/grading';
 import { db } from '../db/context';
 import { assertCanViewStudent } from '../lib/access';
 import { notFound } from '../lib/errors';
-import { formatDate, formatMoney } from '../lib/locale';
+import { formatDate } from '../lib/locale';
 import { institutionSettings } from '../lib/institution';
 import { ATTENDANCE_COUNTS_SQL } from '../lib/lms/student';
-import { auth, currentUser, requireInstitutionUser, institutionId } from '../middleware/auth';
+import { loadInvoice } from '../lib/finance/ledger';
+import { sendVoucherPdf } from '../lib/finance/pdf';
+import { auth, currentUser, requireInstitutionUser, institutionId, userCan } from '../middleware/auth';
+import { assertCanSeeFees } from './finance';
 
 const router = Router();
 // Institution-scoped documents; access is decided per student by assertCanViewStudent.
@@ -115,68 +118,15 @@ router.get('/report-card/:studentId', async (req, res) => {
   doc.end();
 });
 
-// Fee voucher/receipt PDF
+// Fee voucher PDF of an invoice (the same document as /api/finance/invoices/:id/voucher.pdf)
 router.get('/fee-voucher/:feeId', async (req, res) => {
-  const s = institutionId(req);
   const { feeId } = idParam('feeId').parse(req.params);
-  const f = (
-    await db.query(
-      `SELECT f.*, st.first_name||' '||st.last_name student, st.roll_no, c.name section_name
-         FROM tuition_fee f JOIN students st ON st.id=f.student_id LEFT JOIN sections c ON c.id=st.section_id
-        WHERE f.id=$1 AND f.institution_id=$2`,
-      [feeId, s]
-    )
-  ).rows[0];
-  if (!f) throw notFound('Fee record not found');
-  await assertCanViewStudent(currentUser(req), f.student_id, { allowTeachers: false, guardian: 'fees' });
-  const institution = await institutionSettings(s);
-  if (!institution) throw notFound('Fee record not found');
-  const accent = institution.primary_color || '#4F46E5';
-  const money = (n: string | number) => pdfSafe(formatMoney(n, institution.currency, institution.locale));
-
-  const doc = new PDFDocument({ margin: 50, size: 'A4' });
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `inline; filename="fee-voucher-${f.receipt_id}.pdf"`);
-  doc.pipe(res);
-
-  doc.rect(0, 0, doc.page.width, 90).fill(accent);
-  doc.fillColor('#fff').fontSize(22).text(institution.name, 50, 30);
-  doc.fontSize(12).fillColor('#e5e7eb').text('Fee Voucher / Receipt', 50, 60);
-
-  doc.fillColor('#374151').fontSize(11);
-  let y = 120;
-  // payment_date is a calendar date ('YYYY-MM-DD'), shown as-is
-  const paidOn = f.payment_date ? pdfSafe(formatDate(`${f.payment_date}T00:00:00Z`, { locale: institution.locale })) : '—';
-  doc.text(`Receipt #: ${f.receipt_id}`, 50, y);
-  doc.text(`Date: ${paidOn}`, 350, y);
-  y += 20;
-  doc.text(`Student: ${f.student}`, 50, y);
-  doc.text(`Roll No: ${f.roll_no || '—'}`, 350, y);
-  y += 20;
-  doc.text(`Class: ${f.section_name || '—'}`, 50, y);
-  y += 30;
-
-  doc.moveTo(50, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();
-  y += 20;
-  const row = (label: string, val: string, bold = false) => {
-    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(12).fillColor('#111827');
-    doc.text(label, 60, y);
-    doc.text(val, 400, y);
-    y += 26;
-  };
-  row('Total Fee', money(f.total_fee));
-  row('Paid Amount', money(f.paid_amount));
-  row('Remaining Balance', money(f.remaining_balance));
-  doc.moveTo(50, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();
-  y += 16;
-  row('Status', f.payment_status, true);
-
-  doc
-    .font('Helvetica')
-    .fontSize(9)
-    .fillColor('#9ca3af')
-    .text('This is a computer-generated voucher from Acadex.', 50, 760, { align: 'center', width: 495 });
-  doc.end();
+  const inv = await loadInvoice(feeId, institutionId(req)).catch(() => {
+    throw notFound('Fee record not found');
+  });
+  if (inv.student_id) await assertCanSeeFees(req, inv.student_id);
+  else if (!userCan(req, 'fees.read')) throw notFound('Fee record not found');
+  await sendVoucherPdf(res, inv.id, institutionId(req));
 });
 
 export default router;

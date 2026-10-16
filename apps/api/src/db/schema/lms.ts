@@ -338,6 +338,8 @@ export const assessments = pgTable(
     aiPolicy: text('ai_policy').notNull().default('allowed'),
     /** quizzes: { time_limit_minutes, shuffle_questions, shuffle_options, one_at_a_time, show_results } */
     quiz: jsonb('quiz'),
+    /** secure exam mode: { access_code_hash, ip_allowlist: [cidr], require_fullscreen, block_copy_paste, proctoring: null } */
+    secure: jsonb('secure'),
     /** grades become visible to students when released (manually or as each is graded) */
     releaseMode: text('release_mode').notNull().default('manual'),
     gradesReleasedAt: timestamp('grades_released_at', { withTimezone: true }),
@@ -604,6 +606,8 @@ export const quizAttempts = pgTable(
     /** the questions this student got, in order, with their option orders */
     layout: jsonb('layout').notNull(),
     ip: text('ip'),
+    /** one question at a time: the question the student is on (no going back) */
+    position: integer('position').notNull().default(0),
   },
   (t) => [
     tenant('quiz_attempts', t as never),

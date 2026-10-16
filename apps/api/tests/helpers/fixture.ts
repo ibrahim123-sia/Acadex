@@ -134,12 +134,17 @@ export async function resetDb() {
     );
   const teaches = (sid: number, tid: number, subid: number, cid: number) =>
     pool.query(`INSERT INTO section_staff (institution_id, teacher_id, offering_id, section_id) VALUES ($1,$2,$3,$4)`, [sid, tid, subid, cid]);
-  const fee = (sid: number, stid: number, receipt: string) =>
-    one(
-      `INSERT INTO tuition_fee (institution_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status)
-       VALUES ($1,$2,$3,1000,500,500,'Partial') RETURNING *`,
-      [sid, receipt, stid]
+  /** An invoice of 1000 with 500 paid (one payment), due in 30 days. */
+  const fee = async (sid: number, stid: number, receipt: string) => {
+    const inv = await one(
+      `INSERT INTO invoices (institution_id, number, student_id, title, issue_date, due_date, status, currency, total, paid, pay_token)
+       VALUES ($1,$2,$3,'Tuition fee',CURRENT_DATE,CURRENT_DATE + 30,'partially_paid','PKR',1000,500,$4) RETURNING *`,
+      [sid, receipt, stid, `fixture-pay-token-${receipt}`.padEnd(24, 'x')]
     );
+    await pool.query(`INSERT INTO invoice_items (institution_id, invoice_id, kind, head, label, amount) VALUES ($1,$2,'fee','Tuition','Tuition fee',1000)`, [sid, inv.id]);
+    await pool.query(`INSERT INTO payments (institution_id, invoice_id, student_id, receipt_no, amount, method) VALUES ($1,$2,$3,$4,500,'cash')`, [sid, inv.id, stid, `RCT-${receipt}`]);
+    return inv;
+  };
   /** A published assignment (100 points) in a course. */
   const assignment = (sid: number, _cid: number, subid: number, _tid: number, title: string) =>
     one(

@@ -22,8 +22,8 @@ router.get('/stats', requirePermission('platform.institutions.read'), async (_re
     db.query<{ c: number }>(`SELECT count(*)::int c FROM teachers`),
     // fee collections per currency — amounts in different currencies must never be added up
     db.query<{ currency: string; amount: string }>(
-      `SELECT sc.currency, SUM(f.paid_amount)::numeric amount
-         FROM tuition_fee f JOIN institutions sc ON sc.id=f.institution_id
+      `SELECT sc.currency, SUM(p.amount)::numeric amount
+         FROM payments p JOIN institutions sc ON sc.id=p.institution_id
         GROUP BY sc.currency ORDER BY amount DESC`
     ),
     db.query(

@@ -64,13 +64,13 @@ describe('row-level security', () => {
   });
 
   it('with no tenant set, tenant tables show nothing (fail closed)', async () => {
-    for (const t of ['students', 'tuition_fee', 'users', 'institutions', 'grades']) expect(await countIn({}, t), t).toBe(0);
+    for (const t of ['students', 'invoices', 'payments', 'users', 'institutions', 'grades']) expect(await countIn({}, t), t).toBe(0);
   });
 
   it('an institution sees only its own rows, even without a WHERE clause', async () => {
     const A = String(f.institutions.A.id);
     expect(await countIn({ 'app.institution_id': A }, 'students')).toBe(3);
-    expect(await countIn({ 'app.institution_id': A }, 'tuition_fee')).toBe(2);
+    expect(await countIn({ 'app.institution_id': A }, 'invoices')).toBe(2);
     expect(await countIn({ 'app.institution_id': A }, 'institutions')).toBe(1);
     expect(await countIn({ 'app.institution_id': String(f.institutions.B.id) }, 'students')).toBe(1);
   });
@@ -92,7 +92,7 @@ describe('row-level security', () => {
   it("updates and deletes cannot touch another institution's rows", async () => {
     const touched = await inTx({ 'app.institution_id': String(f.institutions.A.id) }, async (c) => {
       const u = await c.query(`UPDATE students SET first_name='Hacked' WHERE id=$1`, [f.students.SB.id]);
-      const d = await c.query(`DELETE FROM tuition_fee WHERE id=$1`, [f.fees.FB.id]);
+      const d = await c.query(`DELETE FROM invoices WHERE id=$1`, [f.fees.FB.id]);
       return [u.rowCount, d.rowCount];
     });
     expect(touched).toEqual([0, 0]);

@@ -7,7 +7,6 @@ import {
   index,
   integer,
   jsonb,
-  numeric,
   pgTable,
   serial,
   text,
@@ -35,27 +34,7 @@ export const teacherAttendance = pgTable(
   ]
 );
 
-export const tuitionFee = pgTable(
-  'tuition_fee',
-  {
-    id: serial('id').primaryKey(),
-    institutionId: integer('institution_id').notNull(),
-    receiptId: text('receipt_id').notNull(),
-    studentId: integer('student_id').notNull(),
-    totalFee: numeric('total_fee', { precision: 10, scale: 2 }).notNull(),
-    paidAmount: numeric('paid_amount', { precision: 10, scale: 2 }).default(sql`0`).notNull(),
-    remainingBalance: numeric('remaining_balance', { precision: 10, scale: 2 }).default(sql`0`).notNull(),
-    paymentDate: date('payment_date').default(sql`CURRENT_DATE`),
-    paymentStatus: text('payment_status').default('Pending').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-  },
-  (t) => [
-    index('idx_fee_institution').on(t.institutionId),
-    foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'tuition_fee_institution_id_fkey' }).onDelete('cascade'),
-    foreignKey({ columns: [t.studentId], foreignColumns: [students.id], name: 'tuition_fee_student_id_fkey' }).onDelete('cascade'),
-    check('tuition_fee_payment_status_check', sql`${t.paymentStatus} = ANY (ARRAY['Paid'::text, 'Partial'::text, 'Pending'::text])`),
-  ]
-);
+
 
 export const announcements = pgTable(
   'announcements',

@@ -24,6 +24,7 @@ import { db, withTransaction } from '../db/context';
 import { assertInInstitution } from '../lib/access';
 import { checkCustomData } from '../lib/custom-fields';
 import { HttpError, badRequest, conflict, forbidden, notFound } from '../lib/errors';
+import { feeStatusSql } from '../lib/finance/summary';
 import { parsePage, sendPage } from '../lib/pagination';
 import { softDelete } from '../lib/soft-delete';
 import { assertCampusAllowed, assertSectionWritable, campusClause, campusOfSection, campusesFor, isUniqueViolation } from '../lib/structure';
@@ -101,8 +102,7 @@ router.get('/students', requirePermission('students.read'), async (req, res) => 
   const { rows } = await db.query(
     `SELECT st.id, st.roll_no, st.first_name, st.last_name, st.email, st.gender, st.age, st.status, st.section_id,
             c.name section_name, c.label section_label, c.campus_id, cm.name campus_name, (st.photo_file_id IS NOT NULL) has_photo,
-            COALESCE((SELECT payment_status FROM tuition_fee f WHERE f.student_id = st.id AND f.institution_id = st.institution_id
-                      ORDER BY id DESC LIMIT 1), '—') fee_status,
+            ${feeStatusSql('st.id')} fee_status,
             u.id user_id, (u.id IS NOT NULL AND u.password_hash IS NULL) invite_pending,
             count(*) OVER() _total
        FROM students st LEFT JOIN sections c ON c.id = st.section_id LEFT JOIN campuses cm ON cm.id = c.campus_id

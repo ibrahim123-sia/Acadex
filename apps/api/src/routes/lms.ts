@@ -1,4 +1,4 @@
-// Everything the LMS adds under /api: authentication runs once here for all of it. Package
+// Everything the LMS (and the finance office) adds under /api: authentication runs once here for all of it. Package
 // files (SCORM) are served before it, under their own launch tokens.
 import { Router } from 'express';
 import { auth, requireInstitutionUser } from '../middleware/auth';
@@ -7,6 +7,7 @@ import attendance from './attendance';
 import content, { scormContentRouter } from './content';
 import courses from './courses';
 import engage from './engage';
+import finance from './finance';
 import gradebook from './gradebook';
 import quizzes from './quizzes';
 import timetable from './timetable';
@@ -14,6 +15,6 @@ import timetable from './timetable';
 const lms = Router();
 lms.use(scormContentRouter);
 lms.use(auth, requireInstitutionUser);
-for (const r of [courses, assessments, quizzes, gradebook, attendance, timetable, engage, content]) lms.use(r);
+for (const r of [courses, assessments, quizzes, gradebook, attendance, timetable, engage, content, finance]) lms.use(r);
 
 export default lms;

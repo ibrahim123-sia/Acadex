@@ -95,10 +95,10 @@ describe('teacher grade input', () => {
 
 describe('admin writes', () => {
   it('cannot record a fee for a student of another institution', async () => {
-    const before = await count('tuition_fee');
+    const before = await count('invoices');
     const res = await as(f.tokens.adminA).post('/api/institution/fees', { student_id: f.students.SB.id, total_fee: 100, paid_amount: 0 });
     expect(res.status).toBe(400);
-    expect(await count('tuition_fee')).toBe(before);
+    expect(await count('invoices')).toBe(before);
   });
 
   it('cannot record a payment larger than the fee or a negative amount', async () => {

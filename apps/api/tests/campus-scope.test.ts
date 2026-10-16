@@ -24,7 +24,13 @@ beforeAll(async () => {
   northStudent = (
     await q(`INSERT INTO students (institution_id, section_id, first_name, last_name, email) VALUES ($1,$2,'Nida','N','nida@alpha.test') RETURNING id`, [A.id, northSection.id])
   ).rows[0];
-  await q(`INSERT INTO tuition_fee (institution_id, receipt_id, student_id, total_fee, paid_amount, remaining_balance, payment_status) VALUES ($1,'RCP-N1',$2,800,800,0,'Paid')`, [A.id, northStudent.id]);
+  const inv = (
+    await q(
+      `INSERT INTO invoices (institution_id, number, student_id, title, issue_date, due_date, status, currency, total, paid) VALUES ($1,'INV-N1',$2,'Tuition fee',CURRENT_DATE,CURRENT_DATE,'paid','PKR',800,800) RETURNING id`,
+      [A.id, northStudent.id]
+    )
+  ).rows[0];
+  await q(`INSERT INTO payments (institution_id, invoice_id, student_id, receipt_no, amount, method) VALUES ($1,$2,$3,'RCP-N1',800,'cash')`, [A.id, inv.id, northStudent.id]);
   // a "Branch principal" role granted only at the North campus
   const role = (await q(`INSERT INTO roles (institution_id, key, name, scope_type) VALUES ($1,'principal','Branch principal','institution') RETURNING id`, [A.id])).rows[0];
   await q(`INSERT INTO role_permissions (role_id, permission) SELECT $1, unnest($2::text[])`, [

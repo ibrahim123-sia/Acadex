@@ -103,6 +103,8 @@ export async function setup() {
   process.env.NODE_ENV = 'test';
   process.env.JOBS_DRIVER = 'inline';
   process.env.PUSH_DRIVER = 'fake';
+  process.env.SMS_DRIVER = 'fake';
+  process.env.WHATSAPP_DRIVER = 'fake';
 }
 
 export async function teardown() {
