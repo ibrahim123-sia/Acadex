@@ -135,14 +135,22 @@ function CourseTab() {
   const clos = useQuery({ queryKey: ['/outcomes', 'course', cls?.course_id], queryFn: () => api.get<Outcome[]>('/outcomes', { course_id: cls!.course_id }), enabled: !!cls });
   const work = useQuery({ queryKey: ['/courses/assessments', offering], queryFn: () => api.get<{ id: number; title: string; kind: string; points: string }[]>(`/courses/${offering}/assessments`), enabled: !!offering });
   const aligned = useQuery({ queryKey: ['/outcomes/alignments', offering], queryFn: () => api.get<{ clo_id: number; target_type: string; target_id: number }[]>('/outcomes/alignments', { offering_id: offering }), enabled: !!offering });
+  const banks = useQuery({ queryKey: ['/question-banks', cls?.course_id], queryFn: () => api.get<{ id: number; name: string; course_id: number | null }[]>('/question-banks', { course_id: cls!.course_id }), enabled: !!cls });
+  const courseBanks = (banks.data ?? []).filter((b) => b.course_id === cls?.course_id);
+  const questions = useQuery({
+    queryKey: ['/question-banks/questions', courseBanks.map((b) => b.id)],
+    queryFn: async () => (await Promise.all(courseBanks.map((b) => api.get<{ id: number; prompt_html: string; type: string }[]>(`/question-banks/${b.id}/questions`)))).flat(),
+    enabled: courseBanks.length > 0,
+  });
   const att = useQuery({ queryKey: ['/outcomes/attainment', offering], queryFn: () => api.get<{ clos: Attainment[] }>(`/outcomes/attainment/offering/${offering}`), enabled: !!offering });
   const [dlg, setDlg] = useState<Outcome | 'new' | null>(null);
   const remove = useMutation({ mutationFn: (id: number) => api.delete(`/outcomes/${id}`), onSuccess: () => invalidate('/outcomes') });
   const align = useMutation({
-    mutationFn: ({ target, cloIds }: { target: number; cloIds: number[] }) => api.put('/outcomes/alignments', { target_type: 'assessment', target_id: target, clo_ids: cloIds }),
+    mutationFn: ({ target, cloIds, type = 'assessment' }: { target: number; cloIds: number[]; type?: 'assessment' | 'question' }) => api.put('/outcomes/alignments', { target_type: type, target_id: target, clo_ids: cloIds }),
     onSuccess: async () => { await invalidate('/outcomes'); toast('success', t('common.saved', 'Saved')); },
   });
-  const cloIdsFor = (target: number) => (aligned.data ?? []).filter((a) => a.target_type === 'assessment' && a.target_id === target).map((a) => a.clo_id);
+  const cloIdsFor = (target: number, type = 'assessment') => (aligned.data ?? []).filter((a) => a.target_type === type && a.target_id === target).map((a) => a.clo_id);
+  const plain = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90);
   return (
     <div className="space-y-4">
       <Field label={t('obe.pickClass', 'Course and class')}>
@@ -187,6 +195,28 @@ function CourseTab() {
                     })}
                   </tbody>
                 </table>
+              )}
+              {(questions.data?.length ?? 0) > 0 && (
+                <>
+                  <h4 className="mb-1 mt-5 text-sm font-semibold">{t('obe.questions', 'Quiz questions')}</h4>
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-border">
+                      {questions.data!.map((qq) => {
+                        const ids = cloIdsFor(qq.id, 'question');
+                        return (
+                          <tr key={qq.id}>
+                            <td className="py-1.5">{plain(qq.prompt_html)}</td>
+                            {clos.data!.map((c) => (
+                              <td key={c.id} className="px-2 text-center">
+                                <input type="checkbox" aria-label={`${plain(qq.prompt_html)} → ${c.code}`} checked={ids.includes(c.id)} onChange={(e) => align.mutate({ target: qq.id, type: 'question', cloIds: e.target.checked ? [...ids, c.id] : ids.filter((x) => x !== c.id) })} />
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </>
               )}
               <MutationError error={align.error} />
             </Card>

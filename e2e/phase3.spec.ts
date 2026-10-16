@@ -42,10 +42,15 @@ async function signIn(page: Page, email: string) {
 const db = () => new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: true } });
 
 test('fee cycle: a guardian pays online, the office sees the receipt and reconciles it', async ({ page, browser, request }) => {
+  // each run bills the demo guardian's child a small one-off fee to pay
   const parent = await apiAs(request, PARENT);
-  const mine = await parent.get<{ students: { name: string; invoices: { id: number; number: string; balance: string }[] }[] }>('/finance/my');
-  const invoice = mine.students.flatMap((s) => s.invoices).find((i) => Number(i.balance) > 0);
-  expect(invoice, 'the demo guardian has something to pay').toBeTruthy();
+  const admin = await apiAs(request, ADMIN);
+  const mine = await parent.get<{ students: { student_id: number }[] }>('/finance/my');
+  const due = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const made = await admin.post<{ ids: number[] }>('/finance/invoices', { student_ids: [mine.students[0]!.student_id], title: `E2E trip ${Date.now()}`, due_date: due, lines: [{ head: 'Trip', label: 'Museum trip', amount: 750 }] });
+  const fresh = await parent.get<{ students: { invoices: { id: number; number: string }[] }[] }>('/finance/my');
+  const invoice = fresh.students.flatMap((x) => x.invoices).find((i) => i.id === made.ids[0]);
+  expect(invoice).toBeTruthy();
 
   // ---- the guardian pays from their fees page
   await signIn(page, PARENT);
@@ -107,13 +112,16 @@ test('exam cycle: a paper is set, marked, approved, published and seen by the st
   const office = await browser.newPage({ viewport: page.viewportSize() ?? undefined });
   await signIn(office, ADMIN);
   await office.goto(`/exams/marks/${paper.id}`);
-  for (let i = 0; i < 2; i++) {
-    const approve = office.getByRole('button', { name: 'Approve' });
-    if (!(await approve.isVisible())) break;
+  const approve = office.getByRole('button', { name: 'Approve' });
+  await expect(approve).toBeVisible();
+  await approve.click();
+  // with a head of department the first approval is theirs (the admin may moderate), then the controller's
+  const after = office.getByText(/^(HOD approved|Approved)$/).first();
+  await expect(after).toBeVisible();
+  if ((await after.textContent()) === 'HOD approved') {
     await approve.click();
-    await office.waitForTimeout(500);
+    await expect(office.getByText('Approved', { exact: true }).first()).toBeVisible();
   }
-  await expect(office.getByText('Approved').first()).toBeVisible();
   await office.goto(`/exams/office/${series.id}#results`);
   await office.getByRole('button', { name: 'Publish results' }).click();
   await expect(office.getByRole('button', { name: 'Withdraw results' })).toBeVisible();

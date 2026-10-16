@@ -701,6 +701,7 @@ export function MyExamsPage() {
                   <ul className="grid gap-1 text-sm sm:grid-cols-2">{r.papers.map((p) => <li key={p.course} className="flex justify-between"><span>{p.course}</span><span className={p.passed ? '' : 'text-danger'}>{p.obtained}/{p.total} · {p.grade}</span></li>)}</ul>
                 </Card>
               ))}
+              <Mastery studentId={k.student_id} />
               <div className="flex flex-wrap gap-2">
                 <DownloadButton path={`/exams/transcript/${k.student_id}.pdf`} filename="transcript.pdf">{t('exams.transcript', 'Transcript')}</DownloadButton>
                 <DownloadButton path={`/outcomes/students/${k.student_id}/skills.pdf`} filename="skills.pdf">{t('exams.skills', 'Skills transcript')}</DownloadButton>
@@ -710,5 +711,36 @@ export function MyExamsPage() {
         </div>
       )}
     </>
+  );
+}
+
+interface MasteryData {
+  courses: { course: string; clos: { code: string; description: string; percent: number | null; attained: boolean | null }[] }[];
+  programs: { code: string; description: string; percent: number | null; attained: boolean | null }[];
+}
+
+/** Skills: how far the student has reached each course and program outcome (released grades). */
+function Mastery({ studentId }: { studentId: number }) {
+  const { t } = useTranslation();
+  const q = useQuery({ queryKey: ['/outcomes/students', studentId], queryFn: () => api.get<MasteryData>(`/outcomes/students/${studentId}`) });
+  const rows = [...(q.data?.programs ?? []).map((p) => ({ group: t('obe.programOutcomes', 'Program outcomes'), ...p })), ...(q.data?.courses ?? []).flatMap((c) => c.clos.map((o) => ({ group: c.course, ...o })))].filter((r) => r.percent != null);
+  if (!rows.length) return null;
+  return (
+    <Card className="p-4">
+      <h3 className="mb-3 font-semibold">{t('exams.skills', 'Skills')}</h3>
+      <ul className="space-y-2">
+        {rows.map((r, i) => (
+          <li key={i} className="text-sm">
+            <div className="flex justify-between gap-2">
+              <span><span className="font-medium">{r.code}</span> <span className="text-fg-muted">· {r.group} · {r.description}</span></span>
+              <span className="tabular-nums">{r.percent}%</span>
+            </div>
+            <div className="mt-1 h-2 rounded bg-surface-2">
+              <div className={`h-2 rounded ${r.attained ? 'bg-success' : 'bg-warning'}`} style={{ width: `${Math.min(100, r.percent ?? 0)}%` }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

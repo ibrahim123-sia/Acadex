@@ -4,10 +4,10 @@ import { expect, test, type Page } from '@playwright/test';
 
 const PASSWORD = 'Acadex@123';
 const ROLES: { email: string; pages: string[] }[] = [
-  { email: 'ali.sheikh.t0@greenwood.edu', pages: ['/teacher', '/teach', '/attendance', '/attendance/leave', '/timetable', '/calendar', '/announcements', '/notifications', '/surveys'] },
-  { email: 'ali.butt.s0@greenwood.edu', pages: ['/student', '/learn', '/attendance', '/attendance/checkin', '/learn/achievements', '/timetable', '/calendar'] },
-  { email: 'parent1@greenwood.edu', pages: ['/parent', '/learn', '/timetable', '/attendance/leave'] },
-  { email: 'admin@greenwood.edu', pages: ['/admin', '/teach', '/attendance', '/attendance/staff', '/timetable', '/admin/blueprints', '/announcements'] },
+  { email: 'ali.sheikh.t0@greenwood.edu', pages: ['/teacher', '/teach', '/attendance', '/attendance/leave', '/timetable', '/calendar', '/announcements', '/notifications', '/surveys', '/exams/marks', '/outcomes'] },
+  { email: 'ali.butt.s0@greenwood.edu', pages: ['/student', '/learn', '/attendance', '/attendance/checkin', '/learn/achievements', '/timetable', '/calendar', '/fees', '/exams/me'] },
+  { email: 'parent1@greenwood.edu', pages: ['/parent', '/learn', '/timetable', '/attendance/leave', '/fees', '/exams/me'] },
+  { email: 'admin@greenwood.edu', pages: ['/admin', '/teach', '/attendance', '/attendance/staff', '/timetable', '/admin/blueprints', '/announcements', '/finance', '/exams/office', '/admissions', '/outcomes'] },
 ];
 
 async function signIn(page: Page, email: string) {

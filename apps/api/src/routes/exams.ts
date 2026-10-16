@@ -570,13 +570,16 @@ router.put('/exams/sessions/:id/marks', async (req, res) => {
   if (bad.length) throw badRequest('Some students do not sit this paper', { student_ids: bad.map((x) => x.student_id) });
   const over = b.marks.filter((m) => m.marks != null && m.marks > total);
   if (over.length) throw badRequest(`Marks above the total of ${total}`, { student_ids: over.map((x) => x.student_id) });
-  for (const m of b.marks) {
-    await db.query(
-      `INSERT INTO exam_marks (institution_id, session_id, student_id, marks, absent, remarks, entered_by, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7, now())
-       ON CONFLICT ON CONSTRAINT exam_marks_session_id_student_id_key DO UPDATE SET marks = EXCLUDED.marks, absent = EXCLUDED.absent, remarks = EXCLUDED.remarks, entered_by = EXCLUDED.entered_by, updated_at = now()`,
-      [s.institution_id, s.id, m.student_id, m.absent ? null : (m.marks ?? null), m.absent, m.remarks, currentUser(req).id]
-    );
-  }
+  // the whole grid in one statement
+  const latest = new Map(b.marks.map((m) => [m.student_id, m]));
+  const rows = [...latest.values()];
+  await db.query(
+    `INSERT INTO exam_marks (institution_id, session_id, student_id, marks, absent, remarks, entered_by, updated_at)
+     SELECT $1, $2, x.student_id, CASE WHEN x.absent THEN NULL ELSE x.marks END, x.absent, x.remarks, $3, now()
+       FROM unnest($4::int[], $5::numeric[], $6::boolean[], $7::text[]) AS x(student_id, marks, absent, remarks)
+     ON CONFLICT ON CONSTRAINT exam_marks_session_id_student_id_key DO UPDATE SET marks = EXCLUDED.marks, absent = EXCLUDED.absent, remarks = EXCLUDED.remarks, entered_by = EXCLUDED.entered_by, updated_at = now()`,
+    [s.institution_id, s.id, currentUser(req).id, rows.map((m) => m.student_id), rows.map((m) => m.marks ?? null), rows.map((m) => m.absent), rows.map((m) => m.remarks)]
+  );
   if (s.status === 'scheduled') await log(s, req, 'open', 'marks_entry');
   res.json({ saved: b.marks.length });
 });
@@ -664,16 +667,16 @@ router.post('/exams/series/:id/publish', requirePermission('exams.publish'), asy
         aid = rows[0]!.id;
         await db.query(`UPDATE exam_sessions SET assessment_id = $2 WHERE id = $1`, [s.id, aid]);
       }
-      const { rows: marks } = await db.query<{ student_id: number; marks: string | null; absent: boolean; adjustment: string }>(`SELECT student_id, marks, absent, adjustment FROM exam_marks WHERE session_id = $1`, [s.id]);
-      for (const m of marks) {
-        students.add(m.student_id);
-        const points = m.absent || m.marks == null ? 0 : Math.min(Number(s.total_marks), Number(m.marks) + Number(m.adjustment));
-        await db.query(
-          `INSERT INTO grades (institution_id, assessment_id, student_id, points, missing, status, graded_at, released_at, updated_at) VALUES ($1,$2,$3,$4,$5,'released',now(),now(),now())
-           ON CONFLICT ON CONSTRAINT grades_assessment_id_student_id_key DO UPDATE SET points = EXCLUDED.points, missing = EXCLUDED.missing, status = 'released', released_at = COALESCE(grades.released_at, now()), updated_at = now()`,
-          [inst, aid, m.student_id, points, m.absent]
-        );
-      }
+      // every candidate's grade in one statement (a remote database makes row-by-row slow)
+      const { rows: graded } = await db.query<{ student_id: number }>(
+        `INSERT INTO grades (institution_id, assessment_id, student_id, points, missing, status, graded_at, released_at, updated_at)
+         SELECT $1, $2, m.student_id, CASE WHEN m.absent OR m.marks IS NULL THEN 0 ELSE LEAST($4::numeric, m.marks + m.adjustment) END, m.absent, 'released', now(), now(), now()
+           FROM exam_marks m WHERE m.session_id = $3
+         ON CONFLICT ON CONSTRAINT grades_assessment_id_student_id_key DO UPDATE SET points = EXCLUDED.points, missing = EXCLUDED.missing, status = 'released', released_at = COALESCE(grades.released_at, now()), updated_at = now()
+         RETURNING student_id`,
+        [inst, aid, s.id, s.total_marks]
+      );
+      for (const g of graded) students.add(g.student_id);
     }
     await db.query(`UPDATE exam_series SET status = 'published', published_at = now(), published_by = $2 WHERE id = $1`, [series.id, currentUser(req).id]);
   });
