@@ -1017,6 +1017,9 @@ async function seedAll() {
   );
   for (const c of counts) console.log(`  ${c.slug.padEnd(11)} ${c.students} students, ${c.staff} staff, ${c.sections} sections`);
   void [greenwood, sunrise, northfield, skillforge];
+  // early-warning scores for today, so Student success has something to show
+  const { computeRisk } = await import('../ai/risk');
+  for (const i of await q(`SELECT id, timezone FROM institutions`)) await computeRisk(i.id, todayIn(i.timezone));
   console.log(`SEED DONE. Password for all demo users: ${PW}`);
 }
 

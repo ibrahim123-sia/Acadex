@@ -75,8 +75,13 @@ function TutorChat({ convId, courseId }: { convId: number; courseId: number }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => setMsgs(q.data?.messages ?? []), [q.data]);
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [msgs]);
+  useEffect(() => {
+    setMsgs(q.data?.messages ?? []);
+  }, [q.data]);
+  // newer browsers return a promise from scrollIntoView: the effect must not return it
+  useEffect(() => {
+    void end.current?.scrollIntoView({ block: 'end' });
+  }, [msgs]);
   const send = async () => {
     const content = text.trim();
     if (!content || busy) return;
@@ -140,7 +145,7 @@ function TutorChat({ convId, courseId }: { convId: number; courseId: number }) {
           void send();
         }}
       >
-        <Input aria-label={t('ai.askTutor', 'Ask the tutor')} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('ai.askPlaceholder', 'Ask about the course… (any language)')} disabled={busy} />
+        <Input aria-label={t('ai.yourQuestion', 'Your question')} value={text} onChange={(e) => setText(e.target.value)} placeholder={t('ai.askPlaceholder', 'Ask about the course… (any language)')} disabled={busy} />
         <Button type="submit" size="icon" aria-label={t('ai.send', 'Send')} loading={busy}>
           <Send className="size-4" />
         </Button>
@@ -293,7 +298,9 @@ export function ProposalView({ id, onDone }: { id: number; onDone: (applied: boo
   const [editing, setEditing] = useState(false);
   const [json, setJson] = useState('');
   const [jsonErr, setJsonErr] = useState('');
-  useEffect(() => setJson(q.data ? JSON.stringify(q.data.proposal, null, 2) : ''), [q.data]);
+  useEffect(() => {
+    setJson(q.data ? JSON.stringify(q.data.proposal, null, 2) : '');
+  }, [q.data]);
   const apply = useMutation({
     mutationFn: () => {
       let edited: unknown;

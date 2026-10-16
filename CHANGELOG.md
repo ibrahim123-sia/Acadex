@@ -1,5 +1,36 @@
 # Changelog
 
+## Phase 4 — The AI layer (2026-10-16)
+
+AI that helps people learn instead of doing the work for them — every feature can be switched
+off, logs its usage and cost, labels its output, and changes nothing until a person approves.
+Details: [docs/ai.md](docs/ai.md).
+
+- **Foundation**: Anthropic, OpenAI, Gemini and Groq behind one interface, a model per
+  feature, an institution's own key, usage and cost per call, monthly budgets with a hard cap,
+  off switches per server / institution / feature / course / assessment, an admin page that
+  shows which model does what and what it costs.
+- **Course knowledge base**: pages, PDFs, Word files, assessment briefs and transcripts,
+  indexed incrementally for search and the tutor.
+- **Coach-don't-answer tutor**: grounded in the course and cited, Socratic, follows each
+  work's AI policy, safer for under-18s, answers in Urdu or Arabic too, streams; teachers see
+  anonymous stuck points.
+- **Teacher copilot** (approve before apply): quiz questions tagged with difficulty and CLO,
+  rubrics, course outlines, lesson plans, easier / harder / translated versions, feedback
+  drafts, report-card comments, guardian messages, plain-language bulk actions.
+- **Grading assistant**: rubric scores with reasoning, saved only as drafts marked
+  AI-assisted.
+- **Learning-process evidence**: drafts, writing time, pasting, similarity within the class,
+  "explain your work" mini-viva — never an AI-detection percentage.
+- **Early warning**: nightly explainable risk scores, at-risk list, interventions, guardian
+  alerts, suggested next steps.
+- **Ask Acadex**: questions about your own data answered with a read-only query you can see.
+- **Help assistant** and help center; **captions and translations** for course videos.
+- **Safety**: moderation in English, Urdu and Arabic, prompt-injection and answer-leak guards,
+  personal data removed before sending, and an eval suite of 116 cases in CI.
+- **Fix**: course materials, submissions, feedback files and SCORM packages could not be saved
+  (the files purpose check was too narrow); migration 0018.
+
 ## Phase 3 — Exams, finance and admissions (2026-10-16)
 
 A full fee cycle (invoice → online payment → receipt → reconciliation) and a full exam cycle

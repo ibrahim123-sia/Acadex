@@ -56,6 +56,14 @@ and moderation, published results with positions or SGPA, merit lists, result ca
 verifiable transcript. **Outcome-based education**: CLOs, PLOs, mapping, attainment and
 accreditation reports, skills transcripts.
 
+**AI that coaches** — a tutor that answers from the course's own material with sources,
+gives hints instead of answers (following each assignment's AI policy), and speaks Urdu; a
+teacher copilot whose drafts (quizzes, rubrics, lesson plans, feedback, report comments,
+"extend this by two days") are applied only on approval; grading suggestions kept as
+drafts; evidence of how work was written instead of AI detection; nightly early-warning
+scores with interventions; Ask Acadex for questions about your own data; captions; a help
+assistant — with budgets, usage and cost, and off switches everywhere ([docs/ai.md](docs/ai.md)).
+
 **Admissions** — branded online application forms with documents and an application fee,
 an enquiry tracker with follow-ups, online or in-hall entrance tests, merit lists, offers
 and a waiting list, and one-click enrolment with guardian and portal accounts.

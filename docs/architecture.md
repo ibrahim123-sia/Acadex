@@ -124,6 +124,12 @@ fee, online test), `applications` (a hashed private token, status, test, merit, 
 
 `audit_log` records every change to money, exams, outcomes and admissions (triggers).
 
+AI (Phase 4; `schema/ai.ts`, code in `src/ai/`, see [ai.md](ai.md)): `ai_usage` (every call,
+tokens and cost), `ai_provider_keys` (sealed), `kb_chunks` (course material and help, with
+`real[]` embeddings and a full-text index), `ai_conversations` → `ai_messages`, `ai_actions`
+(copilot proposals), `submission_activity`, `viva_sessions`, `risk_scores`, `interventions`,
+`media_transcripts`, `report_comments`; the read-only `ask_*` views for Ask Acadex.
+
 Who may do what in a course is decided in one place, `lib/lms/access.ts`: staff (assigned
 teachers, or holders of `courses.manage_any`), students (the roster: the whole section, or
 enrolled for open courses) and guardians (linked to a student on the roster; released

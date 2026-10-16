@@ -128,6 +128,16 @@ and an approved template `META_WHATSAPP_TEMPLATE` with one text parameter). Loca
 The `fees.daily` job (03:00 UTC) charges late fines and sends the day's reminders for every
 institution, each once per invoice, step and channel.
 
+## AI
+
+Set one provider key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` or
+`GROQ_API_KEY`); `AI_PROVIDER=auto` uses the first one found, else the offline fake
+provider. Embeddings and captions need an OpenAI or Gemini key (OpenAI for captions);
+without one, search uses local embeddings and captions are placeholders. `AI_DISABLED=true`
+turns every AI feature off. Budgets: `AI_BUDGET_FREE_USD`, `AI_BUDGET_PRO_USD`,
+`AI_BUDGET_ENTERPRISE_USD` (per month; institutions can set a lower cap). Spend is in
+`ai_usage`. The `risk.nightly` job (01:30 UTC) scores students for early warning.
+
 ## End-to-end tests
 
 `npm run e2e` runs the Playwright journeys against the dev servers and the database in
