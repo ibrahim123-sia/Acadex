@@ -74,6 +74,21 @@ jobs:
       - run: npm test -w @acadex/web
       - run: npm run build -w @acadex/web
 
+  cloudflare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix cloudflare
+      - run: npm run typecheck --prefix cloudflare
+      - name: The Worker config and bundle are valid (nothing is deployed)
+        working-directory: cloudflare
+        run: |
+          mkdir -p ../apps/web/dist
+          npx wrangler deploy --dry-run --containers-rollout=none --outdir ../.wrangler-dry
+
   images:
     runs-on: ubuntu-latest
     steps:

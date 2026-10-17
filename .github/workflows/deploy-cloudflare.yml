@@ -1,0 +1,52 @@
+# Deploy Acadex to Cloudflare (Worker + web assets + API container). Runs only when started by
+# hand: GitHub → Actions → "Deploy to Cloudflare" → Run workflow. See docs/cloudflare.md.
+#
+# Repository secrets it needs (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   an API token with "Workers Scripts: Edit", "Containers: Edit" and
+#                          "Workers R2 Storage: Edit" on your account
+#   CLOUDFLARE_ACCOUNT_ID  your account id
+# The app's own secrets (DATABASE_URL, JWT_SECRET, …) live in Cloudflare (wrangler secret put),
+# not in GitHub.
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to deploy
+        required: true
+        default: main
+
+concurrency:
+  group: deploy-cloudflare
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix cloudflare
+      - name: Typecheck the Worker
+        run: npm run typecheck --prefix cloudflare
+      - name: Build the web app
+        run: npm run build -w @acadex/web
+      - name: Deploy (builds apps/api/Dockerfile and rolls out the container)
+        working-directory: cloudflare
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
