@@ -264,10 +264,10 @@ describe('live-class providers', () => {
     const starts = new Date(Date.now() + 3600_000).toISOString();
     expect((await t1.post(`/api/courses/${course}/live`, { title: 'Algebra', provider: 'zoom', starts_at: starts })).status).toBe(400);
     expect((await t1.put('/api/integrations/live', { provider: 'zoom', account_id: 'a', client_id: 'c', client_secret: 's' })).status).toBe(403);
-    expect((await admin.put('/api/integrations/live', { provider: 'zoom', account_id: 'acc', client_id: 'cid', client_secret: 'zoom-secret', webhook_secret: 'hook-secret' })).status).toBe(200);
+    expect((await admin.put('/api/integrations/live', { provider: 'zoom', account_id: 'acc', client_id: 'cid', client_secret: 'test-zoom-secret', webhook_secret: 'test-hook-secret' })).status).toBe(200);
     expect((await admin.put('/api/integrations/live', { provider: 'meet', client_email: 'sa@x.iam', private_key: 'nope', organizer: 'o@x.com' })).status).toBe(400);
     const list = await admin.get('/api/integrations/live');
-    expect(JSON.stringify(list.body)).not.toMatch(/zoom-secret|hook-secret/);
+    expect(JSON.stringify(list.body)).not.toMatch(/test-zoom-secret|test-hook-secret/);
     expect(list.body.find((p) => p.provider === 'zoom')).toMatchObject({ connected: true, has_secret: true });
     const r = await t1.post(`/api/courses/${course}/live`, { title: 'Algebra', provider: 'zoom', starts_at: starts });
     expect(r.status, JSON.stringify(r.body)).toBe(201);
@@ -283,7 +283,7 @@ describe('live-class providers', () => {
   it('Zoom webhooks: URL validation, signature check, joins mark attendance, recordings are saved', async () => {
     const inst = f.institutions.A.id;
     const live = (await q(`SELECT id, external_id FROM live_sessions WHERE provider = 'zoom' ORDER BY id DESC LIMIT 1`))[0];
-    const post = (body: unknown, secret = 'hook-secret') => {
+    const post = (body: unknown, secret = 'test-hook-secret') => {
       const raw = JSON.stringify(body);
       const ts = String(Math.floor(Date.now() / 1000));
       return request(app).post(`/api/integrations/zoom/webhook/${inst}`).set('Content-Type', 'application/json').set('x-zm-request-timestamp', ts).set('x-zm-signature', zoomSignature(secret, ts, raw)).send(raw);
