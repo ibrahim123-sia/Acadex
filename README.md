@@ -5,7 +5,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Node.js](https://img.shields.io/badge/Node.js-Express%205-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-RLS%20%2B%20pgvector-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-RLS-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 
 <p align="center">
   <img src="preview.png" alt="Acadex preview" width="100%"/>
@@ -63,6 +63,12 @@ teacher copilot whose drafts (quizzes, rubrics, lesson plans, feedback, report c
 drafts; evidence of how work was written instead of AI detection; nightly early-warning
 scores with interventions; Ask Acadex for questions about your own data; captions; a help
 assistant — with budgets, usage and cost, and off switches everywhere ([docs/ai.md](docs/ai.md)).
+
+**Reach** — safeguarded messaging (guardians copied when a student under 18 is involved, a
+review queue, reports, nothing deleted), SMS / WhatsApp / email / push with digests and
+emergency broadcasts, parent–teacher meeting booking, a help desk, Zoom / Teams / Meet created
+from Acadex, an installable app that works offline, low-bandwidth mode, and every screen in
+Urdu and Arabic.
 
 **Admissions** — branded online application forms with documents and an application fee,
 an enquiry tracker with follow-ups, online or in-hall entrance tests, merit lists, offers

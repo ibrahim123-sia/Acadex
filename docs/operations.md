@@ -125,8 +125,31 @@ for WhatsApp, `meta` (the WhatsApp Cloud API: `META_WHATSAPP_TOKEN`, `META_WHATS
 and an approved template `META_WHATSAPP_TEMPLATE` with one text parameter). Local numbers
 (03xx…) are sent as +92. Every attempt is in `delivery_logs`.
 
+People can also get notifications by SMS / WhatsApp when their institution turns on
+"notifications by phone" (Communication → Messaging rules) — the institution pays for the
+messages. Emergency broadcasts always use every channel. A failed message is retried
+automatically (5, 20 and 40 minutes later) and can be retried from Communication → Delivery.
+The `notify.digest` job (every hour, at :10) sends daily (18:00 local) and weekly (Mondays)
+digests.
+
 The `fees.daily` job (03:00 UTC) charges late fines and sends the day's reminders for every
 institution, each once per invoice, step and channel.
+
+## Live classes
+
+Each institution connects its own Zoom (Server-to-Server OAuth app, scope `meeting:write`),
+Microsoft Teams (Entra app with `OnlineMeetings.ReadWrite.All` and an application access
+policy for the organizer) or Google Meet (service account with domain-wide delegation for
+`calendar.events`) under Communication → Live classes; secrets are sealed like payment keys.
+Zoom sends joins and recordings to `API_PUBLIC_URL/integrations/zoom/webhook/<institution
+id>` (signature checked with the app's secret token). `LIVE_DRIVER=fake` is for tests only.
+
+## Installable app and offline
+
+`apps/web/public/sw.js` caches the app shell and the build's hashed assets, keeps the last good
+copy of dashboards, course lists, notifications and conversations, and serves what people
+saved for offline. Signing out clears the cached data. The service worker is registered in
+production builds only; after a deploy, the new version takes over on the next visit.
 
 ## AI
 

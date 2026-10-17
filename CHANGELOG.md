@@ -1,5 +1,35 @@
 # Changelog
 
+## Phase 5 — Reach and communication (2026-10-17)
+
+Acadex reaches every family, on any phone, in their language — safely.
+
+- **Messaging with safeguarding**: teachers ↔ their students and those students' guardians,
+  guardians ↔ their children's teachers, staff ↔ staff, class groups. A private conversation
+  between staff and a student under 18 is blocked, copied to the guardians (the default) or
+  allowed — the institution decides. Bad language is masked and flagged (English, Roman
+  Urdu, Urdu, Arabic), a student in distress alerts the safeguarding lead, anyone can report
+  a message, and the safeguarding team reviews, hides and locks — every conversation is kept
+  and every review read is recorded.
+- **Notifications everywhere**: SMS and WhatsApp alongside the app, email and push (per person,
+  where the institution allows it), daily or weekly email digests, emergency broadcasts that
+  reach everyone at once — including guardians without an account, by SMS — and delivery
+  logs with automatic and one-click retries.
+- **Parent–teacher meetings**: plan a meeting day and every teacher of the chosen classes gets
+  slots; families book one per teacher per child (online rooms for online days); teachers
+  block slots and record outcomes. Students can book office hours where allowed.
+- **Help desk**: complaints, feedback (optionally anonymous) and requests with assignment,
+  internal notes, due times by priority, reopening on reply and a satisfaction rating.
+- **Live classes on your own accounts**: Acadex creates the meeting on the institution's Zoom,
+  Microsoft Teams or Google Meet; Zoom reports joins (attendance) and cloud recordings.
+- **Works on any phone**: an installable app (PWA) that opens offline, keeps dashboards and
+  saved pages / files on the device, and a low-bandwidth mode (no autoplay, media on request,
+  smaller photo uploads) that turns on by itself with the browser's data saver.
+- **Urdu and Arabic everywhere**: every screen translated (2,263 strings, right-to-left), the
+  language kept on the account, and a test that fails on any untranslated string.
+- **Accessibility**: an automated WCAG 2.2 AA audit (axe-core) of every main page in English
+  and Urdu, with the issues it found fixed; captions for course videos.
+
 ## Phase 4 — The AI layer (2026-10-16)
 
 AI that helps people learn instead of doing the work for them — every feature can be switched

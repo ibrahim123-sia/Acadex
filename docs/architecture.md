@@ -130,6 +130,13 @@ tokens and cost), `ai_provider_keys` (sealed), `kb_chunks` (course material and 
 (copilot proposals), `submission_activity`, `viva_sessions`, `risk_scores`, `interventions`,
 `media_transcripts`, `report_comments`; the read-only `ask_*` views for Ask Acadex.
 
+Reach (Phase 5; `schema/reach.ts`): `conversations` → `conversation_members` (member / cc) →
+`messages` → `message_reports`; `tickets` → `ticket_comments`; `ptm_events` → `ptm_slots`;
+`broadcasts`; `integration_accounts` (Zoom / Teams / Meet, sealed). Routes:
+`routes/messages.ts`, `routes/reach.ts`, `routes/integrations.ts` (webhooks). The web app's
+device layer (`lib/device.ts`, `public/sw.js`) handles low-bandwidth mode, offline copies and
+smaller uploads.
+
 Who may do what in a course is decided in one place, `lib/lms/access.ts`: staff (assigned
 teachers, or holders of `courses.manage_any`), students (the roster: the whole section, or
 enrolled for open courses) and guardians (linked to a student on the roster; released

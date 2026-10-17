@@ -147,6 +147,18 @@ token versions never appear. Sign-ins, failed sign-ins (committed even though th
 fails), refresh-token reuse, session revocations, password and 2FA changes are recorded too.
 Institutions read their own trail at `/api/institution/audit` (`audit.read`).
 
+## Messaging and safeguarding
+
+Who may message whom is decided on the server (`lib/conversations.ts`), never by the client:
+teachers reach only their own students and those students' guardians; guardians only their
+children's teachers (if allowed) and the office; students only their teachers (and
+classmates if allowed). A private conversation between staff and one student under 18
+(no birth date: schools count as minors) follows the institution's policy — blocked, copied
+to the guardians (default) or allowed. Messages are never deleted: withdrawing or hiding one
+removes it for members only. People with `messages.review` can read any conversation of
+their institution; each read is written to the audit log. Profanity is masked and flagged;
+self-harm language from a student notifies the safeguarding lead.
+
 ## Database changes
 
 Migrations live in `apps/api/drizzle/` and are applied once each by
