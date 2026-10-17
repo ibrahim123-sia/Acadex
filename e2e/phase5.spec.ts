@@ -88,9 +88,14 @@ test('the office broadcasts; low-bandwidth mode and Urdu', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: 'Send now' }).click();
   await expect(page.getByText('Broadcast is on its way')).toBeVisible();
 
-  await page.getByRole('button', { name: /Low-bandwidth mode/ }).click();
+  // the saved preference may be on (an earlier run can close the page before "off" is saved)
+  const toggle = page.getByRole('button', { name: /Low-bandwidth mode/ });
+  const saved = () => page.waitForResponse((r) => r.url().includes('/notifications/account-preferences') && r.request().method() === 'PUT');
+  if (await page.locator('html[data-low-bandwidth]').count()) await Promise.all([saved(), toggle.click()]);
+  await expect(page.locator('html[data-low-bandwidth]')).toHaveCount(0);
+  await toggle.click();
   await expect(page.locator('html[data-low-bandwidth]')).toHaveCount(1);
-  await page.getByRole('button', { name: /Low-bandwidth mode/ }).click();
+  await Promise.all([saved(), toggle.click()]); // leave it off, saved, for the next run
   await expect(page.locator('html[data-low-bandwidth]')).toHaveCount(0);
 
   await page.goto('/admin');
