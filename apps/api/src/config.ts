@@ -60,6 +60,10 @@ const schema = z.object({
   JOBS_DRIVER: z.enum(['pgboss', 'inline']).default('pgboss'),
   /** run the job workers inside the API process (turn off when running `npm run worker` separately) */
   JOBS_WORKER: bool(true),
+  /** internal: pg-boss runs the cron schedules; external: something outside (a Cloudflare cron trigger) calls POST /api/internal/cron */
+  JOBS_SCHEDULE: z.enum(['internal', 'external']).default('internal'),
+  /** shared secret for POST /api/internal/cron (the endpoint does not exist without it) */
+  CRON_SECRET: z.string().optional(),
   /** none: no push; webpush: browser push with the VAPID keys; fake: recorded in memory (tests) */
   PUSH_DRIVER: z.enum(['none', 'webpush', 'fake']).default('none'),
   VAPID_PUBLIC_KEY: z.string().optional(),
@@ -135,6 +139,8 @@ export interface Config {
   virusScan: { driver: 'none' | 'clamav'; host: string; port: number };
   jobsDriver: 'pgboss' | 'inline';
   jobsWorker: boolean;
+  jobsSchedule: 'internal' | 'external';
+  cronSecret?: string;
   push: { driver: 'none' | 'webpush' | 'fake'; publicKey?: string; privateKey?: string; subject: string };
   apiPublicUrl: string;
   ai: {
@@ -182,6 +188,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (c.COOKIE_SAMESITE === 'none' && c.COOKIE_SECURE === 'false') {
     problems.push('  - COOKIE_SAMESITE=none requires COOKIE_SECURE=true');
   }
+  if (c.JOBS_SCHEDULE === 'external' && !c.CRON_SECRET) problems.push('  - CRON_SECRET: required when JOBS_SCHEDULE=external (otherwise no scheduled job ever runs)');
+  if (c.CRON_SECRET && c.CRON_SECRET.length < 32) problems.push('  - CRON_SECRET: at least 32 characters (openssl rand -hex 32)');
   if (c.STORAGE_DRIVER === 's3' && !c.S3_BUCKET) problems.push('  - S3_BUCKET: required when STORAGE_DRIVER=s3');
   if ((c.SMS_DRIVER === 'twilio' || c.WHATSAPP_DRIVER === 'twilio') && (!c.TWILIO_ACCOUNT_SID || !c.TWILIO_AUTH_TOKEN)) {
     problems.push('  - TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN: required when SMS_DRIVER or WHATSAPP_DRIVER is twilio');
@@ -194,7 +202,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   }
   if (problems.length) throw new Error(`Invalid configuration:\n${problems.join('\n')}`);
 
-  const trustProxy = c.TRUST_PROXY === 'true' ? 1 : c.TRUST_PROXY === 'false' ? false : c.TRUST_PROXY;
+  const trustProxy = c.TRUST_PROXY === 'true' ? 1 : c.TRUST_PROXY === 'false' ? false : /^\d+$/.test(c.TRUST_PROXY) ? Number(c.TRUST_PROXY) : c.TRUST_PROXY;
   return {
     env: c.NODE_ENV,
     port: c.PORT,
@@ -237,6 +245,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     virusScan: { driver: c.VIRUS_SCAN, host: c.CLAMAV_HOST, port: c.CLAMAV_PORT },
     jobsDriver: c.JOBS_DRIVER,
     jobsWorker: c.JOBS_WORKER,
+    jobsSchedule: c.JOBS_SCHEDULE,
+    cronSecret: c.CRON_SECRET || undefined,
     push: { driver: c.PUSH_DRIVER, publicKey: c.VAPID_PUBLIC_KEY, privateKey: c.VAPID_PRIVATE_KEY, subject: c.VAPID_SUBJECT },
     apiPublicUrl: (c.API_PUBLIC_URL ?? `${c.APP_URL.replace(/\/+$/, '')}/api`).replace(/\/+$/, ''),
     ai: {
