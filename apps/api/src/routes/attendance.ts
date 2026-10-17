@@ -27,6 +27,7 @@ import { todayIn } from '../lib/locale';
 import { notify } from '../lib/notify';
 import { assertCampusAllowed, assertOpenDay, assertSectionWritable, calendarSettings, campusOfSection, campusesFor, holidayOn } from '../lib/structure';
 import { currentUser, institutionId, requireAny, requirePermission, userCan } from '../middleware/auth';
+import { emitWebhook } from '../lib/webhooks';
 
 const router = Router();
 
@@ -142,6 +143,7 @@ router.put('/attendance/register', requireAny('attendance.mark', 'attendance.man
       await notify({ institutionId: s, userIds: [r.user_id], type: 'attendance_alert', title: `${r.name} was marked absent today`, message: `Date: ${b.date}`, link: `/attendance/students/${r.student_id}`, dedupeKey: `absent:${r.student_id}:${b.date}` });
     }
   }
+  await emitWebhook(s, 'attendance.marked', { section_id: b.section_id, offering_id: b.offering_id ?? null, date: b.date, records: b.records.map((r) => ({ student_id: r.student_id, status: r.status })) });
   res.json({ saved: b.records.length });
 });
 

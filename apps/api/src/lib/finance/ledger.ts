@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { decryptSecret, encryptSecret } from '../../auth/crypto';
 import { db } from '../../db/context';
 import { badRequest, conflict, notFound } from '../errors';
+import { emitWebhook } from '../webhooks';
 import { notify } from '../notify';
 import { PROVIDERS, type ProviderAccount, type ProviderEvent, type ProviderName, type Settlement } from './providers';
 
@@ -191,6 +192,7 @@ export async function createInvoices(plans: InvoicePlan[], structure: { id: numb
     await recalcInvoice(rows[0].id);
     created.push(rows[0].id);
   }
+  if (created.length) await emitWebhook(institutionId, 'invoice.issued', { invoice_ids: created, structure_id: structure.id });
   return created;
 }
 
@@ -212,6 +214,7 @@ export async function recordPayment(
   );
   await recalcInvoice(inv.id);
   await tellPayer(inv.id, `Payment received: ${receipt}`, `${round2(p.amount).toFixed(2)} received. Thank you.`);
+  await emitWebhook(inv.institution_id, 'payment.received', { payment_id: rows[0]!.id, receipt_no: receipt, invoice_id: inv.id, student_id: inv.student_id, amount: round2(p.amount), method: p.method });
   return rows[0]!;
 }
 

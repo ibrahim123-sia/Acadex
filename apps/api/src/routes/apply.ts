@@ -24,6 +24,7 @@ import {
   type ApplicationRow,
 } from '../lib/admissions';
 import { badRequest, conflict, notFound } from '../lib/errors';
+import { emitWebhook } from '../lib/webhooks';
 import { createAdhocInvoice } from '../lib/finance/ledger';
 import { todayIn } from '../lib/locale';
 import { oneFile, requireFile } from '../lib/upload';
@@ -259,6 +260,7 @@ router.post('/:institution/:form', submitLimit, async (req, res) => {
       });
     }
     await emailApplicant(rows[0]!, 'submitted', Number(f.application_fee) > 0 ? 'Please pay the application fee from your application page.' : '', token);
+    await emitWebhook(rows[0]!.institution_id, 'application.submitted', { number: rows[0]!.number, form_id: rows[0]!.form_id });
     return { app: rows[0]!, invoice };
   });
   res.status(201).json({ number: out.app.number, token, status_url: `/apply/status#${token}` });

@@ -29,6 +29,9 @@ import { parsePage, sendPage } from '../lib/pagination';
 import { softDelete } from '../lib/soft-delete';
 import { assertCampusAllowed, assertSectionWritable, campusClause, campusOfSection, campusesFor, isUniqueViolation } from '../lib/structure';
 import { auth, currentUser, institutionId, requirePermission, userCan } from '../middleware/auth';
+import { audit } from '../lib/audit';
+import { assertStudentCapacity } from '../lib/platform';
+import { emitWebhook } from '../lib/webhooks';
 import { grantSystemRole } from '../rbac';
 import { storeUpload, type FilePurpose } from '../storage/files';
 
@@ -127,6 +130,7 @@ router.post('/students', requirePermission('students.manage'), async (req, res) 
     throw badRequest('Choose the class for this student', { section_id: 'required' });
   }
   const custom = await checkCustomData(s, 'student', b.custom_data);
+  await assertStudentCapacity(s);
   try {
     const st = await withTransaction(async (client) => {
       const row = (
@@ -155,6 +159,7 @@ router.post('/students', requirePermission('students.manage'), async (req, res) 
       }
       const userId = await createAccount(s, 'student', b.email, `${b.first_name} ${b.last_name}`, row.id);
       await grantSystemRole(client, userId, 'student', s, currentUser(req).id);
+      await emitWebhook(s, 'student.created', { id: row.id, roll_no: row.roll_no, first_name: row.first_name, last_name: row.last_name, section_id: row.section_id });
       return { row, userId };
     });
     const invite = await inviteUser(st.userId, { id: currentUser(req).id, name: currentUser(req).name });
@@ -282,6 +287,8 @@ router.get('/students/:id/medical', requirePermission('students.medical.read'), 
   const studentId = id.parse(req.params.id);
   await studentFor(req, studentId, 'students.medical.read');
   const { rows } = await db.query(`SELECT * FROM student_medical WHERE student_id = $1`, [studentId]);
+  const u = currentUser(req);
+  await audit({ institutionId: institutionId(req), userId: u.id, actor: u.name, action: 'medical_viewed', entity: 'Student', detail: String(studentId) });
   res.json(rows[0] ?? {});
 });
 

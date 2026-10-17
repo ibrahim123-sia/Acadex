@@ -46,6 +46,7 @@ import {
   isUniqueViolation,
 } from '../lib/structure';
 import { auth, currentUser, institutionId, requirePermission } from '../middleware/auth';
+import { emitWebhook } from '../lib/webhooks';
 
 const router = Router();
 router.use(auth);
@@ -806,6 +807,7 @@ router.post('/offerings/:id/enrollments', requirePermission('enrollments.manage'
       );
       (hasSeat ? out.enrolled : out.waitlisted).push(sid);
     }
+    if (out.enrolled.length) await emitWebhook(s, 'student.enrolled', { offering_id: offeringId, student_ids: out.enrolled });
     return out;
   });
   res.status(201).json(result);

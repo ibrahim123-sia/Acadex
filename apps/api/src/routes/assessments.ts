@@ -33,6 +33,7 @@ import { assertOpenDay, nextOpenDay } from '../lib/structure';
 import { HttpError } from '../lib/errors';
 import { publicSecure, staffSecure, type SecureSettings } from '../lib/lms/secure';
 import { currentUser, institutionId, requireAny, requirePermission, userCan } from '../middleware/auth';
+import { emitWebhook } from '../lib/webhooks';
 
 const router = Router();
 
@@ -587,6 +588,7 @@ router.post('/assessments/:id/release', requireAny('grades.enter', 'courses.mana
   );
   if (!student_ids) await db.query(`UPDATE assessments SET grades_released_at = now() WHERE id = $1`, [a.id]);
   await afterRelease(a, rows.map((r) => r.student_id));
+  if (rows.length) await emitWebhook(institutionId(req), 'grade.released', { assessment_id: a.id, offering_id: a.offering_id, student_ids: rows.map((r) => r.student_id) });
   res.json({ released: rows.length });
 });
 
