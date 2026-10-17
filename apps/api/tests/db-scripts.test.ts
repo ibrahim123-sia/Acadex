@@ -77,3 +77,18 @@ describe('seed', () => {
     expect(rows.map((x) => x.slug)).toEqual(['greenwood', 'northfield', 'skillforge', 'sunrise']);
   }, 120000);
 });
+
+describe('migrate entry check', () => {
+  it('runs only as its own script, not when bundled into the server', async () => {
+    const { isMigrateEntry } = await import('../src/db/migrate');
+    const { pathToFileURL } = await import('node:url');
+    const dist = path.join(apiDir, 'dist');
+    const url = (p: string) => pathToFileURL(p).href;
+    expect(isMigrateEntry(path.join(apiDir, 'src/db/migrate.ts'), url(path.join(apiDir, 'src/db/migrate.ts')))).toBe(true);
+    expect(isMigrateEntry(path.join(dist, 'db/migrate.js'), url(path.join(dist, 'db/migrate.js')))).toBe(true);
+    // dist/server.js inlines migrate.ts: import.meta.url there is server.js
+    expect(isMigrateEntry(path.join(dist, 'server.js'), url(path.join(dist, 'server.js')))).toBe(false);
+    expect(isMigrateEntry(path.join(dist, 'worker.js'), url(path.join(dist, 'db/migrate.js')))).toBe(false);
+    expect(isMigrateEntry(undefined, url(path.join(dist, 'db/migrate.js')))).toBe(false);
+  });
+});
