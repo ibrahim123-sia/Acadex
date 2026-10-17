@@ -182,8 +182,9 @@ your fallback hostname. Acadex already verifies ownership by DNS before using th
 
 ### 7. Deploy from GitHub instead (optional)
 
-Create an API token (**My Profile → API Tokens → Create Token**) with *Workers Scripts: Edit*,
-*Containers: Edit* and *Workers R2 Storage: Edit*, and add two repository secrets:
+Create an API token (**My Profile → API Tokens → Create Token**): start from the **Edit Cloudflare
+Workers** template and make sure it can also edit **Containers** (the permission names in the
+dashboard change from time to time — the deploy log says which one is missing). Add two repository secrets:
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Then **Actions → Deploy to Cloudflare → Run
 workflow** builds the web app and deploys the chosen branch. The app's own secrets stay in
 Cloudflare (step 4); GitHub never sees them.

@@ -2,8 +2,8 @@
 # hand: GitHub → Actions → "Deploy to Cloudflare" → Run workflow. See docs/cloudflare.md.
 #
 # Repository secrets it needs (Settings → Secrets and variables → Actions):
-#   CLOUDFLARE_API_TOKEN   an API token with "Workers Scripts: Edit", "Containers: Edit" and
-#                          "Workers R2 Storage: Edit" on your account
+#   CLOUDFLARE_API_TOKEN   an API token from the "Edit Cloudflare Workers" template that can also
+#                          edit Containers on your account
 #   CLOUDFLARE_ACCOUNT_ID  your account id
 # The app's own secrets (DATABASE_URL, JWT_SECRET, …) live in Cloudflare (wrangler secret put),
 # not in GitHub.
