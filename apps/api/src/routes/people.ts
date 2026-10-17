@@ -215,6 +215,7 @@ router.get('/students/:id', requirePermission('students.read'), async (req, res)
     db.query(`SELECT id, verify_code, valid_until, issued_at, revoked_at FROM id_cards WHERE holder_type = 'student' AND holder_id = $1 ORDER BY issued_at DESC`, [studentId]),
     db.query(`SELECT id, kind, serial_no, title, issued_at, revoked_at FROM issued_documents WHERE student_id = $1 ORDER BY issued_at DESC`, [studentId]),
   ]);
+  if (canMedical && medical.rows[0]) await audit({ institutionId: institutionId(req), userId: currentUser(req).id, actor: currentUser(req).name, action: 'medical_viewed', entity: 'Student', detail: String(studentId) });
   res.json({
     ...st,
     section: section.rows[0] ?? null,
