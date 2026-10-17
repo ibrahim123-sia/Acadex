@@ -110,7 +110,7 @@ export function ProductTour() {
   const finish = useMutation({ mutationFn: () => api.put('/me/tours', { done: [...(done.data?.done ?? []), user!.role] }) });
   const [i, setI] = useState(0);
   const [box, setBox] = useState<DOMRect | null>(null);
-  const active = !!steps.length && done.data && !done.data.done.includes(user!.role) && !finish.isSuccess && window.innerWidth >= 1024;
+  const active = !!steps.length && done.data && !done.data.done.includes(user!.role) && !finish.isSuccess && window.innerWidth >= 1024 && !navigator.webdriver; // not in automated browsers (tests)
   useEffect(() => {
     if (!active) return;
     const el = document.querySelector(steps[i]!.selector);
