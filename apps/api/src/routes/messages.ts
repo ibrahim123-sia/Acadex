@@ -5,7 +5,7 @@
 // reports, flagged messages and locking. Mounted under /api.
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { classConversationBody, conversationBody, id, messageBody, reportBody, reviewReportBody } from '@acadex/shared';
+import { classConversationBody, conversationBody, id, messageBody, messagingSettingsBody, reportBody, reviewReportBody } from '@acadex/shared';
 import { moderate } from '../ai/guard';
 import { db, withTransaction } from '../db/context';
 import { audit } from '../lib/audit';
@@ -13,6 +13,7 @@ import { messagingSettings, planConversation } from '../lib/conversations';
 import { badRequest, forbidden, notFound } from '../lib/errors';
 import { publish } from '../lib/events';
 import { assertCourseEditor, guardianUserIds, rosterSql, rosterUserIds, staffUserIds } from '../lib/lms/access';
+import { channelEnabled } from '../lib/messaging';
 import { notify } from '../lib/notify';
 import { parsePage, sendPage } from '../lib/pagination';
 import { filterProfanity } from '../lib/profanity';
@@ -384,6 +385,24 @@ router.get('/safeguarding/conversations', requirePermission('messages.review'), 
     [institutionId(req), q, pg.limit, pg.offset]
   );
   sendPage(res, rows, pg);
+});
+
+// ---------------------------------------------------------------- settings
+
+/** Messaging and safeguarding rules, and whether notifications may go out by SMS / WhatsApp. */
+router.get('/messaging/settings', requirePermission('settings.manage'), async (req, res) => {
+  const inst = institutionId(req);
+  const { rows } = await db.query<{ by_phone: boolean | null }>(`SELECT (settings->>'notify_by_phone')::boolean AS by_phone FROM institutions WHERE id = $1`, [inst]);
+  res.json({ messaging: await messagingSettings(inst), notify_by_phone: !!rows[0]?.by_phone, drivers: { sms: channelEnabled('sms'), whatsapp: channelEnabled('whatsapp') } });
+});
+
+router.put('/messaging/settings', requirePermission('settings.manage'), async (req, res) => {
+  const b = z.object({ messaging: messagingSettingsBody, notify_by_phone: z.boolean() }).parse(req.body);
+  await db.query(
+    `UPDATE institutions SET settings = COALESCE(settings, '{}'::jsonb) || jsonb_build_object('messaging', $2::jsonb, 'notify_by_phone', $3::boolean) WHERE id = $1`,
+    [institutionId(req), JSON.stringify(b.messaging), b.notify_by_phone]
+  );
+  res.json(b);
 });
 
 export default router;

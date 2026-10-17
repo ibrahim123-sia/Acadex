@@ -460,6 +460,8 @@ export const lmsRoutes = (r: R): RouteDoc[] => [
   r('get', '/api/safeguarding/queue', 'Messaging', 'Open reports and flagged messages', 'session', { permission: 'messages.review' }),
   r('patch', '/api/safeguarding/reports/:id', 'Messaging', 'Update safeguarding reports', 'session', { permission: 'messages.review', body: reviewReportBody }),
   r('get', '/api/safeguarding/conversations', 'Messaging', 'Every conversation in the institution (search by a member’s name)', 'session', { permission: 'messages.review' }),
+  r('get', '/api/messaging/settings', 'Messaging', 'Messaging and safeguarding rules, and whether notifications may go out by SMS / WhatsApp', 'session', { permission: 'settings.manage' }),
+  r('put', '/api/messaging/settings', 'Messaging', 'Save messaging settings', 'session', { permission: 'settings.manage' }),
   r('get', '/api/tickets', 'Reach', 'Tickets: everything for the help desk, otherwise the ones I raised or am handling', 'session'),
   r('post', '/api/tickets', 'Reach', 'Raise a ticket (a complaint, feedback, a request)', 'session', { body: ticketBody }),
   r('get', '/api/tickets/:id', 'Reach', 'Get tickets', 'session'),

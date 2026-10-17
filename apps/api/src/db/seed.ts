@@ -1017,10 +1017,64 @@ async function seedAll() {
   );
   for (const c of counts) console.log(`  ${c.slug.padEnd(11)} ${c.students} students, ${c.staff} staff, ${c.sections} sections`);
   void [greenwood, sunrise, northfield, skillforge];
+  await seedReach();
   // early-warning scores for today, so Student success has something to show
   const { computeRisk } = await import('../ai/risk');
   for (const i of await q(`SELECT id, timezone FROM institutions`)) await computeRisk(i.id, todayIn(i.timezone));
   console.log(`SEED DONE. Password for all demo users: ${PW}`);
+}
+
+/** Phase 5 demo at Greenwood: a parent–teacher meeting day (one booking), help-desk tickets and a conversation. */
+async function seedReach() {
+  const [g] = await q(`SELECT id, timezone FROM institutions WHERE slug = 'greenwood'`);
+  const [teacher] = await q(`SELECT id, ref_id, full_name FROM users WHERE email = 'ali.sheikh.t0@greenwood.edu'`);
+  const [parent] = await q(`SELECT id FROM users WHERE email = 'parent1@greenwood.edu'`);
+  const [admin] = await q(`SELECT id FROM users WHERE email = 'admin@greenwood.edu'`);
+  const [student] = await q(
+    `SELECT st.id, st.section_id, u.id AS user_id FROM guardians gd JOIN guardianships gs ON gs.guardian_id = gd.id JOIN students st ON st.id = gs.student_id
+       JOIN users u ON u.ref_id = st.id AND u.role = 'student' WHERE gd.user_id = $1 ORDER BY st.id LIMIT 1`,
+    [parent!.id]
+  );
+  if (!g || !teacher || !parent || !student) return;
+  // the meeting day covers the child's class; slots for every teacher of it
+  const sections = [student.section_id];
+  const teachers = await q(
+    `SELECT DISTINCT u.id FROM section_staff ss JOIN users u ON u.ref_id = ss.teacher_id AND u.role = 'teacher' WHERE ss.section_id = ANY($1::int[])`,
+    [sections]
+  );
+  const [ev] = await q(
+    `INSERT INTO ptm_events (institution_id, title, date, start_time, end_time, slot_minutes, mode, location, section_ids, created_by)
+     VALUES ($1,'Term 1 parent–teacher meetings', CURRENT_DATE + 10, '09:00', '12:00', 10, 'in_person', 'Main hall', $2, $3) RETURNING id`,
+    [g.id, sections, admin!.id]
+  );
+  await q(
+    `INSERT INTO ptm_slots (institution_id, event_id, teacher_user_id, starts_at, ends_at)
+     SELECT $1, $2, t.uid, gs, gs + interval '10 minutes' FROM unnest($3::int[]) AS t(uid),
+            generate_series(((CURRENT_DATE + 10) + time '09:00') AT TIME ZONE $4, ((CURRENT_DATE + 10) + time '11:50') AT TIME ZONE $4, interval '10 minutes') AS gs`,
+    [g.id, ev!.id, teachers.map((t) => t.id), g.timezone]
+  );
+  await q(
+    `UPDATE ptm_slots SET status = 'booked', booked_by = $2, student_id = $3, note = 'Maths progress', booked_at = now()
+      WHERE id = (SELECT id FROM ptm_slots WHERE event_id = $1 AND teacher_user_id = $4 ORDER BY starts_at OFFSET 2 LIMIT 1)`,
+    [ev!.id, parent!.id, student.id, teacher.id]
+  );
+  // tickets
+  await q(
+    `INSERT INTO tickets (institution_id, raised_by, student_id, category, subject, body, status, priority, assigned_to, due_at)
+     VALUES ($1,$2,$3,'fees','Sibling discount not applied','The sibling discount is missing on this month''s voucher.','in_progress','normal',$4, now() + interval '3 days'),
+            ($1,$5,NULL,'facilities','Water cooler on the first floor','The water cooler near Class 9 has not worked since Monday.','open','high',NULL, now() + interval '1 day')`,
+    [g.id, parent!.id, student.id, admin!.id, student.user_id]
+  );
+  await q(`UPDATE tickets SET anonymous = true WHERE institution_id = $1 AND category = 'facilities'`, [g.id]);
+  // a conversation between the teacher and the parent
+  const [c] = await q(`INSERT INTO conversations (institution_id, kind, created_by, last_message_at) VALUES ($1,'direct',$2, now()) RETURNING id`, [g.id, teacher.id]);
+  await q(`INSERT INTO conversation_members (conversation_id, user_id, institution_id) VALUES ($1,$2,$3),($1,$4,$3)`, [c!.id, teacher.id, g.id, parent!.id]);
+  await q(
+    `INSERT INTO messages (institution_id, conversation_id, sender_id, body, created_at) VALUES
+       ($1,$2,$3,'Assalam o Alaikum — your child did very well in this week''s algebra quiz. Please encourage the daily practice sheets.', now() - interval '1 day'),
+       ($1,$2,$4,'Thank you! We will keep at it. Is there extra material for fractions?', now() - interval '20 hours')`,
+    [g.id, c!.id, teacher.id, parent!.id]
+  );
 }
 
 (async () => {
