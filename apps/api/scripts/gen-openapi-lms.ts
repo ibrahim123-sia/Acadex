@@ -23,6 +23,14 @@ const FILES = {
   'messages.ts': ['/api', 'Messaging'],
   'reach.ts': ['/api', 'Reach'],
   'integrations.ts': ['/api/integrations', 'Integrations (webhooks)'],
+  'modules.ts': ['/api', 'Modules'],
+  'tenant-saas.ts': ['/api', 'Institution platform'],
+  'platform-saas.ts': ['/api/platform', 'Platform business'],
+  'site.ts': ['/api/public', 'Public site'],
+  'lti-launch.ts': ['/api/lti', 'LTI 1.3 (public)'],
+  'sso.ts': ['/api/auth/sso', 'Single sign-on (public)'],
+  'billing-webhook.ts': ['/api/billing', 'Billing (webhook)'],
+  'api-v1.ts': ['/api/v1', 'Public API v1'],
   'apply.ts': ['/api/apply', 'Apply (public)'],
   'payments.ts': ['/api/payments', 'Payments'],
 };
@@ -53,7 +61,7 @@ for (const [file, [prefix, tag]] of Object.entries(FILES)) {
     const bodySchema = /(\w+Body)\.parse\(req\.body/.exec(body)?.[1];
     const querySchema = /(\w+Query)\.parse\(req\.query/.exec(body)?.[1];
     for (const s of [bodySchema, querySchema]) if (s) schemas.add(s);
-    const auth = routerName === 'scormContentRouter' || file === 'payments.ts' || file === 'apply.ts' || file === 'integrations.ts' ? 'public' : 'session';
+    const auth = routerName === 'scormContentRouter' || file === 'payments.ts' || file === 'apply.ts' || file === 'integrations.ts' || file === 'site.ts' || file === 'lti-launch.ts' || file === 'sso.ts' || file === 'billing-webhook.ts' ? 'public' : file === 'api-v1.ts' ? 'apikey' : 'session';
     const extra = [permission && `permission: '${permission}'`, bodySchema && `body: ${bodySchema}`, querySchema && `query: ${querySchema}`].filter(Boolean);
     out.push(`  r('${method}', '${prefix}${p}', '${tag}', '${summary.slice(0, 160)}', '${auth}'${extra.length ? `, { ${extra.join(', ')} }` : ''}),`);
   }

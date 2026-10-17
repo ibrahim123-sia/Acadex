@@ -32,6 +32,12 @@ import notificationRoutes, { eventsHandler } from './routes/notifications';
 import lmsRoutes from './routes/lms';
 import paymentRoutes from './routes/payments';
 import integrationWebhooks from './routes/integrations';
+import platformSaasRoutes from './routes/platform-saas';
+import siteRoutes from './routes/site';
+import ltiLaunchRoutes from './routes/lti-launch';
+import ssoRoutes from './routes/sso';
+import billingWebhookRoutes from './routes/billing-webhook';
+import apiV1Routes from './routes/api-v1';
 import applyRoutes from './routes/apply';
 import './jobs';
 
@@ -53,6 +59,9 @@ export function createApp(config: Config = getConfig()) {
   // provider webhooks are verified against the exact bytes sent
   app.use('/api/payments/webhook', express.raw({ type: () => true, limit: '1mb' }));
   app.use('/api/integrations/zoom/webhook', express.raw({ type: () => true, limit: '1mb' }));
+  app.use('/api/billing/stripe/webhook', express.raw({ type: () => true, limit: '1mb' }));
+  // LTI tools post the authentication request as a form
+  app.use('/api/lti/authorize', express.urlencoded({ extended: false, limit: '20kb' }));
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
@@ -88,6 +97,13 @@ export function createApp(config: Config = getConfig()) {
       message: { error: 'Too many attempts. Please wait 15 minutes and try again.' },
     });
   app.use('/api/auth/mfa/verify', sensitive(config.loginRateLimit, true));
+  app.use('/api/public/signup', sensitive(5, false));
+  app.use('/api/public/demo', sensitive(5, false));
+  // the public API: per key
+  app.use(
+    '/api/v1',
+    rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false, keyGenerator: (req) => String(req.headers.authorization ?? ipKeyGenerator(req.ip ?? '')) })
+  );
   app.use('/api/auth/invites/accept', sensitive(config.loginRateLimit, true));
   app.use('/api/auth/password-reset/confirm', sensitive(config.loginRateLimit, true));
   app.use('/api/auth/password-reset/request', sensitive(5, false)); // also limits email flooding
@@ -130,8 +146,10 @@ export function createApp(config: Config = getConfig()) {
   // the live stream stays open: it must not hold a request transaction
   app.get('/api/events', eventsHandler);
   app.use('/api', dbContext);
+  app.use('/api/auth/sso', ssoRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/platform', platformRoutes);
+  app.use('/api/platform', platformSaasRoutes);
   app.use('/api/institution', rolesRoutes);
   app.use('/api/institution', institutionRoutes);
   app.use('/api/institution', structureRoutes);
@@ -143,6 +161,10 @@ export function createApp(config: Config = getConfig()) {
   app.use('/api/institution', recordRoutes);
   app.use('/api/group', groupRoutes);
   app.use('/api/public', publicRoutes);
+  app.use('/api/public', siteRoutes);
+  app.use('/api/lti', ltiLaunchRoutes);
+  app.use('/api/billing', billingWebhookRoutes);
+  app.use('/api/v1', apiV1Routes);
   app.use('/api/files', fileRoutes);
   app.use('/api/me', meRoutes);
   app.use('/api/parent', parentRoutes);

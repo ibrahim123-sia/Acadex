@@ -70,7 +70,7 @@ import {
 import { lmsRoutes } from './openapi-lms';
 
 type Method = 'get' | 'post' | 'patch' | 'put' | 'delete';
-type Auth = 'public' | 'session' | 'incomplete' | 'cookie';
+type Auth = 'public' | 'session' | 'incomplete' | 'cookie' | 'apikey';
 
 export interface RouteDoc {
   method: Method;
