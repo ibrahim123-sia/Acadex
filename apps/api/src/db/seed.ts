@@ -1018,6 +1018,7 @@ async function seedAll() {
   for (const c of counts) console.log(`  ${c.slug.padEnd(11)} ${c.students} students, ${c.staff} staff, ${c.sections} sections`);
   void [greenwood, sunrise, northfield, skillforge];
   await seedReach();
+  await seedModules();
   // early-warning scores for today, so Student success has something to show
   const { computeRisk } = await import('../ai/risk');
   for (const i of await q(`SELECT id, timezone FROM institutions`)) await computeRisk(i.id, todayIn(i.timezone));
@@ -1074,6 +1075,49 @@ async function seedReach() {
        ($1,$2,$3,'Assalam o Alaikum — your child did very well in this week''s algebra quiz. Please encourage the daily practice sheets.', now() - interval '1 day'),
        ($1,$2,$4,'Thank you! We will keep at it. Is there extra material for fractions?', now() - interval '20 hours')`,
     [g.id, c!.id, teacher.id, parent!.id]
+  );
+}
+
+/** Phase 6 demo at Greenwood (Pro plan): library, HR & payroll and transport switched on with a little data. */
+async function seedModules() {
+  const [g] = await q(`SELECT id FROM institutions WHERE slug = 'greenwood'`);
+  if (!g) return;
+  await q(`UPDATE institutions SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{modules}', '{"library": true, "hr": true, "transport": true, "visitors": true}'::jsonb) WHERE id = $1`, [g.id]);
+  const books: [string, string, string][] = [
+    ['Things Fall Apart', 'Chinua Achebe', 'Fiction'],
+    ['A Brief History of Time', 'Stephen Hawking', 'Science'],
+    ['Oxford Mathematics for Class 9', 'Oxford University Press', 'Textbook'],
+    ['The Alchemist', 'Paulo Coelho', 'Fiction'],
+    ['Pakistan Studies', 'Ikram Rabbani', 'Textbook'],
+  ];
+  for (const [i, [title, authors, category]] of books.entries()) {
+    const [b] = await q(`INSERT INTO library_books (institution_id, title, authors, category, shelf) VALUES ($1,$2,$3,$4,$5) RETURNING id`, [g.id, title, authors, category, `S-${i + 1}`]);
+    await q(`INSERT INTO library_copies (institution_id, book_id, barcode) VALUES ($1,$2,$3),($1,$2,$4)`, [g.id, b!.id, `GW-${1001 + i * 2}`, `GW-${1002 + i * 2}`]);
+  }
+  const [student] = await q(`SELECT id FROM users WHERE email = 'ali.butt.s0@greenwood.edu'`);
+  const [copy] = await q(`SELECT id FROM library_copies WHERE institution_id = $1 AND barcode = 'GW-1001'`, [g.id]);
+  if (student && copy) {
+    await q(`INSERT INTO library_loans (institution_id, copy_id, borrower_id, due_on) VALUES ($1,$2,$3, CURRENT_DATE + 10)`, [g.id, copy.id, student.id]);
+    await q(`UPDATE library_copies SET status = 'issued' WHERE id = $1`, [copy.id]);
+  }
+  const [st] = await q(
+    `INSERT INTO salary_structures (institution_id, name, components) VALUES ($1, 'Teaching staff', $2) RETURNING id`,
+    [g.id, JSON.stringify([{ name: 'House rent', kind: 'earning', calc: 'percent_of_basic', value: 45 }, { name: 'Medical', kind: 'earning', calc: 'fixed', value: 3000 }, { name: 'Provident fund', kind: 'deduction', calc: 'percent_of_basic', value: 5 }])]
+  );
+  await q(
+    `INSERT INTO staff_salaries (institution_id, teacher_id, structure_id, basic, effective_from)
+     SELECT $1, t.id, $2, 60000 + (row_number() OVER (ORDER BY t.id) % 5) * 5000, date_trunc('year', CURRENT_DATE)::date FROM teachers t WHERE t.institution_id = $1`,
+    [g.id, st!.id]
+  );
+  const [v] = await q(`INSERT INTO vehicles (institution_id, registration, capacity, driver_name, driver_phone) VALUES ($1, 'LEB-4521', 30, 'Rashid Mehmood', '+923001234500') RETURNING id`, [g.id]);
+  const [r] = await q(
+    `INSERT INTO transport_routes (institution_id, name, vehicle_id, fee, stops) VALUES ($1, 'Route 1 — Model Town', $2, 4500, $3) RETURNING id`,
+    [g.id, v!.id, JSON.stringify([{ name: 'Model Town Park', time: '07:05' }, { name: 'Faisal Town', time: '07:20' }, { name: 'School gate', time: '07:40' }])]
+  );
+  await q(
+    `INSERT INTO transport_assignments (institution_id, student_id, route_id, stop, from_date)
+     SELECT $1, s.id, $2, 'Model Town Park', date_trunc('year', CURRENT_DATE)::date FROM students s WHERE s.institution_id = $1 ORDER BY s.id LIMIT 8`,
+    [g.id, r!.id]
   );
 }
 
