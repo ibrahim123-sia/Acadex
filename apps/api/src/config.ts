@@ -81,6 +81,15 @@ const schema = z.object({
   META_WHATSAPP_TEMPLATE: z.string().default('acadex_notice'),
   /** live classes: real (Zoom / Teams / Meet APIs with each institution's account) or fake (tests) */
   LIVE_DRIVER: z.enum(['real', 'fake']).default('real'),
+  /** the platform's own Stripe account, for institutions paying their Acadex invoices by card */
+  BILLING_STRIPE_SECRET_KEY: z.string().optional(),
+  BILLING_STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  /** single sign-on: Google and Microsoft OAuth apps (redirect URI: API_PUBLIC_URL/auth/sso/<provider>/callback) */
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  MICROSOFT_TENANT: z.string().default('common'),
   /** AI: the platform's provider (fake = no network, deterministic) and keys; institutions may bring their own */
   AI_PROVIDER: z.enum(['auto', 'fake', 'openai', 'anthropic', 'gemini', 'groq']).default('auto'),
   AI_DISABLED: bool(false),
@@ -136,6 +145,8 @@ export interface Config {
     budgets: Record<string, number>;
   };
   liveDriver: 'real' | 'fake';
+  billing: { stripeSecretKey?: string; stripeWebhookSecret?: string };
+  sso: { google: { clientId?: string; clientSecret?: string }; microsoft: { clientId?: string; clientSecret?: string; tenant: string } };
   messaging: {
     sms: 'none' | 'log' | 'fake' | 'twilio';
     whatsapp: 'none' | 'log' | 'fake' | 'twilio' | 'meta';
@@ -249,6 +260,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       budgets: { free: c.AI_BUDGET_FREE_USD, pro: c.AI_BUDGET_PRO_USD, enterprise: c.AI_BUDGET_ENTERPRISE_USD },
     },
     liveDriver: c.LIVE_DRIVER,
+    billing: { stripeSecretKey: c.BILLING_STRIPE_SECRET_KEY, stripeWebhookSecret: c.BILLING_STRIPE_WEBHOOK_SECRET },
+    sso: {
+      google: { clientId: c.GOOGLE_CLIENT_ID, clientSecret: c.GOOGLE_CLIENT_SECRET },
+      microsoft: { clientId: c.MICROSOFT_CLIENT_ID, clientSecret: c.MICROSOFT_CLIENT_SECRET, tenant: c.MICROSOFT_TENANT },
+    },
     messaging: {
       sms: c.SMS_DRIVER,
       whatsapp: c.WHATSAPP_DRIVER,
