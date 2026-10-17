@@ -7,6 +7,7 @@
 //   JOBS_DRIVER=inline → kept in memory once the transaction commits; drainJobs() runs them
 //                        (tests, scripts).
 // Workers run inside the API process (JOBS_WORKER=true, the default) or in `npm run worker`.
+// Schedules: pg-boss cron (JOBS_SCHEDULE=internal) or an outside caller (external, see routes/internal.ts).
 import { PgBoss } from 'pg-boss';
 import { getConfig } from '../config';
 import { afterCommit, db, inContext } from '../db/context';
@@ -65,6 +66,9 @@ export const clearJobs = () => {
   pending = [];
 };
 
+/** The jobs that run on a schedule (name and cron), for an outside scheduler. */
+export const cronJobs = () => [...registry.values()].filter((d) => d.cron).map((d) => ({ name: d.name, cron: d.cron! }));
+
 /** Run one job's handler now (tests, and cron jobs triggered by hand). */
 export async function runJob(name: string, data: object = {}): Promise<void> {
   const def = registry.get(name);
@@ -120,7 +124,10 @@ export async function startWorkers(): Promise<() => Promise<void>> {
     await b.work<object>(def.name, { batchSize: 5 }, async (jobs) => {
       for (const job of jobs) await def.run(job.data as never);
     });
-    if (def.cron) await b.schedule(def.name, def.cron, {}, { tz: 'UTC' });
+    // JOBS_SCHEDULE=external: POST /api/internal/cron queues them instead (a sleeping container
+    // misses pg-boss schedules); drop schedules saved by an earlier internal run
+    if (def.cron && getConfig().jobsSchedule === 'internal') await b.schedule(def.name, def.cron, {}, { tz: 'UTC' });
+    else if (def.cron) await b.unschedule(def.name);
   }
   logger.info({ jobs: [...registry.keys()] }, 'job workers started');
   return async () => {

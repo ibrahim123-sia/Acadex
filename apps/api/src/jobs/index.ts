@@ -10,4 +10,4 @@ import '../lib/reports';
 import '../lib/webhooks';
 import '../lib/privacy';
 
-export { drainJobs, enqueue, pendingJobs, runJob, startWorkers, clearJobs } from './queue';
+export { cronJobs, drainJobs, enqueue, pendingJobs, runJob, startWorkers, clearJobs } from './queue';
