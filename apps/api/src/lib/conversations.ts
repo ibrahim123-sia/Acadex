@@ -59,7 +59,7 @@ async function taughtStudents(institutionId: number, teacherRefId: number | null
 /** Children linked to a guardian account. */
 async function childrenOf(userId: number): Promise<Set<number>> {
   const { rows } = await db.query<{ student_id: number }>(
-    `SELECT gs.student_id FROM guardians g JOIN guardianships gs ON gs.guardian_id = g.id WHERE g.user_id = $1 AND g.deleted_at IS NULL`,
+    `SELECT gs.student_id FROM guardians g JOIN guardianships gs ON gs.guardian_id = g.id WHERE g.user_id = $1 AND g.deleted_at IS NULL AND gs.can_message`,
     [userId]
   );
   return new Set(rows.map((r) => r.student_id));
