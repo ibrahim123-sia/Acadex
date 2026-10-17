@@ -797,6 +797,7 @@ router.get('/exams/transcript/:studentId.pdf', async (req, res) => {
   const sid = id.parse(req.params.studentId);
   const inst = institutionId(req);
   if (!userCan(req, 'exams.manage') && !userCan(req, 'records.read_any')) await assertCanViewStudent(currentUser(req), sid, { allowTeachers: true, guardian: 'grades' });
+  await audit({ institutionId: inst, userId: currentUser(req).id, actor: currentUser(req).name, action: 'transcript_downloaded', entity: 'Student', detail: String(sid) });
   const { rows: st } = await db.query(
     `SELECT st.first_name || ' ' || st.last_name AS name, st.roll_no, p.name AS program FROM students st LEFT JOIN sections sec ON sec.id = st.section_id
        LEFT JOIN program_levels pl ON pl.id = sec.program_level_id LEFT JOIN programs p ON p.id = pl.program_id WHERE st.id = $1 AND st.institution_id = $2`,

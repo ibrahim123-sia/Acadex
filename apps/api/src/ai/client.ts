@@ -89,7 +89,8 @@ export async function budget(institutionId: number | null) {
     `SELECT COALESCE(sum(cost_usd), 0) AS spent FROM ai_usage WHERE institution_id = $1 AND NOT byo_key AND created_at >= date_trunc('month', now())`,
     [institutionId]
   );
-  const plan = getConfig().ai.budgets[s.plan] ?? getConfig().ai.budgets.free!;
+  const limits = (await query<{ ai: number | null }>(`SELECT (limits->>'ai_usd')::float AS ai FROM plans WHERE key = $1`, [s.plan])).rows[0];
+  const plan = limits ? (limits.ai ?? Infinity) : (getConfig().ai.budgets[s.plan] ?? getConfig().ai.budgets.free!);
   return { spent: Number(rows[0]?.spent ?? 0), cap: s.monthly_budget_usd != null ? Math.min(plan, s.monthly_budget_usd) : plan };
 }
 

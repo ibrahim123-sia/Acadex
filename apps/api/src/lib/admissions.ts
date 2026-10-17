@@ -8,6 +8,7 @@ import { getConfig } from '../config';
 import { db } from '../db/context';
 import { grantSystemRole } from '../rbac';
 import { badRequest, conflict, notFound } from './errors';
+import { assertStudentCapacity } from './platform';
 import { sendEmail } from './mailer';
 
 export const hashToken = (t: string) => crypto.createHash('sha256').update(t).digest('hex');
@@ -146,6 +147,7 @@ export async function convertToStudent(app: ApplicationRow, o: { sectionId: numb
   if (app.status !== 'accepted' && app.status !== 'offered') throw conflict('Only applicants who have been offered a place can be enrolled', 'NOT_ACCEPTED');
   if (app.student_id) throw conflict('This applicant is already enrolled', 'ENROLLED');
   const inst = app.institution_id;
+  await assertStudentCapacity(inst);
   const { rows: clash } = await db.query(`SELECT 1 FROM users WHERE lower(email) = lower($1)`, [app.email]);
   if (clash[0]) throw conflict('Someone already has an account with the applicant\'s email', 'EMAIL_TAKEN');
   const { rows: st } = await db.query<{ id: number }>(

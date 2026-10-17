@@ -7,6 +7,7 @@
 import { getConfig } from '../config';
 import { asSystem, db } from '../db/context';
 import { defineJob, enqueue } from '../jobs/queue';
+import { messagesLeft } from './platform';
 import { logger } from './logger';
 
 export type Channel = 'sms' | 'whatsapp';
@@ -100,6 +101,13 @@ export async function sendAndLog(
   if (!to) {
     await asSystem(() => db.query(`INSERT INTO delivery_logs (institution_id, user_id, notification_id, channel, status, error, to_address) VALUES ($1,$2,$3,$4,'skipped','no valid phone number',$5)`, [
       institutionId, m.userId ?? null, m.notificationId ?? null, m.channel, m.to,
+    ]));
+    return false;
+  }
+  const left = await messagesLeft(institutionId);
+  if (left !== null && left <= 0) {
+    await asSystem(() => db.query(`INSERT INTO delivery_logs (institution_id, user_id, notification_id, channel, status, error, to_address, body) VALUES ($1,$2,$3,$4,'skipped','the plan''s monthly message allowance is used up',$5,$6)`, [
+      institutionId, m.userId ?? null, m.notificationId ?? null, m.channel, to, m.text,
     ]));
     return false;
   }

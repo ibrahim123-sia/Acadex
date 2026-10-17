@@ -73,14 +73,16 @@ async function sniff(body: Buffer, name: string): Promise<string | null> {
 }
 
 export async function quotaFor(institutionId: number, db: Queryable = defaultDb) {
-  const { rows } = await db.query<{ plan: string; settings: unknown; used: string }>(
-    `SELECT i.plan, i.settings, (SELECT COALESCE(sum(size_bytes), 0) FROM files f WHERE f.institution_id = i.id AND f.deleted_at IS NULL) AS used
-       FROM institutions i WHERE i.id = $1`,
+  const { rows } = await db.query<{ plan: string; settings: unknown; used: string; plan_mb: number | null; unlimited: boolean }>(
+    `SELECT i.plan, i.settings, (SELECT COALESCE(sum(size_bytes), 0) FROM files f WHERE f.institution_id = i.id AND f.deleted_at IS NULL) AS used,
+            (p.limits->>'storage_mb')::int AS plan_mb, (p.key IS NOT NULL AND p.limits ? 'storage_mb' AND p.limits->'storage_mb' = 'null'::jsonb) AS unlimited
+       FROM institutions i LEFT JOIN plans p ON p.key = i.plan WHERE i.id = $1`,
     [institutionId]
   );
   const r = rows[0];
   const settings = institutionSettings.safeParse(r?.settings ?? {});
-  const quotaMb = (settings.success && settings.data.storage_quota_mb) || PLAN_QUOTA_MB[r?.plan ?? 'free'] || 500;
+  if (r?.unlimited && !(settings.success && settings.data.storage_quota_mb)) return { usedBytes: Number(r.used ?? 0), quotaBytes: Number.MAX_SAFE_INTEGER };
+  const quotaMb = (settings.success && settings.data.storage_quota_mb) || r?.plan_mb || PLAN_QUOTA_MB[r?.plan ?? 'free'] || 500;
   return { usedBytes: Number(r?.used ?? 0), quotaBytes: quotaMb * MB };
 }
 

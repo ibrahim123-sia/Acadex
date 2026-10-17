@@ -12,6 +12,7 @@ import { HttpError, badRequest, forbidden } from '../lib/errors';
 import { mapHeaders, parseBool, parseDate, readRows, rowObject, type RawRow } from '../lib/import-parse';
 import { campusesFor } from '../lib/structure';
 import { auth, currentUser, institutionId, requirePermission, userCan } from '../middleware/auth';
+import { assertStudentCapacity } from '../lib/platform';
 import { grantSystemRole } from '../rbac';
 import { storeUpload } from '../storage/files';
 
@@ -249,6 +250,7 @@ function studentRow(req: Request, ctx: Ctx, mode: 'create' | 'upsert', r: RawRow
         if (sets.length) await client.query(`UPDATE students SET ${sets.join(', ')} WHERE id = $1`, params);
         return {};
       }
+      await assertStudentCapacity(institutionId(req));
       const { rows } = await client.query<{ id: number }>(
         `INSERT INTO students (institution_id, first_name, last_name, email, roll_no, section_id, gender, dob, phone, city, address, national_id, admission_date, status, custom_data)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10,''),COALESCE($11,''),COALESCE($12,''),COALESCE($13::date, CURRENT_DATE),COALESCE($14,'active'),$15) RETURNING id`,
