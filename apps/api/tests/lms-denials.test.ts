@@ -76,7 +76,7 @@ function fill(path: string) {
     .replace(/:(\w+)/g, (_m, name: string) => String(seg(name) ?? 1));
 }
 
-const routes = lmsRoutes((method, path, tag, summary, auth, extra = {}) => ({ method, path, tag, summary, auth, ...extra }) as RouteDoc).filter((r) => r.auth !== 'public');
+const routes = lmsRoutes((method, path, tag, summary, auth, extra = {}) => ({ method, path, tag, summary, auth, ...extra }) as RouteDoc).filter((r) => r.auth !== 'public' && r.auth !== 'apikey');
 
 describe('LMS endpoints', () => {
   for (const r of routes) {

@@ -105,6 +105,8 @@ export async function setup() {
   process.env.PUSH_DRIVER = 'fake';
   process.env.SMS_DRIVER = 'fake';
   process.env.LIVE_DRIVER = 'fake';
+  process.env.GOOGLE_CLIENT_ID = 'test-google-client';
+  process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret';
   process.env.AI_RATE_LIMIT = '100000';
   process.env.API_RATE_LIMIT = '100000';
   process.env.WHATSAPP_DRIVER = 'fake';

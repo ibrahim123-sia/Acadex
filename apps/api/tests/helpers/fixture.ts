@@ -59,7 +59,8 @@ export async function resetDb() {
     DECLARE r record;
     BEGIN
       SET LOCAL session_replication_role = replica;
-      FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'schema_migrations' LOOP
+      -- plans are reference data (created by the migrations), like the permission catalogue
+      FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename NOT IN ('schema_migrations', 'plans') LOOP
         EXECUTE format('DELETE FROM %I', r.tablename);
       END LOOP;
       FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' LOOP
@@ -81,7 +82,8 @@ export async function resetDb() {
 
   /** An institution with its main campus, a current academic year + term and a grading scheme. */
   const institution = async (name: string, slug: string) => {
-    const inst = await one(`INSERT INTO institutions (name, slug) VALUES ($1,$2) RETURNING *`, [name, slug]);
+    // on the Pro plan (text messages, modules and the API are part of it)
+    const inst = await one(`INSERT INTO institutions (name, slug, plan) VALUES ($1,$2,'pro') RETURNING *`, [name, slug]);
     const campus = await one(
       `INSERT INTO campuses (institution_id, name, code, is_main) VALUES ($1,'Main campus','MAIN',true) RETURNING *`,
       [inst.id]
