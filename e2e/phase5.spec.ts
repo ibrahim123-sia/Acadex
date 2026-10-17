@@ -61,9 +61,9 @@ test('a parent books a meeting, messages the teacher and raises a ticket', async
   await signIn(teacher, TEACHER);
   await teacher.goto('/messages');
   await teacher.getByText(`Question about homework ${stamp}`).first().click();
-  await teacher.getByLabel('Write a message').fill('Please see page 12.');
+  await teacher.getByLabel('Write a message').fill(`Please see page 12 (${stamp}).`);
   await teacher.getByRole('button', { name: 'Send' }).click();
-  await expect(teacher.getByText('Please see page 12.')).toBeVisible();
+  await expect(teacher.locator('ol p').getByText(`Please see page 12 (${stamp}).`)).toBeVisible();
   await teacher.close();
 
   // the office resolves the ticket
@@ -72,7 +72,7 @@ test('a parent books a meeting, messages the teacher and raises a ticket', async
   await office.goto('/tickets');
   await office.getByRole('link', { name: `Bus timing ${stamp}` }).click();
   await office.getByLabel('Status').selectOption('resolved');
-  await expect(office.getByText('Saved').first()).toBeVisible();
+  await expect(office.getByText('Saved', { exact: true }).first()).toBeVisible();
   await office.close();
 
   await page.reload();

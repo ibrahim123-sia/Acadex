@@ -104,7 +104,7 @@ test('exam cycle: a paper is set, marked, approved, published and seen by the st
   expect(n).toBeGreaterThan(0);
   for (let i = 0; i < n; i++) await inputs.nth(i).fill(String(30 + (i % 15)));
   await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Saved').first()).toBeVisible();
+  await expect(page.getByText('Saved', { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Submit for approval' }).click();
   await expect(page.getByText('Submitted').first()).toBeVisible();
 
