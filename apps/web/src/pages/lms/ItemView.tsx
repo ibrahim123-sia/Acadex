@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ArrowRight, CheckCircle2, Download, ExternalLink, Pencil } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, CloudDownload, CloudOff, Download, ExternalLink, Pencil, Play, Subtitles } from 'lucide-react';
 import { api, errorMessage } from '@/lib/api';
 import type { Item } from '@/lib/lms';
 import { Alert, Button, Card, ErrorState, Field, Input, PageHeader, Spinner, useToast } from '@/components/ui';
 import { RichEditor, RichText } from '@/components/RichText';
 import { useCourse } from './Courses';
+import { offlineSupported, removeOffline, saveForOffline, savedItems, useLowBandwidth } from '@/lib/device';
+import { AiBadge } from '@/pages/ai/CourseAi';
 
 interface ItemDetail extends Item {
   body_html: string;
@@ -61,14 +63,17 @@ export function ItemPage() {
         title={it.title}
         subtitle={<Link to="../../#content" relative="path" className="hover:underline">{home.course.name}</Link>}
         actions={
-          home.role === 'staff' && home.can_edit && it.kind === 'page' ? (
-            <Button variant="outline" onClick={() => setEditing((e) => !e)}>
-              <Pencil className="size-4" /> {editing ? t('common.close', 'Close') : t('common.edit', 'Edit')}
-            </Button>
-          ) : undefined
+          <div className="flex flex-wrap gap-2">
+            {(it.kind === 'page' || it.kind === 'file') && <SaveOffline courseId={courseId} item={it} course={home.course.name} />}
+            {home.role === 'staff' && home.can_edit && it.kind === 'page' && (
+              <Button variant="outline" onClick={() => setEditing((e) => !e)}>
+                <Pencil className="size-4" /> {editing ? t('common.close', 'Close') : t('common.edit', 'Edit')}
+              </Button>
+            )}
+          </div>
         }
       />
-      {editing ? <PageEditor item={it} onSaved={() => setEditing(false)} /> : <ItemBody item={it} isStudent={isStudent} />}
+      {editing ? <PageEditor item={it} onSaved={() => setEditing(false)} /> : <ItemBody item={it} isStudent={isStudent} canEdit={home.role === 'staff' && home.can_edit} />}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         {prev ? (
           <Link to={href(prev)} relative="path">
@@ -124,7 +129,44 @@ function PageEditor({ item, onSaved }: { item: ItemDetail; onSaved: () => void }
   );
 }
 
-function ItemBody({ item, isStudent }: { item: ItemDetail; isStudent: boolean }) {
+/** Keeps a page or file (and its course outline) for reading without a connection. */
+function SaveOffline({ courseId, item, course }: { courseId: number; item: ItemDetail; course: string }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const key = `item:${item.id}`;
+  const [saved, setSaved] = useState(() => savedItems.has(key));
+  const m = useMutation({
+    mutationFn: async () => {
+      if (saved) return removeOffline(key);
+      return saveForOffline({ key, title: item.title, course, link: `/learn/courses/${courseId}/items/${item.id}`, urls: [`/courses/${courseId}`, `/content-items/${item.id}`, ...(item.file_id ? [`/files/${item.file_id}`] : [])] });
+    },
+    onSuccess: () => {
+      setSaved(!saved);
+      toast('success', saved ? t('offline.removed', 'Removed from this device') : t('offline.saved', 'Saved — you can open it without a connection'));
+    },
+    onError: (e) => toast('error', errorMessage(e)),
+  });
+  if (!offlineSupported()) return null;
+  return (
+    <Button variant="outline" loading={m.isPending} onClick={() => m.mutate()}>
+      {saved ? <CloudOff className="size-4" /> : <CloudDownload className="size-4" />} {saved ? t('offline.remove', 'Remove offline copy') : t('offline.save', 'Save for offline')}
+    </Button>
+  );
+}
+
+/** In low-bandwidth mode heavy media waits for a tap. */
+function TapToLoad({ label, children }: { label: string; children: React.ReactNode }) {
+  const low = useLowBandwidth();
+  const [go, setGo] = useState(false);
+  if (!low || go) return <>{children}</>;
+  return (
+    <button type="button" onClick={() => setGo(true)} className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-surface-2 text-sm text-fg-muted">
+      <Play className="size-8" aria-hidden /> {label}
+    </button>
+  );
+}
+
+function ItemBody({ item, isStudent, canEdit }: { item: ItemDetail; isStudent: boolean; canEdit: boolean }) {
   const { t } = useTranslation();
   if (item.kind === 'page') return <Card className="p-5"><RichText html={item.body_html} /></Card>;
   if (item.kind === 'video' && item.video_provider) {
@@ -138,12 +180,14 @@ function ItemBody({ item, isStudent }: { item: ItemDetail; isStudent: boolean })
             : `https://drive.google.com/file/d/${item.video_ref}/preview`;
     return (
       <Card className="overflow-hidden">
-        <iframe title={item.title} src={src} className="aspect-video w-full" allow="fullscreen; picture-in-picture" allowFullScreen sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" />
+        <TapToLoad label={t('lb.playVideo', 'Play the video (uses data)')}>
+          <iframe title={item.title} src={src} loading="lazy" className="aspect-video w-full" allow="fullscreen; picture-in-picture" allowFullScreen sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" />
+        </TapToLoad>
         {item.body_html && <div className="p-4"><RichText html={item.body_html} /></div>}
       </Card>
     );
   }
-  if (item.kind === 'file' && item.file_id) return <FileView item={item} />;
+  if (item.kind === 'file' && item.file_id) return <FileView item={item} canEdit={canEdit} />;
   if (item.kind === 'link' || item.kind === 'embed') {
     return (
       <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -162,10 +206,13 @@ function ItemBody({ item, isStudent }: { item: ItemDetail; isStudent: boolean })
 }
 
 /** Files are protected: fetched with the session, then shown (PDFs, images, audio, video) or downloaded. */
-function FileView({ item }: { item: ItemDetail }) {
+function FileView({ item, canEdit }: { item: ItemDetail; canEdit: boolean }) {
   const { t } = useTranslation();
+  const low = useLowBandwidth();
   const [url, setUrl] = useState<string | null>(null);
-  const viewable = !!item.file_type && /^(application\/pdf|image\/|audio\/|video\/)/.test(item.file_type);
+  const [asked, setAsked] = useState(false);
+  const media = /^(audio|video)\//.test(item.file_type ?? '');
+  const viewable = !!item.file_type && /^(application\/pdf|image\/|audio\/|video\/)/.test(item.file_type) && (!low || asked);
   useEffect(() => {
     if (!viewable) return;
     let revoke: string | null = null;
@@ -188,10 +235,24 @@ function FileView({ item }: { item: ItemDetail }) {
         <>
           {item.file_type === 'application/pdf' && <iframe title={item.title} src={url} className="h-[70vh] w-full" />}
           {item.file_type?.startsWith('image/') && <img src={url} alt={item.title} className="mx-auto max-h-[70vh]" />}
-          {item.file_type?.startsWith('audio/') && <audio controls src={url} className="w-full p-4" />}
-          {item.file_type?.startsWith('video/') && <video controls src={url} className="w-full" />}
+          {item.file_type?.startsWith('audio/') && (
+            <audio controls preload="metadata" src={url} className="w-full p-4">
+              <CaptionTracks fileId={item.file_id!} />
+            </audio>
+          )}
+          {item.file_type?.startsWith('video/') && (
+            <video controls preload="metadata" src={url} className="w-full" crossOrigin="anonymous">
+              <CaptionTracks fileId={item.file_id!} />
+            </video>
+          )}
         </>
       )}
+      {low && !asked && /^(application\/pdf|image\/|audio\/|video\/)/.test(item.file_type ?? '') && (
+        <button type="button" onClick={() => setAsked(true)} className="flex w-full items-center justify-center gap-2 bg-surface-2 p-6 text-sm text-fg-muted">
+          <Play className="size-5" aria-hidden /> {t('lb.showFile', 'Show it here ({{kb}} KB)', { kb: Math.round((item.file_size ?? 0) / 1024) })}
+        </button>
+      )}
+      {media && <CaptionControls fileId={item.file_id!} canEdit={canEdit} />}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4">
         <span className="text-sm text-fg-muted">
           {item.file_name} {item.file_size ? `· ${Math.round(item.file_size / 1024)} KB` : ''}
@@ -201,6 +262,64 @@ function FileView({ item }: { item: ItemDetail }) {
         </Button>
       </div>
     </Card>
+  );
+}
+
+const LANGS = { en: 'English', ur: 'اردو', ar: 'العربية' } as const;
+
+/** Caption tracks (fetched with the session, so <track> gets a local URL). */
+function CaptionTracks({ fileId }: { fileId: number }) {
+  const list = useQuery({ queryKey: ['captions', fileId], queryFn: () => api.get<{ language: keyof typeof LANGS; status: string }[]>(`/ai/captions/${fileId}`) });
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const made: string[] = [];
+    let live = true;
+    for (const c of list.data ?? []) {
+      if (c.status !== 'done') continue;
+      api.blob(`/ai/captions/${fileId}/${c.language}.vtt`).then(
+        (b) => {
+          const u = URL.createObjectURL(new Blob([b], { type: 'text/vtt' }));
+          made.push(u);
+          if (live) setUrls((x) => ({ ...x, [c.language]: u }));
+        },
+        () => {}
+      );
+    }
+    return () => {
+      live = false;
+      made.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [list.data, fileId]);
+  return (
+    <>
+      {Object.entries(urls).map(([lang, u], i) => (
+        <track key={lang} kind="captions" srcLang={lang} label={LANGS[lang as keyof typeof LANGS]} src={u} default={i === 0} />
+      ))}
+    </>
+  );
+}
+
+/** Teachers make captions (speech to text) and translate them; everyone sees which exist. */
+function CaptionControls({ fileId, canEdit }: { fileId: number; canEdit: boolean }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: ['captions', fileId], queryFn: () => api.get<{ language: keyof typeof LANGS; status: string }[]>(`/ai/captions/${fileId}`) });
+  const refresh = () => qc.invalidateQueries({ queryKey: ['captions', fileId] });
+  const make = useMutation({ mutationFn: () => api.post(`/ai/captions/${fileId}`, {}), onSuccess: refresh });
+  const translate = useMutation({ mutationFn: (language: string) => api.post(`/ai/captions/${fileId}/translate`, { language }), onSuccess: refresh });
+  const have = new Set((list.data ?? []).filter((c) => c.status === 'done').map((c) => c.language));
+  if (!canEdit && !have.size) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-border p-3 text-sm">
+      <Subtitles className="size-4 text-fg-muted" aria-hidden />
+      {have.size ? <span>{t('cap.have', 'Captions')}: {[...have].map((l) => LANGS[l]).join(', ')}</span> : <span className="text-fg-muted">{t('cap.none', 'No captions yet')}</span>}
+      {have.size > 0 && <AiBadge />}
+      {canEdit && !have.has('en') && <Button size="sm" variant="outline" loading={make.isPending} onClick={() => make.mutate()}>{t('cap.make', 'Make captions')}</Button>}
+      {canEdit && have.has('en') && (['ur', 'ar'] as const).filter((l) => !have.has(l)).map((l) => (
+        <Button key={l} size="sm" variant="ghost" loading={translate.isPending && translate.variables === l} onClick={() => translate.mutate(l)}>{t('cap.translate', 'Translate to {{lang}}', { lang: LANGS[l] })}</Button>
+      ))}
+      {(make.error || translate.error) && <span className="text-danger">{errorMessage(make.error ?? translate.error)}</span>}
+    </div>
   );
 }
 

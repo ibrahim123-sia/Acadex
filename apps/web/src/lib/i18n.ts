@@ -40,7 +40,17 @@ void i18n.use(initReactI18next).init({
 });
 applyDocumentLanguage(initial);
 
-export function setLanguage(code: Language) {
+/** Listeners told when the person picks a language (the account keeps it). */
+const syncers = new Set<(code: Language) => void>();
+export const onLanguagePicked = (fn: (code: Language) => void) => {
+  syncers.add(fn);
+  return () => {
+    syncers.delete(fn);
+  };
+};
+
+export function setLanguage(code: Language, { sync = true } = {}) {
+  if (!LANGUAGES.some((l) => l.code === code)) return;
   void i18n.changeLanguage(code);
   applyDocumentLanguage(code);
   try {
@@ -48,6 +58,7 @@ export function setLanguage(code: Language) {
   } catch {
     /* private mode */
   }
+  if (sync) syncers.forEach((fn) => fn(code));
 }
 
 export default i18n;

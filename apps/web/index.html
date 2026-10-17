@@ -6,12 +6,17 @@
     <meta name="theme-color" content="#4f46e5" />
     <meta name="description" content="Acadex — the learning platform and institute management system for schools, colleges, universities and academies." />
     <link rel="icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Acadex" />
     <title>Acadex</title>
     <script>
       // apply the saved theme before first paint (no flash of the wrong theme)
       try {
         var t = localStorage.getItem('acadex.theme') || 'system';
         if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+        if (localStorage.getItem('acadex.lowBandwidth') === '1') document.documentElement.setAttribute('data-low-bandwidth', '');
         var l = localStorage.getItem('acadex.lang');
         if (l) {
           document.documentElement.lang = l;

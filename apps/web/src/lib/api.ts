@@ -1,6 +1,7 @@
 // API client. The access token lives only in memory (never localStorage); when it expires the
 // client silently exchanges the httpOnly refresh cookie for a new one and retries once.
 import type { ApiErrorBody, AuthResponse } from '@acadex/shared';
+import { shrinkImage } from './device';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
@@ -141,13 +142,19 @@ export const api = {
   put: <T>(path: string, body?: unknown) => json<T>('PUT', path, { body: body ?? {} }),
   delete: <T>(path: string, body?: unknown) => json<T>('DELETE', path, body === undefined ? {} : { body }),
 
-  /** Multipart upload: one file in the "file" field plus text fields. */
-  upload: <T>(method: 'POST' | 'PUT', path: string, file: File, fields: Record<string, string> = {}) => {
+  /** Multipart upload: one file in the "file" field plus text fields (large photos are resized first). */
+  upload: async <T>(method: 'POST' | 'PUT', path: string, file: File, fields: Record<string, string> = {}) => {
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', await shrinkImage(file));
     for (const [k, v] of Object.entries(fields)) form.append(k, v);
     return json<T>(method, path, { form });
   },
+
+  /** The full URL of an API path (for the offline cache). */
+  url: (path: string, query?: Query) => url(path, query),
+
+  /** The raw response of a GET (to store it for offline use). */
+  raw: (path: string) => send('GET', path, {}),
 
   /** A protected file as a Blob (e.g. to show a photo: <img> can't send the access token). */
   async blob(path: string, signal?: AbortSignal): Promise<Blob> {

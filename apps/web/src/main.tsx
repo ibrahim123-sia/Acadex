@@ -10,8 +10,10 @@ import { ThemeProvider } from './lib/theme';
 import { ErrorBoundary, initSentry } from './lib/sentry';
 import { ApiError } from './lib/api';
 import { ToastProvider } from './components/ui';
+import { registerServiceWorker } from './lib/device';
 
 initSentry();
+registerServiceWorker();
 
 const queryClient = new QueryClient({
   defaultOptions: {

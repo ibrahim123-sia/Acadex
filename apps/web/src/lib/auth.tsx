@@ -1,10 +1,31 @@
 // Session state for the web app: restores the session from the refresh cookie on load,
-// renews the access token shortly before it expires, and keeps tabs in sync.
+// renews the access token shortly before it expires, and keeps tabs in sync. Offline, the last
+// session's profile is used (read-only, from the offline caches) until the connection returns.
+// Signing in applies the person's saved language and low-bandwidth choice.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AuthResponse, MfaChallengeResponse, Permission, InstitutionSummary, SessionUser } from '@acadex/shared';
 import { api, onSessionEnded, refreshSession, tokenStore } from './api';
 import { setFormatInstitution } from './format';
+import { clearOfflineData, setLowBandwidth } from './device';
+import { setLanguage, type Language } from './i18n';
+
+const LAST = 'acadex.lastSession';
+const remember = (v: { user: SessionUser; institution: InstitutionSummary | null } | null) => {
+  try {
+    if (v) localStorage.setItem(LAST, JSON.stringify(v));
+    else localStorage.removeItem(LAST);
+  } catch {
+    /* private mode */
+  }
+};
+const lastSession = (): { user: SessionUser; institution: InstitutionSummary | null } | null => {
+  try {
+    return JSON.parse(localStorage.getItem(LAST) ?? 'null');
+  } catch {
+    return null;
+  }
+};
 
 type Status = 'loading' | 'anonymous' | 'authenticated';
 
@@ -12,9 +33,12 @@ interface AuthState {
   status: Status;
   user: SessionUser | null;
   institution: InstitutionSummary | null;
+  /** no connection: showing the last session from the offline caches */
+  offline?: boolean;
 }
 
 interface AuthApi extends AuthState {
+  offline?: boolean;
   /** Returns the 2FA challenge token when a second factor is needed. */
   login: (email: string, password: string) => Promise<{ mfaToken: string } | null>;
   verifyMfa: (mfaToken: string, code: string) => Promise<void>;
@@ -45,6 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tokenStore.set(res.access_token);
       setFormatInstitution(res.institution);
       setState({ status: 'authenticated', user: res.user, institution: res.institution });
+      remember({ user: res.user, institution: res.institution });
+      if (res.user.locale) setLanguage(res.user.locale as Language, { sync: false });
+      if (res.user.low_bandwidth !== undefined) setLowBandwidth(res.user.low_bandwidth, { sync: false });
       clearTimeout(timer.current);
       // renew a minute before expiry
       timer.current = setTimeout(async () => {
@@ -61,11 +88,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     refreshSession().then((res) => {
       if (cancelled) return;
-      if (res) applySession(res);
-      else signedOut();
+      if (res) return applySession(res);
+      const last = lastSession();
+      if (!navigator.onLine && last) {
+        setFormatInstitution(last.institution);
+        setState({ status: 'authenticated', user: last.user, institution: last.institution, offline: true });
+      } else signedOut();
     });
+    // back online after starting offline: renew the session for real
+    const online = () =>
+      refreshSession().then((res) => {
+        if (cancelled) return;
+        if (res) applySession(res);
+      });
+    window.addEventListener('online', online);
     return () => {
       cancelled = true;
+      window.removeEventListener('online', online);
     };
   }, [applySession, signedOut]);
 
@@ -75,7 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!channel) return;
     const onMessage = (e: MessageEvent) => {
-      if (e.data === 'logout') signedOut();
+      if (e.data === 'logout') {
+        remember(null);
+        void clearOfflineData();
+        signedOut();
+      }
       if (e.data === 'login') refreshSession().then((res) => res && applySession(res));
     };
     channel.addEventListener('message', onMessage);
@@ -108,6 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* signed out locally anyway */
     }
     channel?.postMessage('logout');
+    remember(null);
+    await clearOfflineData();
     signedOut();
   }, [signedOut]);
 
