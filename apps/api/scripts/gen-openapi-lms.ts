@@ -24,6 +24,7 @@ const FILES = {
   'reach.ts': ['/api', 'Reach'],
   'integrations.ts': ['/api/integrations', 'Integrations (webhooks)'],
   'modules.ts': ['/api', 'Modules'],
+  'bookings.ts': ['/api', 'Room bookings'],
   'tenant-saas.ts': ['/api', 'Institution platform'],
   'platform-saas.ts': ['/api/platform', 'Platform business'],
   'site.ts': ['/api/public', 'Public site'],

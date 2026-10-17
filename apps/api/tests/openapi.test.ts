@@ -35,6 +35,7 @@ const MOUNTS: Record<string, string> = {
   'reach.ts': '/api',
   'integrations.ts': '/api/integrations',
   'modules.ts': '/api',
+  'bookings.ts': '/api',
   'tenant-saas.ts': '/api',
   'platform-saas.ts': '/api/platform',
   'site.ts': '/api/public',
