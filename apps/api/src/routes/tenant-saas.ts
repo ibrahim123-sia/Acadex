@@ -33,7 +33,6 @@ import { audit } from '../lib/audit';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
 import { courseAccess } from '../lib/lms/access';
 import { issuer } from '../lib/lti';
-import { parsePage, sendPage } from '../lib/pagination';
 import { assertFeature, entitlements, messagesLeft, stripeCheckout } from '../lib/platform';
 import { REPORT_TITLES, buildReport, isReport, renderReport, sendSchedule } from '../lib/reports';
 import { deliver } from '../lib/webhooks';
