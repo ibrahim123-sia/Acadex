@@ -117,6 +117,29 @@ export const teacherUnavailability = pgTable(
   ]
 );
 
+/** Rooms and resources booked outside the timetable (events, labs, the hall). */
+export const roomBookings = pgTable(
+  'room_bookings',
+  {
+    id: serial('id').primaryKey(),
+    institutionId: integer('institution_id').notNull(),
+    roomId: integer('room_id').notNull(),
+    title: text('title').notNull(),
+    purpose: text('purpose').notNull().default(''),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+    bookedBy: integer('booked_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_room_bookings_room').on(t.roomId, t.startsAt),
+    tenant('room_bookings', t as never),
+    foreignKey({ columns: [t.roomId], foreignColumns: [rooms.id], name: 'room_bookings_room_id_fkey' }).onDelete('cascade'),
+    foreignKey({ columns: [t.bookedBy], foreignColumns: [users.id], name: 'room_bookings_booked_by_fkey' }).onDelete('set null'),
+    check('room_bookings_times_check', sql`${t.endsAt} > ${t.startsAt}`),
+  ]
+);
+
 export const substitutions = pgTable(
   'substitutions',
   {
