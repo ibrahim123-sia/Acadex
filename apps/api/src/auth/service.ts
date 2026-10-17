@@ -32,7 +32,7 @@ export async function loadInstitutionSummary(institutionId: number | null): Prom
   if (!institutionId) return null;
   const { rows } = await asSystem(() =>
     db.query<InstitutionSummary>(
-      'SELECT id, name, slug, logo_url, primary_color, plan, status, currency, timezone, locale FROM institutions WHERE id=$1',
+      `SELECT id, name, slug, logo_url, primary_color, plan, status, currency, timezone, locale, COALESCE((settings->>'week_start')::int, 1) AS week_start FROM institutions WHERE id=$1`,
       [institutionId]
     )
   );
