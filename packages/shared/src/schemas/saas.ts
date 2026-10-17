@@ -264,6 +264,14 @@ export const inventoryItemBody = z.object({
   condition: z.enum(['good', 'needs_repair', 'broken', 'disposed']).default('good'),
 });
 export const stockMoveBody = z.object({ change: z.coerce.number().min(-10_000_000).max(10_000_000).refine((n) => n !== 0, 'Not zero'), reason: text(200).default('') });
+export const roomBookingBody = z.object({
+  room_id: id,
+  title: requiredText(160),
+  purpose: text(500).default(''),
+  starts_at: z.iso.datetime({ offset: true }).transform((v) => new Date(v)),
+  ends_at: z.iso.datetime({ offset: true }).transform((v) => new Date(v)),
+});
+
 export const visitorBody = z.object({
   name: requiredText(120),
   phone: text(30).default(''),

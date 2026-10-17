@@ -260,7 +260,13 @@ export const registerBody = z.object({
   offline: z.boolean().default(false),
 });
 export const registerQuery = z.object({ section_id: id, offering_id: optionalId, period_id: optionalId, date: isoDate.optional() });
-export const qrCheckinBody = z.object({ session_id: id, code: z.string().regex(/^[A-Za-z0-9_-]{6,64}$/) });
+export const qrCheckinBody = z.object({
+  session_id: id,
+  code: z.string().regex(/^[A-Za-z0-9_-]{6,64}$/),
+  /** where the student is (only needed when the institution limits check-in to its grounds) */
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
+});
 
 export const LEAVE_KINDS = ['sick', 'personal', 'family', 'official', 'other'] as const;
 export const leaveBody = z

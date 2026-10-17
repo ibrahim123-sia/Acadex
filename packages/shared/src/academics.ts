@@ -406,6 +406,10 @@ export const institutionSettings = z.object({
   messaging: messagingSettingsBody.partial().optional(),
   /** notifications may also go out by SMS / WhatsApp when a person chooses it (the institution pays for messages) */
   notify_by_phone: z.boolean().optional(),
+  /** the first day of the week in calendars and timetables (0 = Sunday … 6 = Saturday) */
+  week_start: z.number().int().min(0).max(6).optional(),
+  /** QR check-in only on the grounds: a circle around a point */
+  attendance_geofence: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180), radius_m: z.number().int().min(20).max(5000) }).nullable().optional(),
 });
 
 export const DEFAULT_ATTENDANCE_THRESHOLD = 75;

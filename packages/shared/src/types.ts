@@ -12,6 +12,8 @@ export interface InstitutionSummary {
   currency: string;
   timezone: string;
   locale: string;
+  /** first day of the week in calendars (0 = Sunday … 6 = Saturday) */
+  week_start?: number;
 }
 
 export interface SessionUser {
