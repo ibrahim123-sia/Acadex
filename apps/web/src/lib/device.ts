@@ -24,7 +24,12 @@ let current = typeof window === 'undefined' ? false : read();
 const apply = () => document.documentElement.toggleAttribute('data-low-bandwidth', current);
 if (typeof document !== 'undefined') apply();
 
+let chosenHere = false;
+
 export function setLowBandwidth(on: boolean, { sync = true } = {}) {
+  // the saved preference from the server never overrides a choice made on this page
+  if (!sync && chosenHere) return;
+  if (sync) chosenHere = true;
   current = on;
   try {
     localStorage.setItem(LB_KEY, on ? '1' : '0');
