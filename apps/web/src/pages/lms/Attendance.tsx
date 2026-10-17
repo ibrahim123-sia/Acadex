@@ -281,7 +281,14 @@ export function CheckInPage() {
   const [code, setCode] = useState('');
   const supported = typeof window !== 'undefined' && 'BarcodeDetector' in window;
   const send = useMutation({
-    mutationFn: (v: { session_id: number; code: string }) => api.post('/attendance/checkin', v),
+    mutationFn: async (v: { session_id: number; code: string }) => {
+      // the location is only checked when the institution limits check-in to its grounds
+      const where = await new Promise<{ lat?: number; lng?: number }>((resolve) => {
+        if (!navigator.geolocation) return resolve({});
+        navigator.geolocation.getCurrentPosition((p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }), () => resolve({}), { timeout: 8000, maximumAge: 60_000 });
+      });
+      return api.post('/attendance/checkin', { ...v, ...where });
+    },
     onSuccess: () => toast('success', t('att.checkedIn', 'You are marked present')),
     onError: (e) => toast('error', errorMessage(e)),
   });
