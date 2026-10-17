@@ -188,6 +188,15 @@ router.post('/attendance/checkin', requirePermission('learner.access'), async (r
   if (!sess || !valid || sess.date !== todayIn(await institutionTimeZone(s))) throw badRequest('This code has expired. Scan the code on the screen again.', { code: 'expired' });
   const { rows: mine } = await db.query(`SELECT 1 FROM (${registerRoster(sess.offering_id)}) x WHERE x.id = $3`, [sess.section_id, sess.offering_id, u.ref_id]);
   if (!mine[0]) throw forbidden('You are not in this class');
+  // optional geofence: the student must be on the grounds
+  const { rows: fence } = await db.query<{ g: { lat: number; lng: number; radius_m: number } | null }>(`SELECT settings->'attendance_geofence' AS g FROM institutions WHERE id = $1`, [s]);
+  const g = fence[0]?.g;
+  if (g && typeof g.lat === 'number') {
+    if (b.lat == null || b.lng == null) throw badRequest('Allow location to check in — this institution checks that you are on the grounds', { location: 'required' });
+    const rad = (x: number) => (x * Math.PI) / 180;
+    const d = 2 * 6371000 * Math.asin(Math.sqrt(Math.sin(rad(b.lat - g.lat) / 2) ** 2 + Math.cos(rad(g.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - g.lng) / 2) ** 2));
+    if (d > g.radius_m) throw forbidden(`You seem to be ${Math.round(d)} m away — check in from the campus`, 'OUTSIDE_GEOFENCE');
+  }
   await db.query(
     `INSERT INTO attendance_records (session_id, student_id, institution_id, status, method, marked_by) VALUES ($1,$2,$3,'present','qr',$4)
      ON CONFLICT ON CONSTRAINT attendance_records_pkey DO UPDATE SET status = 'present', method = 'qr', marked_at = now() WHERE attendance_records.status IN ('absent')`,
