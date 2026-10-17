@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui';
 import { BillingPage, DataPrivacyPage, IntegrationsPage, ModulesCard, ReportsPage } from './Platform';
 import { HrPage, HostelPage, InventoryPage, LibraryPage, MyHrPage, MyServicesPage, TransportPage, VisitorsPage } from '@/pages/modules/Modules';
 import { PrivacyCenterPage } from '@/pages/account/Privacy';
+import { BookingsPage, WhatsNewPage } from './Extras';
 import { PlatformSaasPage } from '@/pages/platform/Saas';
 
 function AnyOf({ perms, children }: { perms: Permission[]; children: ReactNode }) {
@@ -28,6 +29,8 @@ function ModulesPage() {
 const P = (permission: Permission, el: ReactNode) => <RequireAuth permission={permission}>{el}</RequireAuth>;
 export const BillingRoute = () => P('billing.manage', <BillingPage />);
 export const ReportsRoute = () => P('reports.view', <ReportsPage />);
+export const BookingsRoute = () => <RequireAuth><AnyOf perms={['teaching.access', 'timetable.manage']}><BookingsPage /></AnyOf></RequireAuth>;
+export const WhatsNewRoute = () => <RequireAuth><WhatsNewPage /></RequireAuth>;
 export const DataPrivacyRoute = () => <RequireAuth><AnyOf perms={['settings.manage', 'privacy.manage']}><DataPrivacyPage /></AnyOf></RequireAuth>;
 export const IntegrationsRoute = () => P('integrations.manage', <IntegrationsPage />);
 export const ModulesRoute = () => P('settings.manage', <ModulesPage />);

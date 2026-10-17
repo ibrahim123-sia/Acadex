@@ -49,6 +49,8 @@ const InventoryRoute = lazyOf('InventoryRoute');
 const VisitorsRoute = lazyOf('VisitorsRoute');
 const MyServicesRoute = lazyOf('MyServicesRoute');
 const PrivacyRoute = lazyOf('PrivacyRoute');
+const BookingsRoute = lazyOf('BookingsRoute');
+const WhatsNewRoute = lazyOf('WhatsNewRoute');
 const BusinessRoute = lazyOf('BusinessRoute');
 const Site = () => import('@/pages/site/Site');
 const LandingPage = lazy(() => Site().then((m) => ({ default: m.LandingPage })));
@@ -142,6 +144,8 @@ export default function App() {
         <Route path="/inventory" element={<InventoryRoute />} />
         <Route path="/visitors" element={<VisitorsRoute />} />
         <Route path="/privacy" element={<PrivacyRoute />} />
+        <Route path="/bookings" element={<BookingsRoute />} />
+        <Route path="/whats-new" element={<WhatsNewRoute />} />
         <Route path="/platform/business" element={<BusinessRoute />} />
         <Route path="/messages" element={<MessagesRoute />} />
         <Route path="/messages/:id" element={<MessagesRoute />} />

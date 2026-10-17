@@ -79,6 +79,7 @@ import type { ModuleKey } from '@acadex/shared';
 import { useTheme, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/cn';
 import { NotificationBell } from './NotificationBell';
+import { HelpLink, WhatsNewLink } from '@/pages/office/Extras';
 
 const ROLE_LABEL: Record<Role, string> = {
   super_admin: 'Platform',
@@ -216,6 +217,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
       items: [
         { to: '/timetable', label: t('nav.timetable', 'Timetable'), icon: Clock, any: ['teaching.access', 'learner.access', 'guardian.access', 'timetable.manage'] },
         { to: '/calendar', label: t('nav.calendar', 'Calendar'), icon: CalendarDays, any: ['teaching.access', 'learner.access', 'guardian.access'] },
+        { to: '/bookings', label: t('nav.bookings', 'Room bookings'), icon: DoorOpen, any: ['teaching.access', 'timetable.manage'] },
         { to: '/messages', label: t('nav.messages', 'Messages'), icon: MessagesSquare, badge: 'messages' },
         { to: '/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, any: ['announcements.view'] },
         { to: '/meetings', label: t('nav.meetings', 'Parent–teacher meetings'), icon: CalendarClock, any: ['ptm.manage', 'teaching.access', 'guardian.access', 'learner.access'] },
@@ -423,6 +425,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex-1" />
           <LanguageSelect className="hidden sm:flex" />
           <LowBandwidthToggle />
+          <WhatsNewLink />
+          <HelpLink />
           <ThemeToggle />
           <NotificationBell />
         </header>

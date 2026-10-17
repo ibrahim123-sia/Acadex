@@ -9,6 +9,7 @@ import { INSTITUTION_TYPES, type InstitutionType, type Terminology } from '@acad
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
+import { SampleDataCard } from '@/pages/office/Extras';
 import { Alert, Badge, Button, Card, ErrorState, Input, MutationError, PageHeader, Skeleton } from '@/components/ui';
 
 interface Defaults {
@@ -222,6 +223,7 @@ export function AdminOnboarding() {
           </div>
         </div>
       )}
+      <div className="mt-6"><SampleDataCard /></div>
     </>
   );
 }
