@@ -9,14 +9,22 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Alert, Button, Dialog, Field, MutationError, Textarea } from '@/components/ui';
 
+/** Opens the feedback dialog from anywhere (the menu on phones, where there is no floating button). */
+export const openFeedback = () => window.dispatchEvent(new Event('acadex:feedback'));
+
 export function FeedbackWidget() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener('acadex:feedback', show);
+    return () => window.removeEventListener('acadex:feedback', show);
+  }, []);
   const [v, setV] = useState({ rating: 0, message: '' });
   const m = useMutation({ mutationFn: () => api.post('/feedback', { page: window.location.pathname, rating: v.rating || null, message: v.message }), onSuccess: () => setV({ rating: 0, message: '' }) });
   return (
     <>
-      <button type="button" onClick={() => { m.reset(); setOpen(true); }} className="fixed bottom-4 end-4 z-30 flex size-11 items-center justify-center rounded-full bg-primary text-primary-fg shadow-lg hover:bg-primary-hover print:hidden" aria-label={t('fb.open', 'Send feedback')}>
+      <button type="button" onClick={() => { m.reset(); setOpen(true); }} className="fixed bottom-4 end-4 z-30 hidden size-11 items-center justify-center rounded-full bg-primary text-primary-fg shadow-lg hover:bg-primary-hover lg:flex print:hidden" aria-label={t('fb.open', 'Send feedback')}>
         <MessageSquareHeart className="size-5" aria-hidden />
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title={t('fb.title', 'How is Acadex working for you?')}>

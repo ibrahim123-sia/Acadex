@@ -26,6 +26,7 @@ import {
   Languages,
   LayoutDashboard,
   LogOut,
+  MessageSquareHeart,
   Megaphone,
   Menu,
   Monitor,
@@ -73,7 +74,7 @@ import { LANGUAGES, onLanguagePicked, setLanguage, type Language } from '@/lib/i
 import { setLowBandwidth, useLowBandwidth } from '@/lib/device';
 import { api } from '@/lib/api';
 import { useUnreadMessages } from '@/pages/reach/Messages';
-import { FeedbackWidget, PlatformBanner, ProductTour, SupportSessionBanner } from '@/components/PlatformExtras';
+import { FeedbackWidget, PlatformBanner, ProductTour, SupportSessionBanner, openFeedback } from '@/components/PlatformExtras';
 import { useQuery } from '@tanstack/react-query';
 import type { ModuleKey } from '@acadex/shared';
 import { useTheme, type Theme } from '@/lib/theme';
@@ -298,6 +299,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <NavLink to="/account/security" onClick={onNavigate} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-white/5 hover:text-white">
           <ShieldCheck className="size-4" aria-hidden /> {t('nav.security', 'Security')}
         </NavLink>
+        <button type="button" onClick={() => { onNavigate?.(); openFeedback(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-white/5 hover:text-white lg:hidden">
+          <MessageSquareHeart className="size-4" aria-hidden /> {t('fb.open', 'Send feedback')}
+        </button>
         <button type="button" onClick={() => void logout()} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-white/5 hover:text-white">
           <LogOut className="size-4 rtl:rotate-180" aria-hidden /> {t('common.signOut', 'Sign out')}
         </button>
