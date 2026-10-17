@@ -33,6 +33,30 @@ const PayReturnRoute = lazy(() => Office().then((m) => ({ default: m.PayReturnRo
 const ExamsRoutes = lazy(() => Office().then((m) => ({ default: m.ExamsRoutes })));
 const OutcomesRoute = lazy(() => Office().then((m) => ({ default: m.OutcomesRoute })));
 const AdmissionsRoutes = lazy(() => Office().then((m) => ({ default: m.AdmissionsRoutes })));
+const Office6 = () => import('@/pages/office/saas-routes');
+const lazyOf = (name: string) => lazy(() => Office6().then((m) => ({ default: (m as unknown as Record<string, () => JSX.Element>)[name]! })));
+const BillingRoute = lazyOf('BillingRoute');
+const ReportsRoute = lazyOf('ReportsRoute');
+const DataPrivacyRoute = lazyOf('DataPrivacyRoute');
+const IntegrationsRoute = lazyOf('IntegrationsRoute');
+const ModulesRoute = lazyOf('ModulesRoute');
+const LibraryRoute = lazyOf('LibraryRoute');
+const HrRoute = lazyOf('HrRoute');
+const MyHrRoute = lazyOf('MyHrRoute');
+const TransportRoute = lazyOf('TransportRoute');
+const HostelRoute = lazyOf('HostelRoute');
+const InventoryRoute = lazyOf('InventoryRoute');
+const VisitorsRoute = lazyOf('VisitorsRoute');
+const MyServicesRoute = lazyOf('MyServicesRoute');
+const PrivacyRoute = lazyOf('PrivacyRoute');
+const BusinessRoute = lazyOf('BusinessRoute');
+const Site = () => import('@/pages/site/Site');
+const LandingPage = lazy(() => Site().then((m) => ({ default: m.LandingPage })));
+const PricingPage = lazy(() => Site().then((m) => ({ default: m.PricingPage })));
+const DemoPage = lazy(() => Site().then((m) => ({ default: m.DemoPage })));
+const SignupPage = lazy(() => Site().then((m) => ({ default: m.SignupPage })));
+const LegalPage = lazy(() => Site().then((m) => ({ default: m.LegalPage })));
+const DocsPage = lazy(() => Site().then((m) => ({ default: m.DocsPage })));
 const Reach = () => import('@/pages/reach');
 const MessagesRoute = lazy(() => Reach().then((m) => ({ default: m.MessagesRoute })));
 const SafeguardingRoute = lazy(() => Reach().then((m) => ({ default: m.SafeguardingRoute })));
@@ -68,7 +92,14 @@ export default function App() {
   return (
     <Suspense fallback={<Spinner className="h-full" />}>
       <Routes>
-        <Route path="/" element={<HomeRedirect />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/home" element={<HomeRedirect />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/demo" element={<DemoPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/legal/:doc" element={<LegalPage />} />
+        <Route path="/docs" element={<DocsPage />} />
+        <Route path="/docs/:slug" element={<DocsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -96,6 +127,22 @@ export default function App() {
         <Route path="/surveys/*" element={<SurveyRoutes />} />
         <Route path="/family" element={<FamilyRoute />} />
         <Route path="/verify/:code" element={<VerifyPage />} />
+        <Route path="/billing" element={<BillingRoute />} />
+        <Route path="/reports" element={<ReportsRoute />} />
+        <Route path="/admin/data" element={<DataPrivacyRoute />} />
+        <Route path="/admin/integrations" element={<IntegrationsRoute />} />
+        <Route path="/admin/modules" element={<ModulesRoute />} />
+        <Route path="/library" element={<LibraryRoute />} />
+        <Route path="/library/mine" element={<MyServicesRoute />} />
+        <Route path="/services" element={<MyServicesRoute />} />
+        <Route path="/hr" element={<HrRoute />} />
+        <Route path="/hr/me" element={<MyHrRoute />} />
+        <Route path="/transport" element={<TransportRoute />} />
+        <Route path="/hostel" element={<HostelRoute />} />
+        <Route path="/inventory" element={<InventoryRoute />} />
+        <Route path="/visitors" element={<VisitorsRoute />} />
+        <Route path="/privacy" element={<PrivacyRoute />} />
+        <Route path="/platform/business" element={<BusinessRoute />} />
         <Route path="/messages" element={<MessagesRoute />} />
         <Route path="/messages/:id" element={<MessagesRoute />} />
         <Route path="/safeguarding" element={<SafeguardingRoute />} />

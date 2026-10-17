@@ -54,6 +54,17 @@ import {
   ShieldAlert,
   Gauge,
   WifiOff,
+  BarChart3,
+  LibraryBig,
+  Briefcase,
+  Bus,
+  BedDouble,
+  Package,
+  DoorOpen,
+  Blocks,
+  Plug,
+  Lock,
+  CreditCard,
 } from 'lucide-react';
 import type { Permission, Role } from '@acadex/shared';
 import { useAuth } from '@/lib/auth';
@@ -62,6 +73,9 @@ import { LANGUAGES, onLanguagePicked, setLanguage, type Language } from '@/lib/i
 import { setLowBandwidth, useLowBandwidth } from '@/lib/device';
 import { api } from '@/lib/api';
 import { useUnreadMessages } from '@/pages/reach/Messages';
+import { FeedbackWidget, PlatformBanner, ProductTour, SupportSessionBanner } from '@/components/PlatformExtras';
+import { useQuery } from '@tanstack/react-query';
+import type { ModuleKey } from '@acadex/shared';
 import { useTheme, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/cn';
 import { NotificationBell } from './NotificationBell';
@@ -86,6 +100,8 @@ interface NavItem {
   end?: boolean;
   /** a live count next to the item */
   badge?: 'messages';
+  /** shown only when one of these modules is switched on */
+  modules?: ModuleKey[];
 }
 
 /** Navigation sections; an item shows when the user holds its permission. */
@@ -99,6 +115,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/platform', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'platform.institutions.read', end: true },
         { to: '/platform/institutions', label: t('nav.institutions', 'Institutions'), icon: Building2, permission: 'platform.institutions.read' },
         { to: '/platform/audit', label: t('nav.audit', 'Audit log'), icon: ScrollText, permission: 'platform.audit.read' },
+        { to: '/platform/business', label: t('nav.business', 'Business'), icon: BarChart3, permission: 'platform.institutions.read' },
       ],
     },
     {
@@ -115,6 +132,13 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/finance', label: t('nav.finance', 'Finance'), icon: Wallet, any: ['fees.read', 'finance.reports', 'finance.expenses'] },
         { to: '/admissions', label: t('nav.admissions', 'Admissions'), icon: UserPlus, any: ['admissions.manage', 'enquiries.manage'] },
         { to: '/admin/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, permission: 'announcements.read' },
+        { to: '/reports', label: t('nav.reports', 'Reports'), icon: BarChart3, permission: 'reports.view' },
+        { to: '/library', label: t('nav.library', 'Library'), icon: LibraryBig, permission: 'library.manage', modules: ['library'] },
+        { to: '/hr', label: t('nav.hr', 'HR & payroll'), icon: Briefcase, permission: 'hr.manage', modules: ['hr'] },
+        { to: '/transport', label: t('nav.transport', 'Transport'), icon: Bus, permission: 'transport.manage', modules: ['transport'] },
+        { to: '/hostel', label: t('nav.hostel', 'Hostel'), icon: BedDouble, permission: 'hostel.manage', modules: ['hostel'] },
+        { to: '/inventory', label: t('nav.inventory', 'Inventory & assets'), icon: Package, permission: 'inventory.manage', modules: ['inventory'] },
+        { to: '/visitors', label: t('nav.visitors', 'Visitors'), icon: DoorOpen, permission: 'visitors.manage', modules: ['visitors'] },
         { to: '/communication', label: t('nav.communication', 'Communication'), icon: RadioTower, any: ['broadcast.send', 'delivery.read', 'integrations.manage'] },
         { to: '/safeguarding', label: t('nav.safeguarding', 'Safeguarding'), icon: ShieldAlert, permission: 'messages.review' },
       ],
@@ -147,6 +171,10 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/admin/roles', label: t('nav.roles', 'Roles & permissions'), icon: UserCog, permission: 'roles.manage' },
         { to: '/admin/settings', label: t('nav.settings', 'Settings'), icon: Settings, permission: 'settings.manage' },
         { to: '/ai/settings', label: t('nav.ai', 'AI'), icon: Sparkles, permission: 'ai.manage' },
+        { to: '/admin/modules', label: t('nav.modules', 'Modules'), icon: Blocks, permission: 'settings.manage' },
+        { to: '/admin/integrations', label: t('nav.integrations', 'Integrations'), icon: Plug, permission: 'integrations.manage' },
+        { to: '/admin/data', label: t('nav.privacyOffice', 'Data & privacy'), icon: Lock, any: ['settings.manage', 'privacy.manage'] },
+        { to: '/billing', label: t('nav.billing', 'Billing'), icon: CreditCard, permission: 'billing.manage' },
       ],
     },
     {
@@ -158,6 +186,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/exams/marks', label: t('nav.examMarks', 'Exam marks'), icon: ClipboardCheck, permission: 'teaching.access' },
         { to: '/outcomes', label: t('nav.outcomes', 'Learning outcomes'), icon: Target, permission: 'teaching.access' },
         { to: '/success', label: t('nav.success', 'Student success'), icon: HeartPulse, permission: 'teaching.access' },
+        { to: '/hr/me', label: t('nav.myHr', 'Pay & leave'), icon: Briefcase, permission: 'teaching.access', modules: ['hr'] },
       ],
     },
     {
@@ -194,6 +223,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/attendance/leave', label: t('nav.leave', 'Leave'), icon: Plane, any: ['leave.request', 'leave.approve'] },
         { to: '/surveys', label: t('nav.surveys', 'Surveys'), icon: ClipboardList },
         { to: '/saved', label: t('nav.saved', 'Saved for offline'), icon: CloudDownload },
+        { to: '/services', label: t('nav.services', 'Library & transport'), icon: LibraryBig, any: ['learner.access', 'guardian.access'], modules: ['library', 'transport'] },
+        { to: '/privacy', label: t('nav.privacy', 'Privacy'), icon: Lock },
         { to: '/help', label: t('nav.help', 'Help'), icon: HelpCircle },
       ],
     },
@@ -203,8 +234,13 @@ function useNav(): { title: string; items: NavItem[] }[] {
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation();
   const { user, institution, can, logout } = useAuth();
+  const mods = useQuery({ queryKey: ['/modules'], queryFn: () => api.get<{ enabled: ModuleKey[] }>('/modules'), enabled: !!user?.institution_id, staleTime: 5 * 60_000 });
+  const enabled = mods.data?.enabled ?? [];
   const sections = useNav()
-    .map((s) => ({ ...s, items: s.items.filter((i) => (i.any ? i.any.some((p) => can(p)) : i.permission ? can(i.permission) : !!user?.institution_id)) }))
+    .map((s) => ({
+      ...s,
+      items: s.items.filter((i) => (i.any ? i.any.some((p) => can(p)) : i.permission ? can(i.permission) : !!user?.institution_id) && (!i.modules || i.modules.some((m) => enabled.includes(m)))),
+    }))
     .filter((s) => s.items.length);
   const roleLabel = user ? t(`roles.label.${user.role}`, ROLE_LABEL[user.role]) : '';
   return (
@@ -390,10 +426,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           <ThemeToggle />
           <NotificationBell />
         </header>
+        <SupportSessionBanner />
         <OfflineBanner />
+        <PlatformBanner />
         <main id="main" className="flex-1">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
         </main>
+        <FeedbackWidget />
+        <ProductTour />
       </div>
     </div>
   );
