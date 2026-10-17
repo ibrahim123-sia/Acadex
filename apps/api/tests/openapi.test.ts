@@ -42,6 +42,7 @@ const MOUNTS: Record<string, string> = {
   'lti-launch.ts': '/api/lti',
   'sso.ts': '/api/auth/sso',
   'billing-webhook.ts': '/api/billing',
+  'internal.ts': '/api/internal',
   'api-v1.ts': '/api/v1',
   'apply.ts': '/api/apply',
   'payments.ts': '/api/payments',

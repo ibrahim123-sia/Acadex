@@ -37,6 +37,7 @@ import siteRoutes from './routes/site';
 import ltiLaunchRoutes from './routes/lti-launch';
 import ssoRoutes from './routes/sso';
 import billingWebhookRoutes from './routes/billing-webhook';
+import internalRoutes from './routes/internal';
 import apiV1Routes from './routes/api-v1';
 import applyRoutes from './routes/apply';
 import './jobs';
@@ -164,6 +165,7 @@ export function createApp(config: Config = getConfig()) {
   app.use('/api/public', siteRoutes);
   app.use('/api/lti', ltiLaunchRoutes);
   app.use('/api/billing', billingWebhookRoutes);
+  app.use('/api/internal', internalRoutes);
   app.use('/api/v1', apiV1Routes);
   app.use('/api/files', fileRoutes);
   app.use('/api/me', meRoutes);

@@ -594,6 +594,7 @@ export const lmsRoutes = (r: R): RouteDoc[] => [
   r('get', '/api/auth/sso/:provider/start', 'Single sign-on (public)', 'Get start', 'public'),
   r('get', '/api/auth/sso/:provider/callback', 'Single sign-on (public)', 'Get callback', 'public'),
   r('post', '/api/billing/stripe/webhook', 'Billing (webhook)', 'Create stripe webhook', 'public'),
+  r('post', '/api/internal/cron', 'Internal (scheduler)', 'Queue the scheduled jobs due in the last window (header x-acadex-cron: CRON_SECRET)', 'public'),
   r('get', '/api/v1/students', 'Public API v1', 'Students (active and past), optionally changed since a time', 'apikey'),
   r('get', '/api/v1/staff', 'Public API v1', 'Get staff', 'apikey'),
   r('get', '/api/v1/courses', 'Public API v1', 'Courses as taught: one row per class (offering)', 'apikey'),
