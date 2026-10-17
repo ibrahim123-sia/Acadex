@@ -147,8 +147,19 @@ export async function migrate(
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
-if (isMain) {
+/**
+ * Whether this module is the program being run (`tsx src/db/migrate.ts`, `node dist/db/migrate.js`).
+ * The production bundle also inlines this file into dist/server.js, where import.meta.url is
+ * server.js itself — so the script's own name must match too, or starting the server would
+ * migrate and then close the database pool.
+ */
+export function isMigrateEntry(argv1: string | undefined, moduleUrl: string): boolean {
+  if (!argv1) return false;
+  const script = path.resolve(argv1);
+  return fileURLToPath(moduleUrl) === script && /^migrate\.(ts|js|mjs)$/.test(path.basename(script));
+}
+
+if (isMigrateEntry(process.argv[1], import.meta.url)) {
   const { pool } = await import('./pool');
   migrate(pool)
     .then((ran) => console.log(ran.length ? `✅ ${ran.length} migration(s) applied` : '✅ Database is up to date'))
