@@ -25,7 +25,7 @@ async function progressOf(offeringId: number, studentId: number) {
 }
 
 /** Days in a row (ending today or yesterday) with something completed. */
-async function streakOf(studentId: number) {
+export async function streakOf(studentId: number) {
   const { rows } = await db.query<{ d: string }>(
     `SELECT DISTINCT completed_at::date::text AS d FROM content_progress WHERE student_id = $1 AND completed_at > now() - interval '400 days' ORDER BY d DESC`,
     [studentId]

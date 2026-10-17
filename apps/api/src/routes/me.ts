@@ -9,6 +9,7 @@ import { rosterSql } from '../lib/lms/access';
 import { ATTENDANCE_COUNTS_SQL, RELEASED_GRADES_SQL } from '../lib/lms/student';
 import { todayIn } from '../lib/locale';
 import { auth, currentUser, requireInstitutionUser, requirePermission, institutionId } from '../middleware/auth';
+import { streakOf } from '../lib/lms/rewards';
 
 const router = Router();
 router.use(auth);
@@ -131,6 +132,7 @@ router.get('/dashboard', requireInstitutionUser, async (req, res) => {
       attendance: { percent: pct, threshold, below: pct != null && pct < threshold },
       courses: courses.rows.map((c: { items: number; done: number }) => ({ ...c, percent: c.items ? Math.round((c.done / c.items) * 100) : 0 })),
       announcements: announcements.rows,
+      streak: await streakOf(sid),
     });
   }
 
@@ -181,6 +183,19 @@ router.get('/dashboard', requireInstitutionUser, async (req, res) => {
       registers: holiday ? [] : registers.rows,
       leave_to_decide: leave.rows[0]?.n ?? 0,
       courses: courses.rows,
+      // the latest early-warning scores of students they teach (high and medium)
+      at_risk: (
+        await db.query(
+          `SELECT DISTINCT ON (rs.student_id) rs.student_id, st.first_name || ' ' || st.last_name AS name, sec.name AS section, rs.score::int AS score, rs.level
+             FROM risk_scores rs JOIN students st ON st.id = rs.student_id LEFT JOIN sections sec ON sec.id = st.section_id
+            WHERE rs.institution_id = $1 AND rs.level IN ('high', 'medium') AND rs.computed_on > CURRENT_DATE - 7
+              AND st.section_id IN (SELECT section_id FROM section_staff WHERE teacher_id = $2)
+            ORDER BY rs.student_id, rs.computed_on DESC`,
+          [s, u.ref_id ?? 0]
+        )
+      ).rows
+        .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+        .slice(0, 6),
     });
   }
 
