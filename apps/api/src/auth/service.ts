@@ -51,9 +51,15 @@ export async function sessionResponse(row: UserRow, sessionId: string): Promise<
 }
 
 /** Create a session for a user who just proved who they are, and answer with it. */
-export async function startSession(req: Request, res: Response, userId: number, { mfaVerified = false } = {}): Promise<AuthResponse> {
-  const { sessionId, refreshToken } = await createSession(userId, { ...requestMeta(req), mfaVerified });
-  await asSystem(() => db.query('UPDATE users SET last_login_at = now() WHERE id = $1', [userId]));
+export async function startSession(
+  req: Request,
+  res: Response,
+  userId: number,
+  { mfaVerified = false, impersonatedBy = null as number | null, ttlMinutes = undefined as number | undefined } = {}
+): Promise<AuthResponse> {
+  const { sessionId, refreshToken } = await createSession(userId, { ...requestMeta(req), mfaVerified, impersonatedBy, ttlMinutes });
+  // a support session is not the person's own sign-in
+  if (!impersonatedBy) await asSystem(() => db.query('UPDATE users SET last_login_at = now() WHERE id = $1', [userId]));
   const row = (await asSystem(() => loadUserRow(userId, sessionId)))!;
   setRefreshCookie(res, refreshToken);
   return sessionResponse(row, sessionId);

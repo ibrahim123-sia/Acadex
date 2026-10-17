@@ -23,6 +23,7 @@ export interface AuthUser {
   grants: Grant[];
   locale: string | null;
   low_bandwidth: boolean;
+  impersonated_by: string | null;
 }
 
 declare module 'express-serve-static-core' {
@@ -53,6 +54,7 @@ export interface UserRow {
   grants: Grant[];
   locale: string | null;
   low_bandwidth: boolean;
+  impersonated_by: string | null;
 }
 
 /** The account, its institution status, the given session's state and all role grants. */
@@ -64,6 +66,7 @@ export async function loadUserRow(userId: number, sessionId: string): Promise<Us
             ss.revoked_at IS NOT NULL AS session_revoked,
             COALESCE(ss.expires_at < now(), true) AS session_expired,
             COALESCE(ss.mfa_verified, false) AS session_mfa_verified,
+            (SELECT iu.full_name FROM users iu WHERE iu.id = ss.impersonated_by) AS impersonated_by,
             COALESCE((SELECT json_agg(DISTINCT jsonb_build_object('permission', rp.permission,
                                'scopeType', ur.scope_type, 'scopeId', ur.scope_id, 'institutionId', ur.institution_id))
                         FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id
@@ -139,6 +142,7 @@ export function toAuthUser(u: UserRow, sessionId: string): AuthUser {
     grants: u.grants,
     locale: u.locale ?? null,
     low_bandwidth: !!u.low_bandwidth,
+    impersonated_by: u.impersonated_by ?? null,
   };
 }
 
@@ -212,6 +216,7 @@ export function toSessionUser(user: AuthUser): SessionUser {
     permissions: effectivePermissions(user),
     locale: user.locale ?? null,
     low_bandwidth: !!user.low_bandwidth,
+    impersonated_by: user.impersonated_by ?? null,
   };
 }
 

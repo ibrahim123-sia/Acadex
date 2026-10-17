@@ -12,6 +12,10 @@ export interface SessionMeta {
   userAgent?: string;
   ip?: string;
   mfaVerified?: boolean;
+  /** a support session opened by this platform administrator */
+  impersonatedBy?: number | null;
+  /** a shorter life than the usual maximum (support sessions) */
+  ttlMinutes?: number;
 }
 
 const days = (n: number) => n * 24 * 60 * 60 * 1000;
@@ -29,8 +33,8 @@ async function issueRefreshToken(sessionId: string): Promise<string> {
 export async function createSession(userId: number, meta: SessionMeta = {}): Promise<{ sessionId: string; refreshToken: string }> {
   return asSystem(async () => {
     const { rows } = await db.query<{ id: string }>(
-      `INSERT INTO sessions (user_id, expires_at, user_agent, ip, mfa_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [userId, new Date(Date.now() + days(getConfig().sessionMaxAgeDays)), (meta.userAgent ?? '').slice(0, 300), meta.ip ?? '', !!meta.mfaVerified]
+      `INSERT INTO sessions (user_id, expires_at, user_agent, ip, mfa_verified, impersonated_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [userId, new Date(Date.now() + (meta.ttlMinutes ? meta.ttlMinutes * 60_000 : days(getConfig().sessionMaxAgeDays))), (meta.userAgent ?? '').slice(0, 300), meta.ip ?? '', !!meta.mfaVerified, meta.impersonatedBy ?? null]
     );
     const sessionId = rows[0]!.id;
     return { sessionId, refreshToken: await issueRefreshToken(sessionId) };
