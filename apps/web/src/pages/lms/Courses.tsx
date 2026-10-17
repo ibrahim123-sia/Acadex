@@ -24,6 +24,7 @@ import {
   Video,
 } from 'lucide-react';
 import { api, errorMessage } from '@/lib/api';
+import { CloudPicker } from '@/components/CloudPicker';
 import { formatDate } from '@/lib/format';
 import { dueLabel, type CourseHome, type CourseSummary, type Item, type Module } from '@/lib/lms';
 import { cn } from '@/lib/cn';
@@ -445,6 +446,7 @@ function AddItemDialog({ courseId, moduleId, onClose, onDone }: { courseId: numb
             {(a) => <Input {...a} type="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" dir="ltr" />}
           </Field>
         )}
+        {kind === 'link' && <CloudPicker onPicked={(f) => { setUrl(f.url); if (!title) setTitle(f.name); }} />}
         {(kind === 'file' || kind === 'scorm') && (
           <Field label={kind === 'scorm' ? t('lms.scormZip', 'SCORM 1.2 / 2004 package (.zip)') : t('lms.file', 'File (PDF, slides, documents, audio, video)')}>
             {(a) => <Input {...a} type="file" accept={kind === 'scorm' ? '.zip' : undefined} required onChange={(e) => setFile(e.target.files?.[0] ?? null)} />}
