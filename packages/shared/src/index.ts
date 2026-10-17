@@ -19,4 +19,5 @@ export * from './schemas/admissions';
 export * from './schemas/ai';
 export * from './schemas/reach';
 export * from './schemas/saas';
+export * from './changelog';
 export * from './help';
