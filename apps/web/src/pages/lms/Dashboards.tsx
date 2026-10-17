@@ -2,7 +2,7 @@
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, CalendarCheck, ClipboardCheck, ClipboardList, Clock, FileText, Users } from 'lucide-react';
+import { BookOpen, CalendarCheck, ClipboardCheck, ClipboardList, Clock, FileText, Flame, Users } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { dueLabel } from '@/lib/lms';
@@ -70,6 +70,7 @@ export function StudentHome() {
         attendance: { percent: number | null; threshold: number; below: boolean };
         courses: { id: number; name: string; percent: number }[];
         announcements: { id: number; title: string }[];
+        streak?: number;
       }>('/me/dashboard'),
   });
   if (q.isPending) return <Spinner />;
@@ -78,6 +79,7 @@ export function StudentHome() {
   return (
     <>
       <PageHeader title={t('dash.hello', 'Hello, {{name}}', { name: user?.full_name.split(' ')[0] ?? '' })} />
+      {!!d.streak && d.streak > 1 && <p className="mb-3 inline-flex items-center gap-1 rounded-full bg-warning-soft px-3 py-1 text-sm font-medium"><Flame className="size-4 text-warning" aria-hidden /> {t('dash.streak', '{{n}}-day streak', { n: d.streak })}</p>}
       {d.attendance.below && <Alert tone="danger" className="mb-4">{t('att.below', 'Below the required {{n}}% — this can affect exam eligibility.', { n: d.attendance.threshold })}</Alert>}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -148,6 +150,7 @@ export function TeacherHome() {
         registers: { section_id: number; section_name: string; taken: boolean }[];
         leave_to_decide: number;
         courses: { id: number; name: string; section_name: string | null }[];
+        at_risk?: { student_id: number; name: string; section: string | null; score: number; level: string }[];
       }>('/me/dashboard'),
   });
   if (q.isPending) return <Spinner />;
@@ -165,6 +168,19 @@ export function TeacherHome() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Today classes={d.classes} holiday={d.holiday} staff />
         <div className="space-y-4">
+          {!!d.at_risk?.length && (
+            <Card className="p-4">
+              <h2 className="mb-2 font-semibold">{t('dash.atRisk', 'Students who may need help')}</h2>
+              <ul className="space-y-1">
+                {d.at_risk.map((r) => (
+                  <li key={r.student_id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <Link to="/success" className="hover:text-primary">{r.name}{r.section ? ` · ${r.section}` : ''}</Link>
+                    <Badge tone={r.level === 'high' ? 'danger' : 'warning'}>{t(`risk.${r.level}`, r.level)} · {r.score}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           {d.registers.length > 0 && !d.holiday && (
             <Card className="p-4">
               <h2 className="mb-2 font-semibold">{t('dash.dayRegisters', 'Class teacher registers')}</h2>
