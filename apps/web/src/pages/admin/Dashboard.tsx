@@ -184,7 +184,8 @@ export function AdminDashboard() {
             {t("admin.feeStatus", "Fee status")}
           </h2>
           {feePie.length ? (
-            <div dir="ltr">
+            <div dir="ltr" role="img" aria-label={feePie.map((e) => `${e.name}: ${e.value}`).join(', ')}>
+              <div aria-hidden="true" {...{ inert: "" }}>
               <ResponsiveContainer width="100%" height={230}>
                 <PieChart>
                   <Pie
@@ -206,6 +207,7 @@ export function AdminDashboard() {
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
+              </div>
             </div>
           ) : (
             <EmptyState title={t("admin.noFees", "No fee records yet")} />

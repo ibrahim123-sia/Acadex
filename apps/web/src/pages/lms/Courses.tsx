@@ -87,7 +87,7 @@ function CourseCard({ c }: { c: CourseSummary }) {
             <span>{t('lms.progress', 'Progress')}</span>
             <span>{c.progress_percent}%</span>
           </div>
-          <div className="h-2 rounded-full bg-surface-2" role="progressbar" aria-valuenow={c.progress_percent} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-2 rounded-full bg-surface-2" role="progressbar" aria-label={t('lms.progress', 'Progress')} aria-valuenow={c.progress_percent} aria-valuemin={0} aria-valuemax={100}>
             <div className="h-2 rounded-full bg-primary" style={{ width: `${c.progress_percent}%` }} />
           </div>
         </div>
@@ -332,7 +332,7 @@ function ModuleRules({ m, modules, onSave }: { m: Module; modules: Module[]; onS
   return (
     <>
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
-        <Lock className="size-4" /> {t('lms.release', 'Release')}
+        <Lock className="size-4" /> {t('lms.releaseAction', 'Release')}
       </Button>
       <Dialog open={open} onClose={() => setOpen(false)} title={t('lms.releaseRules', 'When students can open “{{title}}”', { title: m.title })}>
         <form
@@ -449,7 +449,7 @@ function AddItemDialog({ courseId, moduleId, onClose, onDone }: { courseId: numb
           </Field>
         )}
         {(kind === 'page' || kind === 'file' || kind === 'video' || kind === 'link') && (
-          <Field label={t('lms.completion', 'Counts as done when the student')}>
+          <Field label={t('lms.completionLabel', 'Counts as done when the student')}>
             {(a) => (
               <Select {...a} value={completion} onChange={(e) => setCompletion(e.target.value as 'view')}>
                 <option value="view">{t('lms.completion.view', 'opens it')}</option>

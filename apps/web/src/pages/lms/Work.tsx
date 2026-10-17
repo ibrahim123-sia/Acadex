@@ -257,7 +257,7 @@ export function WorkEditorPage() {
                       checked={f.submission_types.includes(ty)}
                       onChange={(e) => set('submission_types', e.target.checked ? [...f.submission_types, ty] : f.submission_types.filter((x) => x !== ty))}
                     />
-                    {t(`lms.handIn.${ty}`, ty)}
+                    {t(`lms.handInType.${ty}`, ty)}
                   </label>
                 ))}
               </div>
@@ -294,7 +294,7 @@ export function WorkEditorPage() {
           <Field label={t('lms.attempts', 'Attempts allowed')} hint={t('lms.attemptsHint', 'Empty = unlimited')}>
             {(a) => <Input {...a} type="number" min={1} value={f.allowed_attempts} onChange={(e) => set('allowed_attempts', e.target.value)} />}
           </Field>
-          <Field label={t('lms.late', 'Late work')}>
+          <Field label={t('lms.lateWork', 'Late work')}>
             {(a) => (
               <Select {...a} value={f.late_mode} onChange={(e) => set('late_mode', e.target.value)}>
                 <option value="allow">{t('lms.late.allow', 'accepted, marked late')}</option>

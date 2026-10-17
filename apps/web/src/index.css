@@ -11,16 +11,16 @@
   --surface-2: #f1f5f9;
   --border: #e2e8f0;
   --fg: #0f172a;
-  --fg-muted: #64748b;
+  --fg-muted: #526075;
   --primary: #4f46e5;
   --primary-hover: #4338ca;
   --primary-fg: #ffffff;
   --primary-soft: #eef2ff;
-  --danger: #dc2626;
+  --danger: #b91c1c;
   --danger-soft: #fef2f2;
-  --success: #16a34a;
+  --success: #15803d;
   --success-soft: #f0fdf4;
-  --warning: #d97706;
+  --warning: #a35207;
   --warning-soft: #fffbeb;
   --ring: #6366f1;
   --sidebar: #0f172a;
@@ -108,6 +108,11 @@ html[lang='ur'] body {
   }
 }
 
+/* a link wrapping a button is as large as the button (WCAG 2.5.8 target size) */
+a:has(> button) {
+  display: inline-flex;
+}
+
 dialog::backdrop {
   background: rgb(15 23 42 / 0.45);
 }
@@ -127,3 +132,17 @@ dialog::backdrop {
 .prose-acadex td, .prose-acadex th { border: 1px solid var(--border); padding: 0.35rem 0.5rem; }
 .prose-acadex iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 0.5rem; }
 .prose-acadex .katex-display { overflow-x: auto; overflow-y: hidden; }
+
+/* Low-bandwidth mode: nothing moves or animates, decorative backgrounds are dropped. */
+html[data-low-bandwidth] *,
+html[data-low-bandwidth] *::before,
+html[data-low-bandwidth] *::after {
+  animation: none !important;
+  transition: none !important;
+  background-image: none !important;
+}
+
+/* Respect the system setting for reduced motion everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
