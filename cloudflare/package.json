@@ -1,0 +1,21 @@
+{
+  "name": "acadex-cloudflare",
+  "private": true,
+  "description": "Runs Acadex on Cloudflare: a Worker serves the web app and sends /api to the API container. See docs/cloudflare.md.",
+  "type": "module",
+  "scripts": {
+    "build:web": "cd .. && npm run build -w @acadex/web",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261016.1",
+    "typescript": "6.0.3",
+    "wrangler": "4.151.1"
+  }
+}

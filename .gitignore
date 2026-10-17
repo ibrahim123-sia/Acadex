@@ -90,3 +90,9 @@ screenshots/
 # Playwright
 test-results/
 playwright-report/
+
+# --- Cloudflare (wrangler) ---
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
