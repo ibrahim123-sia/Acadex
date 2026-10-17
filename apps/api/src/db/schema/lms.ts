@@ -167,6 +167,10 @@ export const liveSessions = pgTable(
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
     durationMinutes: integer('duration_minutes').notNull().default(45),
     recordingUrl: text('recording_url').notNull().default(''),
+    /** the meeting's id at Zoom / Teams / Google when Acadex created it */
+    externalId: text('external_id'),
+    /** the host's start link (Zoom); shown to course staff only */
+    hostUrl: text('host_url').notNull().default(''),
     /** attendance taken from the joins (Acadex records each join through its link) */
     autoAttendance: boolean('auto_attendance').notNull().default(true),
     createdBy: integer('created_by'),

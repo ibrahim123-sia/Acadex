@@ -72,6 +72,10 @@ export const users = pgTable(
     passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     mfaEnabled: boolean('mfa_enabled').notNull().default(false),
+    /** the person's language (en, ur, ar); null follows the browser */
+    locale: text('locale'),
+    /** low-bandwidth mode: no autoplay, no embeds until asked, smaller images */
+    lowBandwidth: boolean('low_bandwidth').notNull().default(false),
   },
   (t) => [
     index('idx_users_institution').on(t.institutionId),

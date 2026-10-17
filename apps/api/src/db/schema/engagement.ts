@@ -265,11 +265,15 @@ export const notificationPreferences = pgTable(
     channels: jsonb('channels').notNull().default(sql`'{}'::jsonb`),
     /** no email / push between these local times, e.g. { start: "21:00", end: "07:00" } */
     quietHours: jsonb('quiet_hours'),
+    /** off, daily or weekly: one email instead of one per notification */
+    digest: text('digest').notNull().default('off'),
+    lastDigestAt: timestamp('last_digest_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     foreignKey({ columns: [t.userId], foreignColumns: [users.id], name: 'notification_preferences_user_id_fkey' }).onDelete('cascade'),
     foreignKey({ columns: [t.institutionId], foreignColumns: [institutions.id], name: 'notification_preferences_institution_id_fkey' }).onDelete('cascade'),
+    check('notification_preferences_digest_check', sql`${t.digest} IN ('off', 'daily', 'weekly')`),
   ]
 );
 
@@ -305,6 +309,8 @@ export const deliveryLogs = pgTable(
     status: text('status').notNull(),
     error: text('error'),
     attempts: integer('attempts').notNull().default(1),
+    /** the text of an SMS / WhatsApp message (to retry it) */
+    body: text('body'),
     ...created,
   },
   (t) => [
