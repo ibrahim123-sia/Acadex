@@ -1,5 +1,19 @@
 # Changelog
 
+## Section 4 walk-through (2026-10-17)
+
+Every line of the brief's feature checklist checked against the code: [docs/checklist.md](docs/checklist.md).
+Gaps closed:
+
+- **Room and resource bookings** — no double booking and no clash with timetabled classes (migration 0021).
+- **QR check-in geofence** (optional): students check in only within a set distance of the campus.
+- **Week start** per institution, used by the calendar.
+- **Dashboards**: a learning streak for students; students who may need help for teachers.
+- **Guardians** whose link does not allow messages cannot start conversations about that child.
+- **Medical notes** shown in a student profile are written to the audit log.
+- **Google Drive / OneDrive** picker for course links (optional keys).
+- **In-app What's new**, a help link for the current page, and the sample-data switch in the setup wizard.
+
 ## Phase 6 — Platform, modules and ecosystem (2026-10-17)
 
 Acadex as a business, and as part of a school's other tools. Details: [docs/platform.md](docs/platform.md).

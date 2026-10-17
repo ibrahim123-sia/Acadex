@@ -118,7 +118,7 @@ by browser push with per-type choices and quiet hours, live updates without relo
 - 📜 **API docs** generated from the same Zod schemas that validate requests (`/api/docs`)
 
 Details: [docs/architecture.md](docs/architecture.md) · [docs/security.md](docs/security.md) ·
-[docs/operations.md](docs/operations.md)
+[docs/operations.md](docs/operations.md) · [docs/checklist.md](docs/checklist.md) (where every feature lives)
 
 ## 🚀 Getting started
 
