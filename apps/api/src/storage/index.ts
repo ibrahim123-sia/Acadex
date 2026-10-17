@@ -50,6 +50,8 @@ export class S3Storage implements StorageDriver {
       region: opts.region,
       endpoint: opts.endpoint,
       forcePathStyle: opts.forcePathStyle,
+      // S3-compatible stores (Cloudflare R2, MinIO) may not take the SDK's default extra checksums
+      ...(opts.endpoint ? { requestChecksumCalculation: 'WHEN_REQUIRED' as const, responseChecksumValidation: 'WHEN_REQUIRED' as const } : {}),
       credentials: opts.accessKeyId && opts.secretAccessKey ? { accessKeyId: opts.accessKeyId, secretAccessKey: opts.secretAccessKey } : undefined,
     });
   }
