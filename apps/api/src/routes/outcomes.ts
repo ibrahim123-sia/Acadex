@@ -267,7 +267,7 @@ async function mastery(studentId: number, inst: number) {
       WHERE o.institution_id = $2 AND EXISTS (SELECT 1 FROM learning_outcomes lo WHERE lo.course_id = o.course_id) AND $1 IN (${rosterSql('o.id')})`,
     [studentId, inst]
   );
-  const courses = [];
+  const courses: { course: string; clos: { code: string; description: string; percent: number | null; attained: boolean | null }[] }[] = [];
   const cloPct = new Map<number, number>();
   for (const o of offerings) {
     const { rows: clos } = await db.query<{ id: number; code: string; description: string; pass_percent: string; target_percent: string }>(`SELECT id, code, description, pass_percent, target_percent FROM learning_outcomes WHERE course_id = $1 ORDER BY position, code`, [o.course_id]);

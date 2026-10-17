@@ -322,7 +322,7 @@ router.post('/finance/invoices', setup, async (req, res) => {
   const issued = await today(req);
   if (b.lines.reduce((n, l) => n + l.amount, 0) <= 0) throw badRequest('The invoice total must be more than zero', { lines: 'total' });
   const created = await withTransaction(async () => {
-    const out = [];
+    const out: Awaited<ReturnType<typeof createAdhocInvoice>>[] = [];
     for (const sid of b.student_ids) out.push(await createAdhocInvoice(s, { studentId: sid, title: b.title, lines: b.lines, issueDate: issued, dueDate: b.due_date, userId: currentUser(req).id, notes: b.notes }));
     return out;
   });
@@ -497,7 +497,7 @@ router.get('/finance/my', async (req, res) => {
     );
     students = rows;
   }
-  const out = [];
+  const out: Record<string, unknown>[] = [];
   for (const st of students) {
     try {
       await assertCanSeeFees(req, st.id);

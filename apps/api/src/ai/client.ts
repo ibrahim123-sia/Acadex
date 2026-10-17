@@ -216,7 +216,7 @@ export async function aiTranscribe(ctx: Omit<AiCtx, 'feature'>, audio: Buffer, f
 export async function aiOverview(institutionId: number) {
   const s = await aiSettings(institutionId);
   const features = ['tutor', 'copilot', 'grading', 'evidence', 'ask', 'helpdesk', 'risk', 'captions', 'embeddings'] as Feature[];
-  const out = [];
+  const out: { feature: Feature; enabled: boolean; provider: ProviderName; model: string; own_key: boolean }[] = [];
   for (const f of features) {
     const kind = f === 'embeddings' ? 'embed' : f === 'captions' ? 'speech' : 'chat';
     const r = await resolve({ institutionId, userId: null, feature: f }, kind);

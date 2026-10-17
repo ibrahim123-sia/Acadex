@@ -331,7 +331,7 @@ router.get('/ptm/:id', async (req, res) => {
   }
   const kids = await bookableStudents(req, e);
   if (!kids.length) throw notFound();
-  const children = [];
+  const children: Record<string, unknown>[] = [];
   for (const k of kids) {
     const { rows: teachers } = await db.query<{ id: number; name: string }>(
       `SELECT u.id, u.full_name AS name FROM users u WHERE u.id IN (${SECTION_TEACHERS}) ORDER BY u.full_name`,
@@ -562,7 +562,7 @@ router.post('/delivery-logs/:id/retry', requirePermission('delivery.read'), asyn
 /** Zoom, Teams and Meet: whether each is connected (secrets are never returned). */
 router.get('/integrations/live', requirePermission('integrations.manage'), async (req, res) => {
   const inst = institutionId(req);
-  const out = [];
+  const out: Record<string, unknown>[] = [];
   for (const provider of ['zoom', 'teams', 'meet'] as const) {
     const a = await loadAccount(inst, provider);
     out.push({

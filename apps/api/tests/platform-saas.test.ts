@@ -16,6 +16,7 @@ import { runAsSystem } from '../src/db/context';
 import { emitWebhook } from '../src/lib/webhooks';
 
 let f;
+const cookies = (r: { headers: Record<string, unknown> }) => (r.headers['set-cookie'] ?? []) as string[];
 const q = async (sql: string, p: unknown[] = []) => (await fixture.pool.query(sql, p)).rows;
 const A = () => f.institutions.A.id;
 const setPlan = (plan: string, inst = A()) => q(`UPDATE institutions SET plan = $2, trial_ends_at = NULL WHERE id = $1`, [inst, plan]);
@@ -307,8 +308,8 @@ describe('Google sign-in', () => {
   it('existing accounts on a plan with SSO only', async () => {
     const start = await request(app).get('/api/auth/sso/google/start');
     expect(start.status).toBe(302);
-    const cookie = start.headers['set-cookie'][0].split(';')[0];
-    const state = new URL(start.headers.location).searchParams.get('state');
+    const cookie = cookies(start)[0]!.split(';')[0]!;
+    const state = new URL(String(start.headers.location)).searchParams.get('state');
     ssoTransport.fetch = (async (url: string) => {
       if (String(url).includes('token')) return new Response(JSON.stringify({ access_token: 'at' }), { status: 200 });
       return new Response(JSON.stringify({ email: 't1@alpha.test', email_verified: true }), { status: 200 });
@@ -318,11 +319,11 @@ describe('Google sign-in', () => {
     expect(denied.headers.location).toMatch(/sso=not_in_plan/);
     await setPlan('pro');
     const again = await request(app).get('/api/auth/sso/google/start');
-    const c2 = again.headers['set-cookie'][0].split(';')[0];
-    const s2 = new URL(again.headers.location).searchParams.get('state');
+    const c2 = cookies(again)[0]!.split(';')[0]!;
+    const s2 = new URL(String(again.headers.location)).searchParams.get('state');
     const ok = await request(app).get(`/api/auth/sso/google/callback?code=c&state=${s2}`).set('Cookie', c2);
     expect(ok.headers.location).toMatch(/sso=ok/);
-    expect(ok.headers['set-cookie'].some((c: string) => c.startsWith('acadex_rt='))).toBe(true);
+    expect(cookies(ok).some((c: string) => c.startsWith('acadex_rt='))).toBe(true);
     const bad = await request(app).get(`/api/auth/sso/google/callback?code=c&state=forged`).set('Cookie', c2);
     expect(bad.headers.location).toMatch(/sso=expired/);
   });

@@ -766,7 +766,7 @@ router.get('/exams/my', async (req, res) => {
       )
     ).rows;
   const today = todayIn(await institutionTimeZone(inst));
-  const out = [];
+  const out: Record<string, unknown>[] = [];
   for (const k of kids) {
     const { rows: upcoming } = await db.query(
       `SELECT x.id AS series_id, x.name AS series, co.name AS course, s.date, s.starts_at, s.ends_at, r.code AS room, e.seat_no
@@ -780,7 +780,7 @@ router.get('/exams/my', async (req, res) => {
       `SELECT DISTINCT x.id, x.name, x.result_style, x.published_at FROM exam_series x JOIN exam_sessions s ON s.series_id = x.id JOIN exam_marks m ON m.session_id = s.id AND m.student_id = $1 WHERE x.status = 'published' ORDER BY x.published_at DESC LIMIT 10`,
       [k.id]
     );
-    const results = [];
+    const results: Record<string, unknown>[] = [];
     for (const p of published) {
       const r = (await computeResults(p.id, inst, { studentIds: [k.id] }))[0];
       if (r) results.push({ series_id: p.id, series: p.name, result_style: p.result_style, percent: r.percent, grade: r.grade, passed: r.passed, gpa: r.gpa, papers: r.papers.map((x) => ({ course: x.course, obtained: x.obtained, total: x.total, grade: x.grade, passed: x.passed })) });
