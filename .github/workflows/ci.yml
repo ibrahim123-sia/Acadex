@@ -58,6 +58,20 @@ jobs:
           psql "postgres://postgres:postgres@localhost:5432/postgres" -c "CREATE DATABASE acadex_restore_check"
           ops/verify-restore.sh
       - run: npm run build -w @acadex/api
+      - name: The built server starts and stays connected (smoke test of dist/, as the image runs it)
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/acadex_migrate_check
+          DATABASE_SSL: 'false'
+          JWT_SECRET: 'test-ci-jwt-secret-0123456789abcdef0123456789'
+          PORT: '5055'
+        run: |
+          node dist/db/migrate.js
+          node dist/server.js > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:5055/api/health > /dev/null && break; sleep 1; done
+          sleep 3
+          curl -sf http://localhost:5055/api/health | grep -q '"db":"connected"' || { cat server.log; exit 1; }
+          kill %1
       - run: npm audit --omit=dev --audit-level=high
 
   web:
