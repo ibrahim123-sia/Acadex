@@ -1,5 +1,17 @@
 # Changelog
 
+## Cloudflare hosting (2026-10-17)
+
+Acadex can run entirely on Cloudflare — guide: [docs/cloudflare.md](docs/cloudflare.md).
+
+- `cloudflare/`: a Worker serves the web app from static assets and sends `/api/*` to the API, which
+  runs unchanged from `apps/api/Dockerfile` as a Cloudflare Container; files go to R2 through the S3
+  driver; Neon stays the database.
+- Scheduled jobs from a Worker cron trigger: `JOBS_SCHEDULE=external` + `CRON_SECRET` and
+  `POST /api/internal/cron` (absent without the secret).
+- A manual "Deploy to Cloudflare" GitHub workflow; CI validates the Worker on every push.
+- `TRUST_PROXY` accepts a hop count; the S3 client skips optional checksums for S3-compatible stores.
+
 ## Section 4 walk-through (2026-10-17)
 
 Every line of the brief's feature checklist checked against the code: [docs/checklist.md](docs/checklist.md).

@@ -118,7 +118,7 @@ by browser push with per-type choices and quiet hours, live updates without relo
 - 📜 **API docs** generated from the same Zod schemas that validate requests (`/api/docs`)
 
 Details: [docs/architecture.md](docs/architecture.md) · [docs/security.md](docs/security.md) ·
-[docs/operations.md](docs/operations.md) · [docs/checklist.md](docs/checklist.md) (where every feature lives)
+[docs/operations.md](docs/operations.md) · [docs/cloudflare.md](docs/cloudflare.md) (hosting on Cloudflare) · [docs/checklist.md](docs/checklist.md) (where every feature lives)
 
 ## 🚀 Getting started
 
@@ -207,7 +207,8 @@ apps/
 packages/
   shared/              @acadex/shared — Zod schemas, permissions, constants, types
 ops/                   backup / restore / restore-verification scripts
-docs/                  architecture, security, operations
+docs/                  architecture, security, operations, Cloudflare hosting, feature checklist
+cloudflare/            the Cloudflare Worker and wrangler config (docs/cloudflare.md)
 ```
 
 ---

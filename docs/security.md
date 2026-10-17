@@ -178,6 +178,12 @@ A legacy commit from November 2024 (`e32c65f`, the old "Education Portal" before
 contains the password of a local SQL Server; the code was removed, but history is kept (no
 force-push), so that password must be considered exposed and changed wherever it was used.
 
+**On Cloudflare** ([cloudflare.md](cloudflare.md)) the app's secrets are stored with `wrangler secret put`
+(encrypted in Cloudflare, never in `wrangler.jsonc` or the repository); GitHub holds only the deploy
+token. The Worker strips `X-Forwarded-*` and `x-acadex-cron` from browser requests, sets the client IP
+itself, and answers 404 for `/api/internal/*` from the internet; the cron endpoint also requires the
+32+ character `CRON_SECRET` (compared in constant time) and does not exist without it.
+
 ## Known gaps
 
 - `users.email` is unique across the platform, so one person can't yet belong to two

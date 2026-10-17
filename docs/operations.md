@@ -60,6 +60,11 @@ contain file bytes: back up the bucket separately (versioning or replication on 
 Quotas per plan: free 500 MB, pro 10 GB, enterprise 100 GB (institution setting
 `storage_quota_mb` overrides). `VIRUS_SCAN=clamav` streams every upload to clamd.
 
+## Hosting on Cloudflare
+
+Worker + static assets + the API as a Cloudflare Container + R2 for files, with Neon as the database:
+the full setup and how each part works is in [cloudflare.md](cloudflare.md).
+
 ## Local services
 
 `docker compose up -d`: Postgres 16 + pgvector (5432), MinIO (9000, console 9001, bucket
@@ -86,6 +91,11 @@ times with backoff; their state is in `pgboss.job`.
 Live updates and the job queue use a **direct** (not pooled) database connection:
 `DATABASE_DIRECT_URL`, or the pooled `DATABASE_URL` with Neon's `-pooler` removed from the
 host. Behind PgBouncer in transaction mode, set `DATABASE_DIRECT_URL` explicitly.
+
+Schedules: pg-boss runs the cron schedules itself (`JOBS_SCHEDULE=internal`, the default). Where the API
+may sleep between requests (Cloudflare Containers), set `JOBS_SCHEDULE=external` and `CRON_SECRET`;
+an outside scheduler then calls `POST /api/internal/cron` every few minutes — see
+[cloudflare.md](cloudflare.md#how-scheduled-jobs-work).
 
 ## Push notifications
 
