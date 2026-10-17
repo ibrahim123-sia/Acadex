@@ -30,6 +30,8 @@ export interface SessionUser {
   locale?: string | null;
   /** low-bandwidth mode: no autoplay, embeds on request, smaller images */
   low_bandwidth?: boolean;
+  /** a support session: the name of the platform administrator signed in as this person */
+  impersonated_by?: string | null;
 }
 
 export interface AuthResponse {

@@ -69,6 +69,15 @@ export const PERMISSIONS = {
   'broadcast.send': 'Send emergency broadcasts on every channel',
   'integrations.manage': 'Connect Zoom, Microsoft Teams and Google Meet',
   'delivery.read': 'See delivery logs of emails, push, SMS and WhatsApp and retry failures',
+  'billing.manage': "Manage the institution's Acadex plan, billing details and invoices",
+  'reports.view': 'Run, export and schedule institution reports',
+  'privacy.manage': "Handle people's privacy requests and see consent records",
+  'library.manage': 'Run the library: catalogue, issue and return, fines',
+  'hr.manage': 'Run HR & payroll: salaries, payroll, payslips and staff leave',
+  'transport.manage': 'Manage transport: vehicles, routes and riders',
+  'hostel.manage': 'Manage the hostel: rooms and residents',
+  'inventory.manage': 'Manage inventory and assets',
+  'visitors.manage': 'Keep the visitor log and issue gate passes',
 
   // teaching (limited to the teacher's own sections)
   'teaching.access': 'Use the teacher workspace for assigned sections',
@@ -160,6 +169,15 @@ const INSTITUTION_ADMIN: Permission[] = [
   'broadcast.send',
   'integrations.manage',
   'delivery.read',
+  'billing.manage',
+  'reports.view',
+  'privacy.manage',
+  'library.manage',
+  'hr.manage',
+  'transport.manage',
+  'hostel.manage',
+  'inventory.manage',
+  'visitors.manage',
 ];
 
 /** Built-in roles. Their keys match the users.role "primary role" values. */
