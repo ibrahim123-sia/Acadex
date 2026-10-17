@@ -45,7 +45,7 @@ test('a parent books a meeting, messages the teacher and raises a ticket', async
   await page.getByLabel('To').fill('Sheikh');
   await page.locator('dialog li button').first().click();
   await page.getByLabel('Message').fill(`Question about homework ${stamp}`);
-  await page.getByRole('dialog').getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByText(`Question about homework ${stamp}`)).toBeVisible();
 
   // a ticket
@@ -53,7 +53,7 @@ test('a parent books a meeting, messages the teacher and raises a ticket', async
   await page.getByRole('button', { name: 'New ticket' }).click();
   await page.getByLabel('Subject').fill(`Bus timing ${stamp}`);
   await page.getByLabel('Details').fill('The bus came 20 minutes late twice this week.');
-  await page.getByRole('dialog').getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByRole('heading', { name: `Bus timing ${stamp}` })).toBeVisible();
 
   // the teacher replies
@@ -62,7 +62,7 @@ test('a parent books a meeting, messages the teacher and raises a ticket', async
   await teacher.goto('/messages');
   await teacher.getByText(`Question about homework ${stamp}`).first().click();
   await teacher.getByLabel('Write a message').fill(`Please see page 12 (${stamp}).`);
-  await teacher.getByRole('button', { name: 'Send' }).click();
+  await teacher.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(teacher.locator('ol p').getByText(`Please see page 12 (${stamp}).`)).toBeVisible();
   await teacher.close();
 

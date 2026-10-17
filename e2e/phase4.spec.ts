@@ -43,7 +43,7 @@ test('a student asks the tutor and a teacher applies copilot questions', async (
   await page.goto(`/learn/courses/${course.id}#tutor`);
   await page.getByRole('button', { name: 'New conversation' }).click();
   await page.getByRole('textbox', { name: 'Your question' }).fill('How should I revise the first topic of this course?');
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByText('AI-generated').first()).toBeVisible();
 
   // ---- the teacher
