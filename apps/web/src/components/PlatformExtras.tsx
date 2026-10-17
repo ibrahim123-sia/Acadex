@@ -1,7 +1,7 @@
 // Small pieces of the platform shown inside the app: the feedback widget, platform
 // announcements for administrators, the support-session banner, the guided tour per role, the
 // course's LTI tools and the Google / Microsoft sign-in buttons.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ExternalLink, MessageSquareHeart, ShieldAlert, X } from 'lucide-react';
@@ -105,7 +105,7 @@ const TOURS: Record<string, { selector: string; text: string }[]> = {
 export function ProductTour() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const steps = (user && TOURS[user.role]) || [];
+  const steps = useMemo(() => (user && TOURS[user.role]) || [], [user]);
   const done = useQuery({ queryKey: ['/me/tours'], queryFn: () => api.get<{ done: string[] }>('/me/tours'), enabled: !!steps.length && !!user?.institution_id, staleTime: Infinity });
   const finish = useMutation({ mutationFn: () => api.put('/me/tours', { done: [...(done.data?.done ?? []), user!.role] }) });
   const [i, setI] = useState(0);
