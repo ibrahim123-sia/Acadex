@@ -30,6 +30,7 @@ import { cn } from '@/lib/cn';
 import { useAuth } from '@/lib/auth';
 import { Alert, Badge, Button, Card, Dialog, EmptyState, ErrorState, Field, Input, PageHeader, Select, Spinner, Tabs, useToast } from '@/components/ui';
 import { CopilotTab, TutorTab } from '@/pages/ai/CourseAi';
+import { CourseTools } from '@/components/PlatformExtras';
 import { RichEditor } from '@/components/RichText';
 import { WorkList } from './Work';
 import { GradebookTab } from './Gradebook';
@@ -136,6 +137,7 @@ export function CourseHomePage() {
         }
       />
       {c.course.archived && <Alert tone="warning" className="mb-4">{t('lms.archived', 'This course belongs to an archived year and is read-only.')}</Alert>}
+      {c.role !== 'guardian' && <div className="mb-4"><CourseTools courseId={id} /></div>}
       {c.progress && (
         <div className="mb-4 flex items-center gap-3 text-sm">
           <div className="h-2 flex-1 rounded-full bg-surface-2" role="progressbar" aria-valuenow={c.progress.percent} aria-valuemin={0} aria-valuemax={100} aria-label={t('lms.progress', 'Progress')}>

@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api';
 import { Alert, Button, Field, Input, PasswordInput } from '@/components/ui';
 import { AuthLayout } from './AuthLayout';
+import { SsoButtons } from '@/components/PlatformExtras';
 
 /** Only same-app paths are allowed as a post-login destination (no open redirects). */
 const safeNext = (next: string | null) => (next && next.startsWith('/') && !next.startsWith('//') ? next : null);
@@ -18,8 +19,18 @@ export function LoginPage() {
   const { t } = useTranslation();
   const { status, user, login, verifyMfa } = useAuth();
   const [params] = useSearchParams();
-  const [mfaToken, setMfaToken] = useState<string | null>(null);
-  const [error, setError] = useState('');
+  // after Google / Microsoft sign-in: a second-factor step, or why it did not work
+  const [mfaToken, setMfaToken] = useState<string | null>(() => new URLSearchParams(window.location.hash.slice(1)).get('mfa'));
+  const sso = params.get('sso');
+  const SSO_ERRORS: Record<string, string> = {
+    no_account: t('sso.noAccount', 'There is no Acadex account with that email. Ask your institution to invite you.'),
+    not_in_plan: t('sso.notInPlan', "Your institution's plan does not include Google / Microsoft sign-in — use your password."),
+    suspended: t('sso.suspended', 'Your institution is paused. Please contact your administrator.'),
+    failed: t('sso.failed', 'That sign-in did not work. Please try again.'),
+    expired: t('sso.expired', 'That sign-in took too long. Please try again.'),
+    unavailable: t('sso.unavailable', 'That sign-in option is not available.'),
+  };
+  const [error, setError] = useState(sso && sso !== 'ok' ? (SSO_ERRORS[sso] ?? SSO_ERRORS.failed!) : '');
 
   const creds = useForm<z.input<typeof loginBody>>({ resolver: zodResolver(loginBody), defaultValues: { email: '', password: '' } });
   const mfa = useForm<{ code: string }>({ resolver: zodResolver(z.object({ code: mfaCode })), defaultValues: { code: '' } });
@@ -68,6 +79,7 @@ export function LoginPage() {
               {t('auth.signIn', 'Sign in')}
             </Button>
           </form>
+          <div className="mt-4"><SsoButtons /></div>
           <div className="mt-4 text-center text-sm">
             <Link to="/forgot-password" className="text-primary hover:underline">
               {t('auth.forgot', 'Forgot your password?')}
