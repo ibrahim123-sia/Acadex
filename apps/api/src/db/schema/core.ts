@@ -1,7 +1,7 @@
 // Tenants and accounts. Constraint names match the pre-Drizzle schema so migrations work on
 // databases created by the legacy SQL files too.
 import { sql } from 'drizzle-orm';
-import { boolean, check, foreignKey, index, integer, jsonb, pgTable, serial, text, timestamp, unique } from 'drizzle-orm/pg-core';
+import { boolean, check, foreignKey, index, integer, jsonb, pgTable, serial, text, timestamp, unique, date } from 'drizzle-orm/pg-core';
 
 /** School chains and university systems: several institutions under one umbrella. */
 export const institutionGroups = pgTable(
@@ -14,6 +14,26 @@ export const institutionGroups = pgTable(
   },
   (t) => [unique('institution_groups_slug_key').on(t.slug)]
 );
+
+/** Plans offered on the pricing page and enforced per tenant. */
+export const plans = pgTable('plans', {
+  key: text('key').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  /** per month, in each currency: { USD: 0, PKR: 0 } */
+  prices: jsonb('prices').notNull().default(sql`'{}'::jsonb`),
+  /** { students, staff, storage_mb, ai_usd, messages } — null means unlimited */
+  limits: jsonb('limits').notNull().default(sql`'{}'::jsonb`),
+  /** { modules: [...], api, sso, white_label, custom_domain, ai } */
+  features: jsonb('features').notNull().default(sql`'{}'::jsonb`),
+  /** extra students above the limit, per student per month: { USD: 0.5 } */
+  overage: jsonb('overage').notNull().default(sql`'{}'::jsonb`),
+  trialDays: integer('trial_days').notNull().default(14),
+  public: boolean('public').notNull().default(true),
+  position: integer('position').notNull().default(0),
+  stripePriceId: text('stripe_price_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const institutions = pgTable(
   'institutions',
@@ -39,11 +59,21 @@ export const institutions = pgTable(
     /** terminology overrides, working days, storage quota, … (validated by @acadex/shared) */
     settings: jsonb('settings').default(sql`'{}'::jsonb`).notNull(),
     onboardedAt: timestamp('onboarded_at', { withTimezone: true }),
+    /** in a free trial of its plan until this date */
+    trialEndsAt: date('trial_ends_at'),
+    /** features and modules switched on or off for this institution, beyond its plan */
+    featureOverrides: jsonb('feature_overrides').notNull().default(sql`'{}'::jsonb`),
+    /** billing details: { billing_email, tax_id, billing_currency, address } */
+    billing: jsonb('billing').notNull().default(sql`'{}'::jsonb`),
+    /** why it is suspended (billing: reopens when paid) */
+    suspendedReason: text('suspended_reason'),
+    /** everything is erased after this (the account was closed) */
+    deletionDueAt: timestamp('deletion_due_at', { withTimezone: true }),
   },
   (t) => [
     unique('institutions_slug_key').on(t.slug),
     check('institutions_currency_iso', sql`${t.currency} ~ '^[A-Z]{3}$'::text`),
-    check('institutions_plan_check', sql`${t.plan} = ANY (ARRAY['free'::text, 'pro'::text, 'enterprise'::text])`),
+    foreignKey({ columns: [t.plan], foreignColumns: [plans.key], name: 'institutions_plan_fkey' }).onUpdate('cascade'),
     foreignKey({ columns: [t.groupId], foreignColumns: [institutionGroups.id], name: 'institutions_group_id_fkey' }).onDelete('set null'),
     check(
       'institutions_type_check',
@@ -76,6 +106,8 @@ export const users = pgTable(
     locale: text('locale'),
     /** low-bandwidth mode: no autoplay, no embeds until asked, smaller images */
     lowBandwidth: boolean('low_bandwidth').notNull().default(false),
+    /** guided tours already seen */
+    toursDone: text('tours_done').array().notNull().default(sql`'{}'::text[]`),
   },
   (t) => [
     index('idx_users_institution').on(t.institutionId),

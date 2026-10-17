@@ -20,6 +20,8 @@ export const sessions = pgTable(
     ip: text('ip').notNull().default(''),
     /** the user completed a second factor for this session */
     mfaVerified: boolean('mfa_verified').notNull().default(false),
+    /** a support session: the platform administrator signed in as this user */
+    impersonatedBy: integer('impersonated_by'),
   },
   (t) => [
     index('idx_sessions_user').on(t.userId),

@@ -14,3 +14,5 @@ export * from './identity';
 export * from './auth';
 export * from './ai';
 export * from './reach';
+export * from './platform';
+export * from './modules';
