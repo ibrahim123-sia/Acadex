@@ -1,8 +1,17 @@
 import { z } from 'zod';
 
+interface TypeDef {
+  label: string;
+  email: boolean;
+  push: boolean;
+  /** delivered at once on every channel: ignores quiet hours, digests and preferences */
+  urgent?: boolean;
+}
+
 /**
- * What people can be notified about. In-app notifications are always on; email and push follow
- * each person's preferences, starting from these defaults.
+ * What people can be notified about. In-app notifications are always on; email, push, SMS and
+ * WhatsApp follow each person's preferences, starting from these defaults (SMS and WhatsApp
+ * start off, and only work where the institution allows them).
  */
 export const NOTIFICATION_TYPES = {
   assignment_posted: { label: 'New work posted in my courses', email: false, push: true },
@@ -19,19 +28,26 @@ export const NOTIFICATION_TYPES = {
   payment_received: { label: 'Payment receipts', email: true, push: false },
   exam_update: { label: 'Exam schedules, admit cards and results', email: true, push: true },
   admission_update: { label: 'Admission applications', email: true, push: false },
+  message: { label: 'Messages', email: false, push: true },
+  ticket_update: { label: 'Help-desk tickets', email: true, push: true },
+  ptm: { label: 'Parent–teacher meetings', email: true, push: true },
+  emergency: { label: 'Emergency alerts', email: true, push: true, urgent: true },
   system: { label: 'Account and system messages', email: true, push: false },
-} as const;
+} as const satisfies Record<string, TypeDef>;
 export type NotificationType = keyof typeof NOTIFICATION_TYPES;
 export const NOTIFICATION_TYPE_KEYS = Object.keys(NOTIFICATION_TYPES) as NotificationType[];
 
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected a time as HH:MM');
 
+export const channelChoice = z.object({ email: z.boolean(), push: z.boolean(), sms: z.boolean().default(false), whatsapp: z.boolean().default(false) });
+export type ChannelChoice = z.infer<typeof channelChoice>;
+
 export const notificationPreferencesBody = z.object({
-  channels: z
-    .partialRecord(z.enum(NOTIFICATION_TYPE_KEYS as [NotificationType, ...NotificationType[]]), z.object({ email: z.boolean(), push: z.boolean() }))
-    .default({}),
-  /** no email or push between these local times (in-app notifications still arrive) */
+  channels: z.partialRecord(z.enum(NOTIFICATION_TYPE_KEYS as [NotificationType, ...NotificationType[]]), channelChoice).default({}),
+  /** no email, push or text messages between these local times (in-app notifications still arrive) */
   quiet_hours: z.object({ start: hhmm, end: hhmm }).nullable().default(null),
+  /** one email a day (18:00) or a week (Monday) instead of an email for each notification */
+  digest: z.enum(['off', 'daily', 'weekly']).default('off'),
 });
 export type NotificationPreferences = z.infer<typeof notificationPreferencesBody>;
 
@@ -50,8 +66,12 @@ export function inQuietHours(minutes: number, q: { start: string; end: string } 
   return start < end ? minutes >= start && minutes < end : minutes >= start || minutes < end;
 }
 
-/** The channels a person gets for a type: their choice, else the default. */
-export function channelsFor(type: string, prefs: Partial<Record<string, { email: boolean; push: boolean }>> | null | undefined) {
-  const def = NOTIFICATION_TYPES[type as NotificationType] ?? NOTIFICATION_TYPES.system;
-  return prefs?.[type] ?? { email: def.email, push: def.push };
+export const isUrgent = (type: string) => !!(NOTIFICATION_TYPES[type as NotificationType] as TypeDef | undefined)?.urgent;
+
+/** The channels a person gets for a type: their choice, else the default. Urgent types use every channel. */
+export function channelsFor(type: string, prefs: Partial<Record<string, Partial<ChannelChoice>>> | null | undefined): ChannelChoice {
+  const def: TypeDef = NOTIFICATION_TYPES[type as NotificationType] ?? NOTIFICATION_TYPES.system;
+  if (def.urgent) return { email: true, push: true, sms: true, whatsapp: true };
+  const p = prefs?.[type];
+  return { email: p?.email ?? def.email, push: p?.push ?? def.push, sms: p?.sms ?? false, whatsapp: p?.whatsapp ?? false };
 }

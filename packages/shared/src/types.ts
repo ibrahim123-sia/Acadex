@@ -26,6 +26,10 @@ export interface SessionUser {
   /** Admin roles must enrol in 2FA before using the app (when ADMIN_MFA=required). */
   mfa_enrollment_required: boolean;
   permissions: Permission[];
+  /** the person's language (en, ur, ar); null follows the browser */
+  locale?: string | null;
+  /** low-bandwidth mode: no autoplay, embeds on request, smaller images */
+  low_bandwidth?: boolean;
 }
 
 export interface AuthResponse {

@@ -21,6 +21,8 @@ export interface AuthUser {
   mfa_enrollment_required: boolean;
   /** Effective permission grants from all of the user's role assignments. */
   grants: Grant[];
+  locale: string | null;
+  low_bandwidth: boolean;
 }
 
 declare module 'express-serve-static-core' {
@@ -49,13 +51,15 @@ export interface UserRow {
   session_expired: boolean;
   session_mfa_verified: boolean;
   grants: Grant[];
+  locale: string | null;
+  low_bandwidth: boolean;
 }
 
 /** The account, its institution status, the given session's state and all role grants. */
 export async function loadUserRow(userId: number, sessionId: string): Promise<UserRow | undefined> {
   const { rows } = await db.query<UserRow>(
     `SELECT u.id, u.role, u.institution_id, u.ref_id, u.full_name, u.email, u.is_active, u.token_version,
-            u.must_change_password, u.mfa_enabled, u.email_verified_at, s.status AS institution_status,
+            u.must_change_password, u.mfa_enabled, u.email_verified_at, s.status AS institution_status, u.locale, u.low_bandwidth,
             ss.id IS NOT NULL AS session_found,
             ss.revoked_at IS NOT NULL AS session_revoked,
             COALESCE(ss.expires_at < now(), true) AS session_expired,
@@ -133,6 +137,8 @@ export function toAuthUser(u: UserRow, sessionId: string): AuthUser {
     email_verified: !!u.email_verified_at,
     mfa_enrollment_required: mfaEnrollmentRequired(u.role, u.mfa_enabled),
     grants: u.grants,
+    locale: u.locale ?? null,
+    low_bandwidth: !!u.low_bandwidth,
   };
 }
 
@@ -204,6 +210,8 @@ export function toSessionUser(user: AuthUser): SessionUser {
     mfa_enabled: user.mfa_enabled,
     mfa_enrollment_required: user.mfa_enrollment_required,
     permissions: effectivePermissions(user),
+    locale: user.locale ?? null,
+    low_bandwidth: !!user.low_bandwidth,
   };
 }
 

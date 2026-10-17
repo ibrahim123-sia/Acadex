@@ -351,7 +351,7 @@ export const LIVE_PROVIDERS = ['jitsi', 'zoom', 'meet', 'teams', 'other'] as con
 export const liveSessionBody = z.object({
   title: requiredText(200),
   provider: z.enum(LIVE_PROVIDERS).default('jitsi'),
-  /** empty for Jitsi: a room is created */
+  /** empty: Acadex creates the meeting (Jitsi always; Zoom, Teams and Meet when connected) */
   join_url: z.union([httpUrl, z.literal('')]).default(''),
   starts_at: z.iso.datetime({ offset: true }).transform((v) => new Date(v)),
   duration_minutes: z.coerce.number().int().min(5).max(600).default(45),

@@ -25,6 +25,7 @@ import {
   voteBody,
 } from '@acadex/shared';
 import { getConfig } from '../config';
+import { canCreate, createMeeting, markLiveAttendance, type Meeting } from '../lib/live';
 import { db, withTransaction } from '../db/context';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
 import { cleanHtml, htmlToText } from '../lib/html';
@@ -456,7 +457,6 @@ router.get('/surveys/:id/results', async (req, res) => {
 
 // ---------------------------------------------------------------- live classes
 
-const jitsiRoom = () => `https://meet.jit.si/acadex-${crypto.randomBytes(9).toString('base64url')}`;
 const PROVIDER_HOSTS: Record<string, RegExp> = {
   zoom: /(^|\.)zoom\.us$/,
   meet: /^meet\.google\.com$/,
@@ -469,7 +469,7 @@ router.get('/courses/:id/live', async (req, res) => {
   const a = await assertCourseMember(req, offeringId);
   const { rows } = await db.query(
     `SELECT l.id, l.title, l.provider, l.starts_at, l.duration_minutes, l.recording_url, l.auto_attendance,
-            ${a.role === 'staff' ? 'l.join_url,' : ''} (SELECT count(DISTINCT j.user_id)::int FROM live_joins j WHERE j.live_session_id = l.id) AS joined
+            ${a.role === 'staff' ? 'l.join_url, l.host_url,' : ''} (SELECT count(DISTINCT j.user_id)::int FROM live_joins j WHERE j.live_session_id = l.id) AS joined
        FROM live_sessions l WHERE l.offering_id = $1 ORDER BY l.starts_at DESC`,
     [offeringId]
   );
@@ -481,17 +481,22 @@ router.post('/courses/:id/live', async (req, res) => {
   const a = await assertCourseEditor(req, offeringId);
   const b = liveSessionBody.parse(req.body);
   let url = b.join_url;
+  let meeting: Meeting = { joinUrl: url, hostUrl: '', externalId: '' };
   if (!url) {
-    if (b.provider !== 'jitsi') throw badRequest('Paste the meeting link from Zoom, Google Meet or Teams', { join_url: 'required' });
-    url = jitsiRoom();
+    // Acadex creates the meeting: a Jitsi room, or on the institution's connected Zoom / Teams / Meet account
+    if (!(await canCreate(institutionId(req), b.provider))) {
+      throw badRequest('Paste the meeting link from Zoom, Google Meet or Teams — or connect the account under Settings → Integrations', { join_url: 'required' });
+    }
+    meeting = await createMeeting(institutionId(req), b.provider, { title: `${a.course.name}: ${b.title}`, startsAt: b.starts_at, durationMinutes: b.duration_minutes });
+    url = meeting.joinUrl;
   } else if (PROVIDER_HOSTS[b.provider] && !PROVIDER_HOSTS[b.provider]!.test(new URL(url).hostname)) {
     throw badRequest(`That does not look like a ${b.provider} link`, { join_url: 'invalid' });
   }
   const out = await withTransaction(async () => {
     const { rows } = await db.query(
-      `INSERT INTO live_sessions (institution_id, offering_id, title, provider, join_url, starts_at, duration_minutes, recording_url, auto_attendance, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [institutionId(req), offeringId, b.title, b.provider, url, b.starts_at, b.duration_minutes, b.recording_url, b.auto_attendance, currentUser(req).id]
+      `INSERT INTO live_sessions (institution_id, offering_id, title, provider, join_url, starts_at, duration_minutes, recording_url, auto_attendance, created_by, external_id, host_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [institutionId(req), offeringId, b.title, b.provider, url, b.starts_at, b.duration_minutes, b.recording_url, b.auto_attendance, currentUser(req).id, meeting.externalId || null, meeting.hostUrl]
     );
     if (b.module_id) {
       const { rows: m } = await db.query(`SELECT 1 FROM modules WHERE id = $1 AND offering_id = $2`, [b.module_id, offeringId]);
@@ -543,21 +548,7 @@ router.post('/live/:id/join', async (req, res) => {
   if (a.role === 'student' && (now < opens || now > ends + 30 * 60_000)) throw conflict('The class opens 15 minutes before it starts', 'NOT_OPEN');
   const u = currentUser(req);
   await db.query(`INSERT INTO live_joins (institution_id, live_session_id, user_id) VALUES ($1,$2,$3)`, [institutionId(req), l.id, u.id]);
-  if (a.role === 'student' && l.auto_attendance && a.course.section_id) {
-    const s = institutionId(req);
-    const date = todayIn(await institutionTimeZone(s), l.starts_at);
-    const late = Math.max(0, Math.round((now - l.starts_at.getTime()) / 60000));
-    const { rows: sess } = await db.query<{ id: number }>(
-      `INSERT INTO attendance_sessions (institution_id, section_id, offering_id, date, kind) VALUES ($1,$2,$3,$4,'class')
-       ON CONFLICT ON CONSTRAINT attendance_sessions_section_id_offering_id_date_period_id_key DO UPDATE SET updated_at = now() RETURNING id`,
-      [s, a.course.section_id, l.offering_id, date]
-    );
-    await db.query(
-      `INSERT INTO attendance_records (session_id, student_id, institution_id, status, minutes_late, method, marked_by) VALUES ($1,$2,$3,$4,$5,'live',$6)
-       ON CONFLICT ON CONSTRAINT attendance_records_pkey DO UPDATE SET status = EXCLUDED.status, minutes_late = EXCLUDED.minutes_late, method = 'live' WHERE attendance_records.status = 'absent'`,
-      [sess[0]!.id, a.studentIds[0], s, late > 10 ? 'late' : 'present', late > 10 ? late : null, u.id]
-    );
-  }
+  if (a.role === 'student') await markLiveAttendance(institutionId(req), l, a.studentIds[0]!, u.id);
   res.json({ join_url: l.join_url });
 });
 

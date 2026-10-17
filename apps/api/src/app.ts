@@ -31,6 +31,7 @@ import rolesRoutes from './routes/roles';
 import notificationRoutes, { eventsHandler } from './routes/notifications';
 import lmsRoutes from './routes/lms';
 import paymentRoutes from './routes/payments';
+import integrationWebhooks from './routes/integrations';
 import applyRoutes from './routes/apply';
 import './jobs';
 
@@ -51,6 +52,7 @@ export function createApp(config: Config = getConfig()) {
   );
   // provider webhooks are verified against the exact bytes sent
   app.use('/api/payments/webhook', express.raw({ type: () => true, limit: '1mb' }));
+  app.use('/api/integrations/zoom/webhook', express.raw({ type: () => true, limit: '1mb' }));
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
@@ -148,6 +150,7 @@ export function createApp(config: Config = getConfig()) {
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/payments', paymentRoutes);
   app.use('/api/apply', applyRoutes);
+  app.use('/api/integrations', integrationWebhooks);
   app.use('/api', lmsRoutes);
 
   app.get('/', (_req, res) => res.json({ message: 'Acadex API' }));

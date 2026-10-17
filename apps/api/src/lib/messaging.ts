@@ -6,6 +6,7 @@
 // Every attempt is written to delivery_logs.
 import { getConfig } from '../config';
 import { asSystem, db } from '../db/context';
+import { defineJob, enqueue } from '../jobs/queue';
 import { logger } from './logger';
 
 export type Channel = 'sms' | 'whatsapp';
@@ -87,18 +88,50 @@ export async function sendMessage(m: OutgoingMessage): Promise<SendResult> {
   }
 }
 
-/** Send and log (delivery_logs). Returns whether it went out. */
-export async function sendAndLog(institutionId: number, m: Omit<OutgoingMessage, 'to'> & { to: string; userId?: number | null }): Promise<boolean> {
+/** Failed messages are tried again this many times in all (5, 20 minutes apart…). */
+export const MAX_ATTEMPTS = 3;
+
+/** Send and log (delivery_logs). Returns whether it went out; failures are retried later. */
+export async function sendAndLog(
+  institutionId: number,
+  m: Omit<OutgoingMessage, 'to'> & { to: string; userId?: number | null; notificationId?: number | null }
+): Promise<boolean> {
   const to = normalizePhone(m.to);
   if (!to) {
-    await asSystem(() => db.query(`INSERT INTO delivery_logs (institution_id, user_id, channel, status, error, to_address) VALUES ($1,$2,$3,'skipped','no valid phone number',$4)`, [
-      institutionId, m.userId ?? null, m.channel, m.to,
+    await asSystem(() => db.query(`INSERT INTO delivery_logs (institution_id, user_id, notification_id, channel, status, error, to_address) VALUES ($1,$2,$3,$4,'skipped','no valid phone number',$5)`, [
+      institutionId, m.userId ?? null, m.notificationId ?? null, m.channel, m.to,
     ]));
     return false;
   }
   const r = await sendMessage({ channel: m.channel, to, text: m.text });
-  await asSystem(() => db.query(`INSERT INTO delivery_logs (institution_id, user_id, channel, status, error, to_address) VALUES ($1,$2,$3,$4,$5,$6)`, [
-    institutionId, m.userId ?? null, m.channel, r.ok ? 'sent' : 'failed', r.ok ? null : r.error, to,
-  ]));
+  const { rows } = await asSystem(() => db.query<{ id: number }>(
+    `INSERT INTO delivery_logs (institution_id, user_id, notification_id, channel, status, error, to_address, body) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    [institutionId, m.userId ?? null, m.notificationId ?? null, m.channel, r.ok ? 'sent' : 'failed', r.ok ? null : r.error, to, m.text]
+  ));
+  if (!r.ok) await enqueue('message.retry', { logId: rows[0]!.id }, { startAfter: new Date(Date.now() + 5 * 60_000) });
   return r.ok;
 }
+
+/** Sends a logged SMS / WhatsApp message again and records the attempt. */
+export async function resend(logId: number): Promise<{ ok: boolean; error?: string }> {
+  const { rows } = await asSystem(() => db.query<{ id: number; channel: Channel; to_address: string | null; body: string | null; status: string; attempts: number }>(
+    `SELECT id, channel, to_address, body, status, attempts FROM delivery_logs WHERE id = $1`, [logId]
+  ));
+  const l = rows[0];
+  if (!l || (l.channel !== 'sms' && l.channel !== 'whatsapp') || !l.to_address || !l.body) return { ok: false, error: 'nothing to resend' };
+  if (l.status === 'sent') return { ok: true };
+  const r = await sendMessage({ channel: l.channel, to: l.to_address, text: l.body });
+  await asSystem(() => db.query(`UPDATE delivery_logs SET status = $2, error = $3, attempts = attempts + 1 WHERE id = $1`, [l.id, r.ok ? 'sent' : 'failed', r.ok ? null : r.error]));
+  return r.ok ? { ok: true } : { ok: false, error: r.error };
+}
+
+export const retryJob = defineJob<{ logId: number }>({
+  name: 'message.retry',
+  async run({ logId }) {
+    const r = await resend(logId);
+    if (r.ok || r.error === 'nothing to resend') return;
+    const { rows } = await asSystem(() => db.query<{ attempts: number }>(`SELECT attempts FROM delivery_logs WHERE id = $1`, [logId]));
+    const n = rows[0]?.attempts ?? MAX_ATTEMPTS;
+    if (n < MAX_ATTEMPTS) await enqueue('message.retry', { logId }, { startAfter: new Date(Date.now() + 20 * 60_000 * n) });
+  },
+});

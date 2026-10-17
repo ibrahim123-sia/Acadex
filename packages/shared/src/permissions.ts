@@ -63,6 +63,12 @@ export const PERMISSIONS = {
   'ai.ask': "Ask questions about the institution's data in plain language",
   'risk.read': 'See early-warning risk scores of students',
   'risk.manage': 'Record and follow up interventions for at-risk students',
+  'messages.review': 'Safeguarding: read any conversation, review reports, hide messages and lock conversations',
+  'tickets.manage': 'Handle help-desk tickets: assign, reply, change status',
+  'ptm.manage': 'Organise parent–teacher meetings',
+  'broadcast.send': 'Send emergency broadcasts on every channel',
+  'integrations.manage': 'Connect Zoom, Microsoft Teams and Google Meet',
+  'delivery.read': 'See delivery logs of emails, push, SMS and WhatsApp and retry failures',
 
   // teaching (limited to the teacher's own sections)
   'teaching.access': 'Use the teacher workspace for assigned sections',
@@ -148,6 +154,12 @@ const INSTITUTION_ADMIN: Permission[] = [
   'ai.ask',
   'risk.read',
   'risk.manage',
+  'messages.review',
+  'tickets.manage',
+  'ptm.manage',
+  'broadcast.send',
+  'integrations.manage',
+  'delivery.read',
 ];
 
 /** Built-in roles. Their keys match the users.role "primary role" values. */

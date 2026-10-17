@@ -5,7 +5,7 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { z } from 'zod';
-import { NOTIFICATION_TYPES, id, notificationPreferencesBody, pushSubscriptionBody } from '@acadex/shared';
+import { NOTIFICATION_TYPES, accountPreferencesBody, id, notificationPreferencesBody, pushSubscriptionBody } from '@acadex/shared';
 import { verifyAccessToken } from '../auth/tokens';
 import { db, runAsSystem } from '../db/context';
 import { notFound } from '../lib/errors';
@@ -13,6 +13,7 @@ import { subscribe } from '../lib/events';
 import { logger } from '../lib/logger';
 import { parsePage } from '../lib/pagination';
 import { vapidPublicKey } from '../lib/push';
+import { channelEnabled } from '../lib/messaging';
 import { auth, currentUser, loadUserRow } from '../middleware/auth';
 
 const router = Router();
@@ -51,11 +52,18 @@ router.post('/:id/read', async (req, res) => {
 // ---------------------------------------------------------------- preferences
 
 router.get('/preferences', async (req, res) => {
-  const { rows } = await db.query(`SELECT channels, quiet_hours FROM notification_preferences WHERE user_id = $1`, [currentUser(req).id]);
+  const u = currentUser(req);
+  const { rows } = await db.query(`SELECT channels, quiet_hours, digest FROM notification_preferences WHERE user_id = $1`, [u.id]);
+  const inst = u.institution_id
+    ? (await db.query<{ by_phone: boolean | null }>(`SELECT (settings->>'notify_by_phone')::boolean AS by_phone FROM institutions WHERE id = $1`, [u.institution_id])).rows[0]
+    : undefined;
   res.json({
-    types: Object.entries(NOTIFICATION_TYPES).map(([key, t]) => ({ key, label: t.label, default: { email: t.email, push: t.push } })),
+    types: Object.entries(NOTIFICATION_TYPES).map(([key, t]) => ({ key, label: t.label, urgent: 'urgent' in t && t.urgent, default: { email: t.email, push: t.push, sms: false, whatsapp: false } })),
     channels: rows[0]?.channels ?? {},
     quiet_hours: rows[0]?.quiet_hours ?? null,
+    digest: rows[0]?.digest ?? 'off',
+    /** whether the institution sends notifications by SMS / WhatsApp at all */
+    phone: { sms: !!inst?.by_phone && channelEnabled('sms'), whatsapp: !!inst?.by_phone && channelEnabled('whatsapp') },
     push: { available: vapidPublicKey() !== null, public_key: vapidPublicKey() },
   });
 });
@@ -64,11 +72,24 @@ router.put('/preferences', async (req, res) => {
   const b = notificationPreferencesBody.parse(req.body);
   const u = currentUser(req);
   await db.query(
-    `INSERT INTO notification_preferences (user_id, institution_id, channels, quiet_hours, updated_at) VALUES ($1, $2, $3, $4, now())
-     ON CONFLICT (user_id) DO UPDATE SET channels = EXCLUDED.channels, quiet_hours = EXCLUDED.quiet_hours, updated_at = now()`,
-    [u.id, u.institution_id, JSON.stringify(b.channels), b.quiet_hours ? JSON.stringify(b.quiet_hours) : null]
+    `INSERT INTO notification_preferences (user_id, institution_id, channels, quiet_hours, digest, updated_at) VALUES ($1, $2, $3, $4, $5, now())
+     ON CONFLICT (user_id) DO UPDATE SET channels = EXCLUDED.channels, quiet_hours = EXCLUDED.quiet_hours, digest = EXCLUDED.digest, updated_at = now()`,
+    [u.id, u.institution_id, JSON.stringify(b.channels), b.quiet_hours ? JSON.stringify(b.quiet_hours) : null, b.digest]
   );
   res.json(b);
+});
+
+// ---------------------------------------------------------------- account preferences
+
+/** The person's language and low-bandwidth mode, kept on the account so every device follows it. */
+router.put('/account-preferences', async (req, res) => {
+  const b = accountPreferencesBody.parse(req.body);
+  const u = currentUser(req);
+  const { rows } = await db.query<{ locale: string | null; low_bandwidth: boolean }>(
+    `UPDATE users SET locale = CASE WHEN $2::boolean THEN $3 ELSE locale END, low_bandwidth = COALESCE($4, low_bandwidth) WHERE id = $1 RETURNING locale, low_bandwidth`,
+    [u.id, b.locale !== undefined, b.locale ?? null, b.low_bandwidth ?? null]
+  );
+  res.json(rows[0]);
 });
 
 // ---------------------------------------------------------------- push subscriptions

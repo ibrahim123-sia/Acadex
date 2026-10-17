@@ -43,6 +43,14 @@ beforeAll(async () => {
   ids.peerReview = (await q(`INSERT INTO peer_reviews (institution_id, assessment_id, submission_id, reviewer_student_id) VALUES ($1,$2,$3,$4) RETURNING id`, [A, ids.assessment, ids.submission, f.students.S2.id])).id;
   ids.extension = (await q(`INSERT INTO assessment_extensions (institution_id, assessment_id, student_id) VALUES ($1,$2,$3) RETURNING id`, [A, ids.assessment, f.students.S1.id])).id;
   ids.scormItem = ids.item!;
+  ids.conversation = (await q(`INSERT INTO conversations (institution_id, kind, created_by) VALUES ($1,'direct',$2) RETURNING id`, [A, f.users.t1.id])).id;
+  await fixture.pool.query(`INSERT INTO conversation_members (conversation_id, user_id, institution_id) VALUES ($1,$2,$3),($1,$4,$3)`, [ids.conversation, f.users.t1.id, A, f.users.s1.id]);
+  ids.message = (await q(`INSERT INTO messages (institution_id, conversation_id, sender_id, body) VALUES ($1,$2,$3,'hello Sara') RETURNING id`, [A, ids.conversation, f.users.t1.id])).id;
+  ids.report = (await q(`INSERT INTO message_reports (institution_id, message_id, reporter_id, reason) VALUES ($1,$2,$3,'r') RETURNING id`, [A, ids.message, f.users.s1.id])).id;
+  ids.ticket = (await q(`INSERT INTO tickets (institution_id, raised_by, category, subject, body) VALUES ($1,$2,'complaint','Alpha issue','b') RETURNING id`, [A, f.users.s1.id])).id;
+  ids.ptm = (await q(`INSERT INTO ptm_events (institution_id, title, date, start_time, end_time, section_ids) VALUES ($1,'PTM',CURRENT_DATE + 7,'09:00','10:00',ARRAY[$2]::int[]) RETURNING id`, [A, f.sections.A1.id])).id;
+  ids.ptmSlot = (await q(`INSERT INTO ptm_slots (institution_id, event_id, teacher_user_id, starts_at, ends_at) VALUES ($1,$2,$3, now() + interval '7 days', now() + interval '7 days 10 minutes') RETURNING id`, [A, ids.ptm, f.users.t1.id])).id;
+  ids.log = (await q(`INSERT INTO delivery_logs (institution_id, channel, status, body, to_address) VALUES ($1,'sms','failed','x','+923001234567') RETURNING id`, [A])).id;
 });
 
 /** Fill a route's parameters with institution A's records. */
@@ -55,7 +63,8 @@ function fill(path: string) {
       groups: 'group', 'grade-categories': 'category', polls: 'poll', surveys: 'survey', live: 'live', rooms: 'room', slots: 'slot',
       sessions: 'session', leave: 'leave', attempts: 'attempt', blueprints: 'blueprint', badges: 'badge', certificates: 'cert',
       annotations: 'annotation', 'peer-reviews': 'peerReview', extensions: 'extension', items: 'scormItem', teachers: 'teacher', students: 'student',
-      substitutions: 'slot', grades: 'student',
+      substitutions: 'slot', grades: 'student', conversations: 'conversation', messages: 'message', reports: 'report', tickets: 'ticket',
+      ptm: 'ptm', 'ptm-slots': 'ptmSlot', 'delivery-logs': 'log',
     };
     const key = map[before];
     if (key === 'teacher') return f.teachers.T1.id;

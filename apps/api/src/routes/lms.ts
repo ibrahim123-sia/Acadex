@@ -13,12 +13,14 @@ import exams from './exams';
 import finance from './finance';
 import outcomes from './outcomes';
 import gradebook from './gradebook';
+import messages from './messages';
+import reach from './reach';
 import quizzes from './quizzes';
 import timetable from './timetable';
 
 const lms = Router();
 lms.use(scormContentRouter);
 lms.use(auth, requireInstitutionUser);
-for (const r of [courses, assessments, quizzes, gradebook, attendance, timetable, engage, content, finance, exams, outcomes, admissions, ai]) lms.use(r);
+for (const r of [courses, assessments, quizzes, gradebook, attendance, timetable, engage, content, finance, exams, outcomes, admissions, ai, messages, reach]) lms.use(r);
 
 export default lms;

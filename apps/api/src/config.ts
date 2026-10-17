@@ -79,6 +79,8 @@ const schema = z.object({
   META_WHATSAPP_PHONE_ID: z.string().optional(),
   /** a pre-approved WhatsApp template for notices (Meta requires templates outside a 24h chat) */
   META_WHATSAPP_TEMPLATE: z.string().default('acadex_notice'),
+  /** live classes: real (Zoom / Teams / Meet APIs with each institution's account) or fake (tests) */
+  LIVE_DRIVER: z.enum(['real', 'fake']).default('real'),
   /** AI: the platform's provider (fake = no network, deterministic) and keys; institutions may bring their own */
   AI_PROVIDER: z.enum(['auto', 'fake', 'openai', 'anthropic', 'gemini', 'groq']).default('auto'),
   AI_DISABLED: bool(false),
@@ -133,6 +135,7 @@ export interface Config {
     keys: { openai?: string; anthropic?: string; gemini?: string; groq?: string };
     budgets: Record<string, number>;
   };
+  liveDriver: 'real' | 'fake';
   messaging: {
     sms: 'none' | 'log' | 'fake' | 'twilio';
     whatsapp: 'none' | 'log' | 'fake' | 'twilio' | 'meta';
@@ -245,6 +248,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       keys: { openai: c.OPENAI_API_KEY, anthropic: c.ANTHROPIC_API_KEY, gemini: c.GEMINI_API_KEY, groq: c.GROQ_API_KEY },
       budgets: { free: c.AI_BUDGET_FREE_USD, pro: c.AI_BUDGET_PRO_USD, enterprise: c.AI_BUDGET_ENTERPRISE_USD },
     },
+    liveDriver: c.LIVE_DRIVER,
     messaging: {
       sms: c.SMS_DRIVER,
       whatsapp: c.WHATSAPP_DRIVER,

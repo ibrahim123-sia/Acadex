@@ -45,7 +45,7 @@ describe('delivery by email and push', () => {
     const t1 = as(f.tokens.t1);
     const prefs = await t1.get('/api/notifications/preferences');
     expect(prefs.body.push.available).toBe(true);
-    expect(prefs.body.types.find((t) => t.key === 'grade_released').default).toEqual({ email: true, push: true });
+    expect(prefs.body.types.find((t) => t.key === 'grade_released').default).toEqual({ email: true, push: true, sms: false, whatsapp: false });
     await t1.post('/api/notifications/push-subscriptions', { endpoint: 'https://push.example/abc', keys: { p256dh: 'k', auth: 'a' } });
     await t1.post('/api/notifications/push-subscriptions', { endpoint: 'https://push.example/gone', keys: { p256dh: 'k', auth: 'a' } });
     await t1.put('/api/notifications/preferences', { channels: { announcement: { email: false, push: true } } });

@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { feeSettingsBody } from './schemas/finance';
 import { aiSettingsBody } from './schemas/ai';
+import { messagingSettingsBody } from './schemas/reach';
 
 export const INSTITUTION_TYPES = ['school', 'chain', 'college', 'university', 'academy', 'training_center'] as const;
 export type InstitutionType = (typeof INSTITUTION_TYPES)[number];
@@ -401,6 +402,10 @@ export const institutionSettings = z.object({
   fees: feeSettingsBody.partial().optional(),
   /** AI features, provider and budget */
   ai: aiSettingsBody.partial().optional(),
+  /** messaging and safeguarding rules */
+  messaging: messagingSettingsBody.partial().optional(),
+  /** notifications may also go out by SMS / WhatsApp when a person chooses it (the institution pays for messages) */
+  notify_by_phone: z.boolean().optional(),
 });
 
 export const DEFAULT_ATTENDANCE_THRESHOLD = 75;

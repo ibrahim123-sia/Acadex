@@ -17,4 +17,5 @@ export * from './schemas/finance';
 export * from './schemas/exams';
 export * from './schemas/admissions';
 export * from './schemas/ai';
+export * from './schemas/reach';
 export * from './help';
