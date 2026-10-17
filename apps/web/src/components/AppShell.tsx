@@ -46,11 +46,22 @@ import {
   Sparkles,
   MessageCircleQuestion,
   HelpCircle,
+  MessagesSquare,
+  CalendarClock,
+  LifeBuoy,
+  CloudDownload,
+  RadioTower,
+  ShieldAlert,
+  Gauge,
+  WifiOff,
 } from 'lucide-react';
 import type { Permission, Role } from '@acadex/shared';
 import { useAuth } from '@/lib/auth';
 import { useTerms } from '@/lib/terms';
-import { LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
+import { LANGUAGES, onLanguagePicked, setLanguage, type Language } from '@/lib/i18n';
+import { setLowBandwidth, useLowBandwidth } from '@/lib/device';
+import { api } from '@/lib/api';
+import { useUnreadMessages } from '@/pages/reach/Messages';
 import { useTheme, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/cn';
 import { NotificationBell } from './NotificationBell';
@@ -73,6 +84,8 @@ interface NavItem {
   /** or to anyone holding one of these */
   any?: Permission[];
   end?: boolean;
+  /** a live count next to the item */
+  badge?: 'messages';
 }
 
 /** Navigation sections; an item shows when the user holds its permission. */
@@ -102,6 +115,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/finance', label: t('nav.finance', 'Finance'), icon: Wallet, any: ['fees.read', 'finance.reports', 'finance.expenses'] },
         { to: '/admissions', label: t('nav.admissions', 'Admissions'), icon: UserPlus, any: ['admissions.manage', 'enquiries.manage'] },
         { to: '/admin/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, permission: 'announcements.read' },
+        { to: '/communication', label: t('nav.communication', 'Communication'), icon: RadioTower, any: ['broadcast.send', 'delivery.read', 'integrations.manage'] },
+        { to: '/safeguarding', label: t('nav.safeguarding', 'Safeguarding'), icon: ShieldAlert, permission: 'messages.review' },
       ],
     },
     {
@@ -172,9 +187,13 @@ function useNav(): { title: string; items: NavItem[] }[] {
       items: [
         { to: '/timetable', label: t('nav.timetable', 'Timetable'), icon: Clock, any: ['teaching.access', 'learner.access', 'guardian.access', 'timetable.manage'] },
         { to: '/calendar', label: t('nav.calendar', 'Calendar'), icon: CalendarDays, any: ['teaching.access', 'learner.access', 'guardian.access'] },
+        { to: '/messages', label: t('nav.messages', 'Messages'), icon: MessagesSquare, badge: 'messages' },
         { to: '/announcements', label: t('nav.announcements', 'Announcements'), icon: Megaphone, any: ['announcements.view'] },
+        { to: '/meetings', label: t('nav.meetings', 'Parent–teacher meetings'), icon: CalendarClock, any: ['ptm.manage', 'teaching.access', 'guardian.access', 'learner.access'] },
+        { to: '/tickets', label: t('nav.tickets', 'Help desk'), icon: LifeBuoy },
         { to: '/attendance/leave', label: t('nav.leave', 'Leave'), icon: Plane, any: ['leave.request', 'leave.approve'] },
         { to: '/surveys', label: t('nav.surveys', 'Surveys'), icon: ClipboardList },
+        { to: '/saved', label: t('nav.saved', 'Saved for offline'), icon: CloudDownload },
         { to: '/help', label: t('nav.help', 'Help'), icon: HelpCircle },
       ],
     },
@@ -223,7 +242,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                       )
                     }
                   >
-                    <n.icon className="size-[18px] shrink-0" aria-hidden /> {n.label}
+                    <n.icon className="size-[18px] shrink-0" aria-hidden /> <span className="flex-1">{n.label}</span>
+                    {n.badge === 'messages' && <UnreadBadge />}
                   </NavLink>
                 </li>
               ))}
@@ -236,6 +256,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="truncate font-medium text-white">{user?.full_name}</div>
           <div className="truncate text-xs text-sidebar-fg/70">{user?.email}</div>
         </div>
+        <LanguageSelect className="px-3 py-1 sm:hidden" />
         <NavLink to="/account/security" onClick={onNavigate} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-white/5 hover:text-white">
           <ShieldCheck className="size-4" aria-hidden /> {t('nav.security', 'Security')}
         </NavLink>
@@ -268,6 +289,47 @@ export function LanguageSelect({ className }: { className?: string }) {
   );
 }
 
+function UnreadBadge() {
+  const q = useUnreadMessages();
+  const n = q.data?.unread ?? 0;
+  if (!n) return null;
+  return <span className="rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-fg">{n > 99 ? '99+' : n}</span>;
+}
+
+/** Low-bandwidth mode: no autoplay, media on request, smaller uploads. */
+export function LowBandwidthToggle() {
+  const { t } = useTranslation();
+  const low = useLowBandwidth();
+  const label = low ? t('lb.on', 'Low-bandwidth mode is on') : t('lb.off', 'Low-bandwidth mode is off');
+  return (
+    <button type="button" onClick={() => setLowBandwidth(!low)} aria-pressed={low} aria-label={label} title={label} className={cn('rounded-lg p-2 hover:bg-surface-2', low ? 'text-primary' : 'text-fg-muted')}>
+      <Gauge className="size-5" aria-hidden />
+    </button>
+  );
+}
+
+function OfflineBanner() {
+  const { t } = useTranslation();
+  const { offline } = useAuth();
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+  if (online && !offline) return null;
+  return (
+    <div role="status" className="flex items-center justify-center gap-2 bg-warning/20 px-3 py-1.5 text-sm">
+      <WifiOff className="size-4" aria-hidden /> {t('offline.banner', "You're offline — showing what was saved on this device. Attendance you take is sent when you're back.")}
+    </div>
+  );
+}
+
 export function ThemeToggle() {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -291,6 +353,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [drawer, setDrawer] = useState(false);
   const location = useLocation();
   useEffect(() => setDrawer(false), [location.pathname]);
+  // the account remembers the language the person picks
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    return onLanguagePicked((code) => void api.put('/notifications/account-preferences', { locale: code }).catch(() => {}));
+  }, [user]);
 
   return (
     <div className="flex min-h-full">
@@ -318,9 +386,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <div className="flex-1" />
           <LanguageSelect className="hidden sm:flex" />
+          <LowBandwidthToggle />
           <ThemeToggle />
           <NotificationBell />
         </header>
+        <OfflineBanner />
         <main id="main" className="flex-1">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
         </main>

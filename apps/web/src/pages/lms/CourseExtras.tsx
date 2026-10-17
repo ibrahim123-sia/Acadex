@@ -20,6 +20,7 @@ interface Live {
   recording_url: string;
   joined: number;
   join_url?: string;
+  host_url?: string;
 }
 
 export function LiveTab({ courseId, role, canEdit }: { courseId: number; role: CourseRole; canEdit: boolean }) {
@@ -67,7 +68,9 @@ export function LiveTab({ courseId, role, canEdit }: { courseId: number; role: C
             <Field label={t('lms.startsAt', 'Starts')}>{(a) => <Input {...a} type="datetime-local" required value={f.starts_at} onChange={(e) => setF({ ...f, starts_at: e.target.value })} />}</Field>
             <Field label={t('lms.minutes', 'Minutes')}>{(a) => <Input {...a} type="number" min={5} value={f.duration_minutes} onChange={(e) => setF({ ...f, duration_minutes: e.target.value })} />}</Field>
             {f.provider !== 'jitsi' && (
-              <Field label={t('lms.meetingLink', 'Meeting link')} className="sm:col-span-2 lg:col-span-4">{(a) => <Input {...a} type="url" dir="ltr" required value={f.join_url} onChange={(e) => setF({ ...f, join_url: e.target.value })} />}</Field>
+              <Field label={t('lms.meetingLink', 'Meeting link')} optional hint={t('lms.meetingAuto', 'Leave empty when your institution has connected this tool — Acadex creates the meeting.')} className="sm:col-span-2 lg:col-span-4">
+                {(a) => <Input {...a} type="url" dir="ltr" value={f.join_url} onChange={(e) => setF({ ...f, join_url: e.target.value })} />}
+              </Field>
             )}
             <div className="flex items-end">
               <Button type="submit" loading={add.isPending}>
@@ -87,7 +90,7 @@ export function LiveTab({ courseId, role, canEdit }: { courseId: number; role: C
         columns={[
           { key: 't', header: t('common.title', 'Title'), cell: (r) => <span className="font-medium">{r.title}</span> },
           { key: 's', header: t('lms.startsAt', 'Starts'), cell: (r) => `${formatDateTime(r.starts_at)} · ${r.duration_minutes}′` },
-          { key: 'p', header: t('lms.provider', 'Tool'), cell: (r) => r.provider, hideOnMobile: true },
+          { key: 'p', header: t('lms.provider', 'Tool'), cell: (r) => (r.host_url ? <a href={r.host_url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{r.provider} · {t('lms.startAsHost', 'start as host')}</a> : r.provider), hideOnMobile: true },
           { key: 'j', header: t('lms.joined', 'Joined'), cell: (r) => r.joined, hideOnMobile: true },
           {
             key: 'a',

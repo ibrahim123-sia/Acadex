@@ -165,10 +165,13 @@ export function CalendarPage() {
 
 // ---------------------------------------------------------------- notifications
 
+type Chan = { email: boolean; push: boolean; sms?: boolean; whatsapp?: boolean };
 interface Prefs {
-  types: { key: string; label: string; default: { email: boolean; push: boolean } }[];
-  channels: Record<string, { email: boolean; push: boolean }>;
+  types: { key: string; label: string; urgent?: boolean; default: Chan }[];
+  channels: Record<string, Chan>;
   quiet_hours: { start: string; end: string } | null;
+  digest: 'off' | 'daily' | 'weekly';
+  phone: { sms: boolean; whatsapp: boolean };
   push: { available: boolean; public_key: string | null };
 }
 
@@ -186,10 +189,12 @@ export function NotificationsPage() {
   const prefs = useQuery({ queryKey: ['notif-prefs'], queryFn: () => api.get<Prefs>('/notifications/preferences') });
   const [quiet, setQuiet] = useState<{ start: string; end: string } | null | undefined>(undefined);
   const [chan, setChan] = useState<Prefs['channels'] | null>(null);
+  const [digestChoice, setDigest] = useState<Prefs['digest'] | null>(null);
+  const digest = digestChoice ?? prefs.data?.digest ?? 'off';
   const channels = chan ?? prefs.data?.channels ?? {};
   const q = quiet === undefined ? (prefs.data?.quiet_hours ?? null) : quiet;
   const save = useMutation({
-    mutationFn: () => api.put('/notifications/preferences', { channels, quiet_hours: q }),
+    mutationFn: () => api.put('/notifications/preferences', { channels, quiet_hours: q, digest }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['notif-prefs'] });
       toast('success', t('common.saved', 'Saved'));
@@ -240,24 +245,42 @@ export function NotificationsPage() {
                     <th className="text-start font-medium" />
                     <th className="w-16 font-medium">{t('notif.email', 'Email')}</th>
                     <th className="w-16 font-medium">{t('notif.push', 'Push')}</th>
+                    {prefs.data.phone.sms && <th className="w-16 font-medium">SMS</th>}
+                    {prefs.data.phone.whatsapp && <th className="w-16 font-medium">WhatsApp</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {prefs.data.types.map((ty) => {
-                    const c = channels[ty.key] ?? ty.default;
-                    const set = (k: 'email' | 'push', v: boolean) => setChan({ ...channels, [ty.key]: { ...c, [k]: v } });
+                    const c = { ...ty.default, ...channels[ty.key] };
+                    const set = (k: keyof Chan, v: boolean) => setChan({ ...channels, [ty.key]: { ...c, [k]: v } });
+                    const box = (k: keyof Chan, label: string) => (
+                      <td className="text-center">
+                        <input type="checkbox" className="size-5" aria-label={`${ty.label}: ${label}`} disabled={ty.urgent} checked={ty.urgent ? true : !!c[k]} onChange={(e) => set(k, e.target.checked)} />
+                      </td>
+                    );
                     return (
                       <tr key={ty.key}>
-                        <td className="py-1">{t(`notif.types.${ty.key}`, ty.label)}</td>
-                        <td className="text-center"><input type="checkbox" aria-label={`${ty.label}: ${t('notif.email', 'Email')}`} checked={c.email} onChange={(e) => set('email', e.target.checked)} /></td>
-                        <td className="text-center"><input type="checkbox" aria-label={`${ty.label}: ${t('notif.push', 'Push')}`} checked={c.push} onChange={(e) => set('push', e.target.checked)} /></td>
+                        <td className="py-1">{t(`notif.types.${ty.key}`, ty.label)}{ty.urgent && <span className="block text-[11px] text-fg-muted">{t('notif.alwaysOn', 'Always on every channel')}</span>}</td>
+                        {box('email', t('notif.email', 'Email'))}
+                        {box('push', t('notif.push', 'Push'))}
+                        {prefs.data!.phone.sms && box('sms', 'SMS')}
+                        {prefs.data!.phone.whatsapp && box('whatsapp', 'WhatsApp')}
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+              <Field label={t('notif.digest', 'Email digest')} hint={t('notif.digestHint', 'One email at 18:00 instead of one per notification (weekly: on Mondays). Emergencies still arrive at once.')}>
+                {(a) => (
+                  <Select {...a} value={digest} onChange={(e) => setDigest(e.target.value as Prefs['digest'])}>
+                    <option value="off">{t('notif.digestOff', 'Off — email each one')}</option>
+                    <option value="daily">{t('notif.digestDaily', 'Daily')}</option>
+                    <option value="weekly">{t('notif.digestWeekly', 'Weekly')}</option>
+                  </Select>
+                )}
+              </Field>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={!!q} onChange={(e) => setQuiet(e.target.checked ? { start: '21:00', end: '07:00' } : null)} /> {t('notif.quiet', 'Quiet hours (no email or push)')}
+                <input type="checkbox" checked={!!q} onChange={(e) => setQuiet(e.target.checked ? { start: '21:00', end: '07:00' } : null)} /> {t('notif.quiet', 'Quiet hours (no email, push or text messages)')}
               </label>
               {q && (
                 <div className="flex gap-2">

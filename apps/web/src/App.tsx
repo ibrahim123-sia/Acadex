@@ -33,6 +33,13 @@ const PayReturnRoute = lazy(() => Office().then((m) => ({ default: m.PayReturnRo
 const ExamsRoutes = lazy(() => Office().then((m) => ({ default: m.ExamsRoutes })));
 const OutcomesRoute = lazy(() => Office().then((m) => ({ default: m.OutcomesRoute })));
 const AdmissionsRoutes = lazy(() => Office().then((m) => ({ default: m.AdmissionsRoutes })));
+const Reach = () => import('@/pages/reach');
+const MessagesRoute = lazy(() => Reach().then((m) => ({ default: m.MessagesRoute })));
+const SafeguardingRoute = lazy(() => Reach().then((m) => ({ default: m.SafeguardingRoute })));
+const TicketsRoute = lazy(() => Reach().then((m) => ({ default: m.TicketsRoute })));
+const MeetingsRoute = lazy(() => Reach().then((m) => ({ default: m.MeetingsRoute })));
+const SavedRoute = lazy(() => Reach().then((m) => ({ default: m.SavedRoute })));
+const CommunicationRoute = lazy(() => Reach().then((m) => ({ default: m.CommunicationRoute })));
 const Ai = () => import('@/pages/ai');
 const AiSettingsRoute = lazy(() => Ai().then((m) => ({ default: m.AiSettingsRoute })));
 const SuccessRoute = lazy(() => Ai().then((m) => ({ default: m.SuccessRoute })));
@@ -89,6 +96,16 @@ export default function App() {
         <Route path="/surveys/*" element={<SurveyRoutes />} />
         <Route path="/family" element={<FamilyRoute />} />
         <Route path="/verify/:code" element={<VerifyPage />} />
+        <Route path="/messages" element={<MessagesRoute />} />
+        <Route path="/messages/:id" element={<MessagesRoute />} />
+        <Route path="/safeguarding" element={<SafeguardingRoute />} />
+        <Route path="/safeguarding/:id" element={<SafeguardingRoute />} />
+        <Route path="/tickets" element={<TicketsRoute />} />
+        <Route path="/tickets/:id" element={<TicketsRoute />} />
+        <Route path="/meetings" element={<MeetingsRoute />} />
+        <Route path="/meetings/:id" element={<MeetingsRoute />} />
+        <Route path="/saved" element={<SavedRoute />} />
+        <Route path="/communication" element={<CommunicationRoute />} />
         <Route path="/ai/settings" element={<AiSettingsRoute />} />
         <Route path="/success" element={<SuccessRoute />} />
         <Route path="/ask" element={<AskRoute />} />
