@@ -18,7 +18,8 @@
     "db:migrate": "npm run db:migrate -w @acadex/api",
     "db:seed": "npm run db:seed -w @acadex/api",
     "db:reset": "npm run db:reset -w @acadex/api",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "secrets:check": "node scripts/leak-scan.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",

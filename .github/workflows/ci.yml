@@ -82,3 +82,23 @@ jobs:
         run: |
           docker build -f apps/api/Dockerfile -t acadex-api:ci .
           docker build -f apps/web/Dockerfile -t acadex-web:ci .
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # known vulnerabilities in production dependencies fail the build
+      - name: Dependency scan
+        run: npm audit --omit=dev --audit-level=high
+      # secrets committed by mistake (keys, tokens, private keys) fail the build
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

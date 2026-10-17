@@ -1,0 +1,24 @@
+# Secret scanning (gitleaks, run in CI). The default rules apply; the allowlist below covers
+# only values that are not secrets: throwaway credentials of local/CI test databases and the
+# public demo password of the seeded demo data (the seed refuses to run in production).
+#
+# Commit e32c65f (Nov 2024, the old "Education Portal" before Acadex) contained the password of
+# a local SQL Server in backend/Server.js. That code was deleted; the password must be treated
+# as exposed and changed wherever it was used. The commit is allowlisted so CI does not fail on
+# history that cannot be rewritten without a force-push.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secrets and the already-disclosed legacy commit"
+commits = ["e32c65f0ef987af028157394d89cd089dbeb776e"]
+regexes = [
+  '''postgres(ql)?://postgres:postgres@(localhost|127\.0\.0\.1)''',
+  '''postgres(ql)?://acadex:acadex@(localhost|postgres)''',
+  '''postgresql://user:password@host''',
+  '''Acadex@123''',
+  '''local-compose-secret-change-me''',
+  '''acadex-dev-secret''',
+]
+paths = ['''(^|/)node_modules/''', '''package-lock\.json''']
