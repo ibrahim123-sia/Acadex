@@ -1,5 +1,28 @@
 # Changelog
 
+## Phase 6 — Platform, modules and ecosystem (2026-10-17)
+
+Acadex as a business, and as part of a school's other tools. Details: [docs/platform.md](docs/platform.md).
+
+- **SaaS**: self-serve sign-up with a trial, plans with limits and features, per-tenant
+  overrides, monthly invoices with tax and an AI add-on, card (Stripe) or bank payment,
+  reminders and pausing for overdue invoices, daily usage metering with cost and margin, tenant
+  health, announcements to institutions, support sign-in with the institution's consent.
+- **White-label**: logo, colour, app name, branded emails, custom domains (DNS-verified) with
+  the brand on the sign-in page and the installed app.
+- **Modules**: Library and HR & payroll in full; Transport, Hostel, Inventory & assets and
+  Visitors — switched on per institution, transport and hostel fees invoiced monthly.
+- **Reports**: eight reports with filters, CSV / Excel / PDF and scheduled emails.
+- **Integrations**: a REST API with scoped keys, signed webhooks with retries, LTI 1.3 tool
+  launches, OneRoster export, Google / Microsoft sign-in.
+- **Privacy**: consents, data requests (copy / correction / deletion), retention periods, full
+  exports and account closing, audit of sensitive reads, legal pages (privacy, terms, DPA,
+  sub-processors, compliance).
+- **Public site**: landing, pricing, demo booking, sign-up, public help center, cookie notice;
+  in-app feedback widget, guided tours per role, sample data.
+- **Operations**: a load-test script; dependency and secret scanning in CI (gitleaks) and a
+  local `npm run secrets:check` before every commit.
+
 ## Phase 5 — Reach and communication (2026-10-17)
 
 Acadex reaches every family, on any phone, in their language — safely.

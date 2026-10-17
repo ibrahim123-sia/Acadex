@@ -70,6 +70,11 @@ emergency broadcasts, parent–teacher meeting booking, a help desk, Zoom / Team
 from Acadex, an installable app that works offline, low-bandwidth mode, and every screen in
 Urdu and Arabic.
 
+**Platform** — plans with limits, trials and self-serve sign-up, invoices with tax, card or
+bank payment, usage and margin, white-label domains, data exports and account closing; Library,
+HR & payroll, Transport, Hostel, Inventory and Visitors modules; reports with scheduled emails;
+a REST API, webhooks, LTI 1.3, OneRoster and Google / Microsoft sign-in ([docs/platform.md](docs/platform.md)).
+
 **Admissions** — branded online application forms with documents and an application fee,
 an enquiry tracker with follow-ups, online or in-hall entrance tests, merit lists, offers
 and a waiting list, and one-click enrolment with guardian and portal accounts.

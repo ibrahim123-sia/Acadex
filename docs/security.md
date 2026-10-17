@@ -166,6 +166,18 @@ Migrations live in `apps/api/drizzle/` and are applied once each by
 error) and an advisory lock. Statements containing `DROP`/`TRUNCATE` are refused unless the
 file is marked `-- acadex:reviewed-destructive`.
 
+## Platform access, API keys and secrets
+
+Platform staff can sign in as an institution's administrator only when that institution allows
+support access; the session lasts one hour, shows a banner and is written to both audit logs.
+API keys are shown once and stored as SHA-256 hashes; webhook secrets and provider credentials
+are sealed with AES-256-GCM and audited as "changed" without their values. Sensitive reads —
+medical notes, transcripts, data exports — are audited.
+
+A legacy commit from November 2024 (`e32c65f`, the old "Education Portal" before Acadex)
+contains the password of a local SQL Server; the code was removed, but history is kept (no
+force-push), so that password must be considered exposed and changed wherever it was used.
+
 ## Known gaps
 
 - `users.email` is unique across the platform, so one person can't yet belong to two

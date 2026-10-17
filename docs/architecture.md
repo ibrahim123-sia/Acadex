@@ -137,6 +137,15 @@ Reach (Phase 5; `schema/reach.ts`): `conversations` → `conversation_members` (
 device layer (`lib/device.ts`, `public/sw.js`) handles low-bandwidth mode, offline copies and
 smaller uploads.
 
+Platform (Phase 6; `schema/platform.ts`, `schema/modules.ts`, see [platform.md](platform.md)):
+`plans`, `platform_invoices`, `usage_snapshots`, `platform_settings`,
+`platform_announcements`, `custom_domains`, `data_exports`, `api_keys`,
+`webhook_endpoints` → `webhook_deliveries`, `lti_tools` → `lti_launches`, `consents`,
+`privacy_requests`, `report_schedules`, `demo_requests`, `product_feedback`; modules:
+`library_*`, `salary_structures`, `staff_salaries`, `payroll_runs` → `payslips`,
+`staff_leaves`, `vehicles`, `transport_*`, `hostel_*`, `module_charges`,
+`inventory_items` → `stock_movements`, `visitor_logs`.
+
 Who may do what in a course is decided in one place, `lib/lms/access.ts`: staff (assigned
 teachers, or holders of `courses.manage_any`), students (the roster: the whole section, or
 enrolled for open courses) and guardians (linked to a student on the roster; released

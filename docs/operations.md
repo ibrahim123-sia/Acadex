@@ -135,6 +135,24 @@ digests.
 The `fees.daily` job (03:00 UTC) charges late fines and sends the day's reminders for every
 institution, each once per invoice, step and channel.
 
+## Platform billing and sign-in
+
+Card payments of the platform's own invoices: `BILLING_STRIPE_SECRET_KEY` and
+`BILLING_STRIPE_WEBHOOK_SECRET` (webhook `API_PUBLIC_URL/billing/stripe/webhook`, event
+`checkout.session.completed`). Google / Microsoft sign-in: `GOOGLE_CLIENT_ID` /
+`GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` /
+`MICROSOFT_TENANT`, redirect URIs `API_PUBLIC_URL/auth/sso/<provider>/callback`. Jobs:
+`usage.daily` (00:20 UTC), `billing.monthly` (1st, 04:00), `billing.dunning` (04:30),
+`tenants.cleanup` (03:45), `privacy.retention` (02:15), `reports.scheduled` (hourly, :05),
+`library.overdue` (06:00). Load test: see [platform.md](platform.md#load-test).
+
+## Secrets
+
+Never commit credentials. `npm run secrets:check` scans the staged changes (connection strings
+with passwords, API keys, tokens, private keys, passwords in config) and is run before every
+commit; CI runs gitleaks on every push (`.gitleaks.toml` allows only throwaway test values and
+the public demo password).
+
 ## Live classes
 
 Each institution connects its own Zoom (Server-to-Server OAuth app, scope `meeting:write`),
