@@ -24,7 +24,7 @@ interface Settings {
   timezone: string;
   locale: string;
   country: string;
-  settings: { terminology?: Partial<Record<keyof Terminology, { one: string; other?: string }>>; working_days?: number[]; storage_quota_mb?: number };
+  settings: { terminology?: Partial<Record<keyof Terminology, { one: string; other?: string }>>; working_days?: number[]; storage_quota_mb?: number; week_start?: number; attendance_geofence?: { lat: number; lng: number; radius_m: number } | null };
   terminology: Terminology;
   packs: Record<string, Terminology>;
 }
@@ -37,8 +37,12 @@ function Profile({ s }: { s: Settings }) {
   const toast = useToast();
   const [v, setV] = useState({ name: s.name, type: s.type, contact_email: s.contact_email, phone: s.phone, address: s.address, primary_color: s.primary_color, currency: s.currency, timezone: s.timezone, locale: s.locale, country: s.country });
   const [days, setDays] = useState<number[]>(s.settings.working_days ?? []);
+  const [weekStartDay, setWeekStartDay] = useState(s.settings.week_start ?? 1);
+  const g = s.settings.attendance_geofence;
+  const [fence, setFence] = useState({ lat: g ? String(g.lat) : '', lng: g ? String(g.lng) : '', radius_m: g ? String(g.radius_m) : '300' });
+  const geofence = fence.lat && fence.lng ? { lat: Number(fence.lat), lng: Number(fence.lng), radius_m: Number(fence.radius_m) || 300 } : null;
   const m = useMutation({
-    mutationFn: () => api.patch('/institution/settings', { ...v, settings: { ...s.settings, working_days: days.length ? days : undefined } }),
+    mutationFn: () => api.patch('/institution/settings', { ...v, settings: { ...s.settings, working_days: days.length ? days : undefined, week_start: weekStartDay, attendance_geofence: geofence } }),
     onSuccess: () => {
       toast('success', t('common.saved', 'Saved'));
       void qc.invalidateQueries({ queryKey: ['settings'] });
@@ -104,6 +108,25 @@ function Profile({ s }: { s: Settings }) {
           })}
         </div>
         <p className="mt-1 text-xs text-fg-muted">{t('settings.workingDaysHelp', 'No attendance or due dates on other days.')}</p>
+      </fieldset>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={t('settings.weekStart', 'Week starts on')}>
+          {(a) => (
+            <Select {...a} value={weekStartDay} onChange={(e) => setWeekStartDay(Number(e.target.value))}>
+              {[1, 6, 0].map((d) => <option key={d} value={d}>{dayName(d)}</option>)}
+            </Select>
+          )}
+        </Field>
+      </div>
+      <fieldset>
+        <legend className="mb-1 text-sm font-medium">{t('settings.geofence', 'QR check-in only on campus (optional)')}</legend>
+        <p className="mb-2 text-xs text-fg-muted">{t('settings.geofenceHelp', 'Students must share their location and be within this distance of the point. Leave empty to allow check-in anywhere.')}</p>
+        <div className="grid gap-2 sm:grid-cols-4 sm:items-end">
+          <Field label={t('settings.lat', 'Latitude')}>{(a) => <Input {...a} dir="ltr" inputMode="decimal" value={fence.lat} onChange={(e) => setFence({ ...fence, lat: e.target.value })} placeholder="31.5204" />}</Field>
+          <Field label={t('settings.lng', 'Longitude')}>{(a) => <Input {...a} dir="ltr" inputMode="decimal" value={fence.lng} onChange={(e) => setFence({ ...fence, lng: e.target.value })} placeholder="74.3587" />}</Field>
+          <Field label={t('settings.radius', 'Distance (metres)')}>{(a) => <Input {...a} type="number" min={20} max={5000} value={fence.radius_m} onChange={(e) => setFence({ ...fence, radius_m: e.target.value })} />}</Field>
+          <Button type="button" variant="outline" onClick={() => navigator.geolocation?.getCurrentPosition((p) => setFence({ ...fence, lat: p.coords.latitude.toFixed(6), lng: p.coords.longitude.toFixed(6) }))}>{t('settings.useHere', 'Use my location')}</Button>
+        </div>
       </fieldset>
       <MutationError error={m.error} />
       <div className="flex justify-end">

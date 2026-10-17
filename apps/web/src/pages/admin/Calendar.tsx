@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatDate, todayISO } from '@/lib/format';
+import { formatDate, todayISO, weekStart } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { FormDialog, nullIfEmpty, useFormDialog, type Values } from '@/components/FormDialog';
 import { Badge, Button, Card, EmptyState, ErrorState, PageHeader, Skeleton, useToast } from '@/components/ui';
@@ -58,10 +58,11 @@ export function AdminCalendar() {
 
   const monthLabel = new Intl.DateTimeFormat(i18n.language, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${first}T00:00:00Z`));
   const weekdayNames = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(i18n.language, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + i)))),
+    () => Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(i18n.language, { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2023, 0, 1 + ((i + weekStart()) % 7))))),
     [i18n.language]
   );
-  const offset = new Date(`${first}T00:00:00Z`).getUTCDay();
+  const firstDow = new Date(`${first}T00:00:00Z`).getUTCDay();
+  const offset = (firstDow - weekStart() + 7) % 7;
   const move = (d: number) => setCursor((c) => ({ y: c.m + d < 0 ? c.y - 1 : c.m + d > 11 ? c.y + 1 : c.y, m: (c.m + d + 12) % 12 }));
 
   const fields = [
@@ -131,7 +132,7 @@ export function AdminCalendar() {
               ))}
               {Array.from({ length: daysInMonth }, (_, i) => {
                 const d = iso(cursor.y, cursor.m, i + 1);
-                const closed = !cal.data.working_days.includes((offset + i) % 7);
+                const closed = !cal.data.working_days.includes((firstDow + i) % 7);
                 const events = dayInfo(d);
                 return (
                   <div key={d} className={cn('min-h-16 border-b border-e border-border p-1 text-xs sm:min-h-24 sm:p-1.5', closed && 'bg-surface-2/60')}>

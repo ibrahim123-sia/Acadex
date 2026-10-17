@@ -2,10 +2,12 @@
 import type { InstitutionSummary } from '@acadex/shared';
 import i18n from './i18n';
 
-let institution: Pick<InstitutionSummary, 'currency' | 'timezone' | 'locale'> | null = null;
-export const setFormatInstitution = (s: Pick<InstitutionSummary, 'currency' | 'timezone' | 'locale'> | null) => {
+let institution: Pick<InstitutionSummary, 'currency' | 'timezone' | 'locale' | 'week_start'> | null = null;
+export const setFormatInstitution = (s: Pick<InstitutionSummary, 'currency' | 'timezone' | 'locale' | 'week_start'> | null) => {
   institution = s;
 };
+/** The institution's first day of the week (0 = Sunday); Monday by default. */
+export const weekStart = () => institution?.week_start ?? 1;
 
 /** The language's region-aware locale: the UI language, with the institution's region (en-PK, ur-PK). */
 function locale(): string {
