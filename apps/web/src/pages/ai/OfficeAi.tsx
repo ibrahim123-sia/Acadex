@@ -15,10 +15,9 @@ import { AiBadge } from './CourseAi';
 // ---------------------------------------------------------------- settings and usage
 
 interface AiSettingsResponse {
-  settings: { enabled: boolean; features: Record<string, boolean>; provider: string | null; models: Record<string, string>; monthly_budget_usd: number | null; minors_strict: boolean; risk_include_fees: boolean; risk_guardian_alerts: boolean };
-  features: { feature: string; label: string; enabled: boolean; provider: string; model: string; own_key: boolean }[];
+  settings: { enabled: boolean; features: Record<string, boolean>; monthly_budget_usd: number | null; minors_strict: boolean; risk_include_fees: boolean; risk_guardian_alerts: boolean };
+  features: { feature: string; label: string; enabled: boolean; provider: string; model: string }[];
   budget: { spent_usd: number; cap_usd: number };
-  own_keys: { provider: string; updated_at: string }[];
 }
 
 export function AiSettingsPage() {
@@ -36,10 +35,8 @@ function SettingsTab() {
   const toast = useToast();
   const q = useQuery({ queryKey: ['/ai/settings'], queryFn: () => api.get<AiSettingsResponse>('/ai/settings') });
   const [v, setV] = useState<AiSettingsResponse['settings'] | null>(null);
-  const [key, setKey] = useState({ provider: 'anthropic', key: '' });
   const cur = v ?? q.data?.settings;
   const save = useMutation({ mutationFn: () => api.put('/ai/settings', cur), onSuccess: () => { toast('success', t('common.saved', 'Saved')); setV(null); void q.refetch(); } });
-  const saveKey = useMutation({ mutationFn: () => api.put('/ai/keys', key), onSuccess: () => { setKey({ ...key, key: '' }); void q.refetch(); toast('success', t('common.saved', 'Saved')); } });
   if (q.error) return <ErrorState error={q.error} />;
   if (!q.data || !cur) return <Spinner />;
   const b = q.data.budget;
@@ -53,32 +50,18 @@ function SettingsTab() {
           columns={[
             { key: 'on', header: t('ai.on', 'On'), cell: (r) => <input type="checkbox" aria-label={r.label} checked={cur.features[r.feature] !== false} onChange={(e) => setV({ ...cur, features: { ...cur.features, [r.feature]: e.target.checked } })} /> },
             { key: 'f', header: t('ai.feature', 'Feature'), cell: (r) => r.label },
-            { key: 'm', header: t('ai.model', 'Model'), cell: (r) => <span className="font-mono text-xs">{r.provider} / {r.model}{r.own_key && ' (your key)'}</span>, hideOnMobile: true },
+            { key: 'm', header: t('ai.modelByAcadex', 'Model (chosen by Acadex)'), cell: (r) => <span className="font-mono text-xs">{r.provider} / {r.model}</span>, hideOnMobile: true },
           ]}
         />
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t('ai.budget', 'Monthly budget (USD)')} hint={t('ai.budgetHint', 'Spent this month: ${{spent}} of ${{cap}}', { spent: b.spent_usd.toFixed(2), cap: Number.isFinite(b.cap_usd) ? b.cap_usd.toFixed(2) : '∞' })}>
             {(a) => <Input {...a} type="number" min={0} placeholder={t('ai.planCap', 'Plan limit')} value={cur.monthly_budget_usd ?? ''} onChange={(e) => setV({ ...cur, monthly_budget_usd: e.target.value === '' ? null : Number(e.target.value) })} />}
           </Field>
-          <Field label={t('ai.provider', 'Provider (with your own key)')} optional>
-            {(a) => <Select {...a} value={cur.provider ?? ''} onChange={(e) => setV({ ...cur, provider: e.target.value || null })}><option value="">{t('ai.platform', 'Acadex default')}</option>{['anthropic', 'openai', 'gemini', 'groq'].map((p) => <option key={p} value={p}>{p}</option>)}</Select>}
-          </Field>
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cur.minors_strict} onChange={(e) => setV({ ...cur, minors_strict: e.target.checked })} /> {t('ai.minors', 'Extra-safe tutor for students under 18')}</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cur.risk_include_fees} onChange={(e) => setV({ ...cur, risk_include_fees: e.target.checked })} /> {t('ai.riskFees', 'Count overdue fees in the early-warning score')}</label>
         <MutationError error={save.error} />
         <Button loading={save.isPending} onClick={() => save.mutate()}>{t('common.save', 'Save')}</Button>
-      </Card>
-      <Card className="space-y-3 p-5">
-        <h2 className="font-semibold">{t('ai.ownKey', 'Your own provider key')}</h2>
-        <p className="text-sm text-fg-muted">{t('ai.ownKeyHelp', 'Calls on your own key are logged but not counted against the plan budget. Keys are encrypted and never shown again.')}</p>
-        {q.data.own_keys.map((k) => <Badge key={k.provider} tone="success">{k.provider} · {formatDate(k.updated_at)}</Badge>)}
-        <div className="flex flex-wrap items-end gap-2">
-          <Select aria-label={t('ai.provider', 'Provider')} value={key.provider} onChange={(e) => setKey({ ...key, provider: e.target.value })} className="w-40">{['anthropic', 'openai', 'gemini', 'groq'].map((p) => <option key={p} value={p}>{p}</option>)}</Select>
-          <Input aria-label={t('ai.key', 'API key')} type="password" autoComplete="off" value={key.key} onChange={(e) => setKey({ ...key, key: e.target.value })} className="max-w-sm" placeholder={t('ai.keyHint', 'Paste the key (empty removes it)')} />
-          <Button variant="outline" loading={saveKey.isPending} onClick={() => saveKey.mutate()}>{t('common.save', 'Save')}</Button>
-        </div>
-        <MutationError error={saveKey.error} />
       </Card>
       <Alert>{t('ai.privacy', 'Before anything is sent to a model, names, emails, phone numbers and ID numbers are removed; course and student content is treated as data, never as instructions; and nothing changes in Acadex until a person approves it.')}</Alert>
     </div>
