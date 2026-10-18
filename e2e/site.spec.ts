@@ -40,3 +40,15 @@ test('the platform owner sees the business screen', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Business' })).toBeVisible();
   await expect(page.locator('tbody tr').first()).toBeVisible();
 });
+
+test('sign-up: the country sets the payment gateways', async ({ page }) => {
+  await page.goto('/signup');
+  const country = page.getByLabel('Country');
+  await expect(country).toHaveValue('PK');
+  await expect(page.getByText(/JazzCash, Easypaisa/)).toBeVisible();
+  await country.selectOption('AE');
+  await expect(page.getByText(/online payments \(Stripe\)/)).toBeVisible();
+  expect(await country.locator('option').count()).toBeGreaterThan(180);
+  // no language picker: the interface is English
+  await expect(page.locator('html[lang="en"]')).toHaveCount(1);
+});

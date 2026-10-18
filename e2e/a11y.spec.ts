@@ -1,5 +1,5 @@
-// WCAG 2.2 AA audit with axe-core: every main page of each role, in English (left to right)
-// and Urdu (right to left), light theme. Violations fail the test and are written to
+// WCAG 2.2 AA audit with axe-core: every main page of each role (the interface is in English),
+// light theme. Violations fail the test and are written to
 // test-results/ as JSON for review.
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
@@ -29,10 +29,9 @@ async function signIn(page: Page, email: string, lang: string) {
   await expect(page).not.toHaveURL(/\/login/);
 }
 
-for (const lang of ['en', 'ur']) {
+for (const lang of ['en']) {
   for (const role of ROLES) {
     test(`WCAG 2.2 AA — ${role.email} (${lang})`, async ({ page }, info) => {
-      test.skip(info.project.name !== 'desktop' && lang === 'ur', 'RTL is checked once, on desktop');
       await signIn(page, role.email, lang);
       const found: { page: string; id: string; impact: string | null | undefined; help: string; targets: string[] }[] = [];
       for (const path of role.pages) {

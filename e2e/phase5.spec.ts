@@ -1,6 +1,6 @@
 // Phase 5 acceptance in the browser (desktop and 360 px): a parent books a parent–teacher
 // meeting and messages the teacher (who replies), raises a help-desk ticket the office
-// resolves; the office sends an emergency broadcast; low-bandwidth mode and Urdu work.
+// resolves; the office sends an emergency broadcast; low-bandwidth mode works.
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 const PASSWORD = 'Acadex@123';
@@ -79,7 +79,7 @@ test('a parent books a meeting, messages the teacher and raises a ticket', async
   await expect(page.getByText('How did we do?')).toBeVisible();
 });
 
-test('the office broadcasts; low-bandwidth mode and Urdu', async ({ page }) => {
+test('the office broadcasts; low-bandwidth mode', async ({ page }) => {
   await signIn(page, ADMIN);
   await page.goto('/communication');
   await page.getByLabel('Title').fill('Test broadcast — please ignore');
@@ -98,12 +98,8 @@ test('the office broadcasts; low-bandwidth mode and Urdu', async ({ page }) => {
   await Promise.all([saved(), toggle.click()]); // leave it off, saved, for the next run
   await expect(page.locator('html[data-low-bandwidth]')).toHaveCount(0);
 
+  // the interface is English only: no language picker
   await page.goto('/admin');
-  const lang = page.locator('header select:has(option[value="ur"])').first();
-  if (await lang.isVisible()) {
-    await lang.selectOption('ur');
-    await expect(page.locator('html[dir="rtl"][lang="ur"]')).toHaveCount(1);
-    await expect(page.getByRole('link', { name: 'پیغامات' })).toBeVisible();
-    await lang.selectOption('en');
-  }
+  await expect(page.locator('html[lang="en"][dir="ltr"]')).toHaveCount(1);
+  await expect(page.locator('header select:has(option[value="ur"])')).toHaveCount(0);
 });
