@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { getConfig } from '../../config';
 import { db } from '../../db/context';
 import { badRequest, conflict } from '../errors';
+import { allowedProviders } from '../country';
 import { balanceOf, loadAccount, round2 } from './ledger';
 import { PROVIDERS, type CheckoutResult, type ProviderName } from './providers';
 
@@ -22,6 +23,7 @@ export async function startCheckout(
   if (pay > balance + 0.001) throw badRequest(`More than the balance due (${balance.toFixed(2)})`, { amount: 'too_much' });
   if (provider === 'jazzcash' && inv.currency !== 'PKR') throw badRequest('JazzCash takes payments in PKR only');
   if (provider === 'easypaisa' && inv.currency !== 'PKR') throw badRequest('Easypaisa takes payments in PKR only');
+  if (!(await allowedProviders(inv.institution_id)).has(provider)) throw badRequest(`${PROVIDERS[provider].label} is not available in this institution's country`);
   const acct = await loadAccount(inv.institution_id, provider);
   if (!acct) throw badRequest(`${PROVIDERS[provider].label} is not set up for this institution`);
   // JazzCash allows 20 characters; keep every reference short and unguessable

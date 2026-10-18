@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { getConfig } from '../config';
 import { db, systemContext } from '../db/context';
 import { badRequest, notFound } from '../lib/errors';
+import { allowedProviders } from '../lib/country';
 import { startCheckout } from '../lib/finance/checkout';
 import { applyProviderEvent, balanceOf, loadAccountById } from '../lib/finance/ledger';
 import { sendVoucherPdf } from '../lib/finance/pdf';
@@ -101,9 +102,10 @@ async function invoiceByToken(token: string) {
 
 router.get('/pay/:token', async (req, res) => {
   const inv = await invoiceByToken(tokenParam.parse(req.params.token));
-  const [lines, options] = await Promise.all([
+  const [lines, options, allowed] = await Promise.all([
     db.query(`SELECT label, amount FROM invoice_items WHERE invoice_id = $1 ORDER BY (kind = 'fee') DESC, id`, [inv.id]),
     db.query<{ provider: ProviderName; public_config: Record<string, string> }>(`SELECT provider, public_config FROM payment_accounts WHERE institution_id = $1 AND enabled ORDER BY provider`, [inv.institution_id]),
+    allowedProviders(inv.institution_id),
   ]);
   res.json({
     ...inv,
@@ -112,7 +114,7 @@ router.get('/pay/:token', async (req, res) => {
     balance: balanceOf(inv),
     lines: lines.rows,
     options: options.rows
-      .filter((o) => o.provider !== 'fake' || getConfig().env !== 'production')
+      .filter((o) => allowed.has(o.provider))
       .map((o) => ({ provider: o.provider, label: PROVIDERS[o.provider].label, online: PROVIDERS[o.provider].online, details: o.provider === 'bank' ? o.public_config : undefined })),
   });
 });

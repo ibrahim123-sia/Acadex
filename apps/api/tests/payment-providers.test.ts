@@ -42,10 +42,21 @@ describe('end to end with the real formats', () => {
   beforeAll(async () => {
     f = await fixture.resetDb();
     admin = as(f.tokens.adminA);
-    await admin.put('/api/finance/accounts/stripe', { secrets: { secret_key: 'sk_test_x', webhook_secret: 'whsec_stripe' } });
+    // institution A is in Pakistan: JazzCash yes, Stripe no
     await admin.put('/api/finance/accounts/jazzcash', { secrets: { merchant_id: 'MC123', password: 'pw', integrity_salt: 'salt42' } });
-    const list = (await admin.get('/api/finance/accounts')).body as { provider: string; webhook_url: string | null }[];
-    for (const a of list) if (a.webhook_url) accounts[a.provider] = Number(a.webhook_url.split('/').pop());
+    expect((await admin.put('/api/finance/accounts/stripe', { secrets: { secret_key: 'sk_test_x' } })).status).toBe(400);
+    const read = async () => {
+      const list = (await admin.get('/api/finance/accounts')).body as { provider: string; webhook_url: string | null }[];
+      for (const a of list) if (a.webhook_url) accounts[a.provider] = Number(a.webhook_url.split('/').pop());
+      return list.map((a) => a.provider);
+    };
+    expect(await read()).not.toContain('stripe');
+    // the Stripe account is connected while the institution is (briefly) in another country
+    await fixture.pool.query(`UPDATE institutions SET country = 'GB' WHERE id = $1`, [f.institutions.A.id]);
+    await admin.put('/api/finance/accounts/stripe', { secrets: { secret_key: 'sk_test_x', webhook_secret: 'whsec_stripe' } });
+    expect(await read()).not.toContain('jazzcash');
+    await fixture.pool.query(`UPDATE institutions SET country = 'PK' WHERE id = $1`, [f.institutions.A.id]);
+    await read();
   });
 
   it('a Stripe "checkout.session.completed" event pays the invoice, once', async () => {

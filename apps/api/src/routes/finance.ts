@@ -34,6 +34,7 @@ import { db, withTransaction } from '../db/context';
 import { assertCanViewStudent, assertInInstitution } from '../lib/access';
 import { audit } from '../lib/audit';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
+import { allowedProviders } from '../lib/country';
 import { sendTable } from '../lib/export';
 import { balanceOf, createAdhocInvoice, createInvoices, loadAccount, loadInvoice, planInvoices, recalcInvoice, reconcile, recordPayment, refundPayment, round2, sealSecrets } from '../lib/finance/ledger';
 import { startCheckout } from '../lib/finance/checkout';
@@ -412,9 +413,10 @@ router.get('/finance/payment-options', async (req, res) => {
     `SELECT provider, public_config FROM payment_accounts WHERE institution_id = $1 AND enabled ORDER BY provider`,
     [institutionId(req)]
   );
+  const allowed = await allowedProviders(institutionId(req));
   res.json(
     rows
-      .filter((r) => r.provider !== 'fake' || getConfig().env !== 'production')
+      .filter((r) => allowed.has(r.provider))
       .map((r) => ({ provider: r.provider, label: PROVIDERS[r.provider].label, online: PROVIDERS[r.provider].online, details: r.provider === 'bank' ? r.public_config : undefined }))
   );
 });
@@ -571,8 +573,10 @@ router.get('/finance/accounts', configure, async (req, res) => {
   );
   const base = getConfig().apiPublicUrl;
   const { rows: ids } = await db.query<{ id: number; provider: string }>(`SELECT id, provider FROM payment_accounts WHERE institution_id = $1`, [institutionId(req)]);
+  // only the gateways of the institution's country (JazzCash / Easypaisa in Pakistan, Stripe elsewhere)
+  const allowed = await allowedProviders(institutionId(req));
   res.json(
-    PAYMENT_PROVIDERS.filter((p) => p !== 'fake' || getConfig().env !== 'production').map((p) => {
+    PAYMENT_PROVIDERS.filter((p) => allowed.has(p)).map((p) => {
       const r = rows.find((x) => x.provider === p);
       const set = r?.secret_sealed ? Object.keys(JSON.parse(decryptSecret(r.secret_sealed)) as object) : [];
       const accountId = ids.find((x) => x.provider === p)?.id;
@@ -593,6 +597,7 @@ router.get('/finance/accounts', configure, async (req, res) => {
 router.put('/finance/accounts/:provider', configure, async (req, res) => {
   const provider = z.enum(PAYMENT_PROVIDERS).parse(req.params.provider);
   if (provider === 'fake' && getConfig().env === 'production') throw badRequest('The test provider is not available in production');
+  if (!(await allowedProviders(institutionId(req))).has(provider)) throw badRequest(`${PROVIDERS[provider].label} is not available in your institution's country`, { provider: 'not_in_country' });
   const b = paymentAccountBody.parse(req.body);
   const s = institutionId(req);
   const allowed = PROVIDER_SECRETS[provider];
