@@ -29,7 +29,9 @@ export interface Provider {
   chat(key: string | undefined, req: ChatRequest): Promise<ChatResult>;
   stream?(key: string | undefined, req: ChatRequest, onDelta: (text: string) => void): Promise<ChatResult>;
   embed?(key: string | undefined, model: string, texts: string[]): Promise<{ vectors: number[][]; tokens: number }>;
-  transcribe?(key: string | undefined, audio: Buffer, filename: string, language?: string): Promise<{ text: string; vtt: string; seconds: number }>;
+  transcribe?(key: string | undefined, model: string, audio: Buffer, filename: string, language?: string): Promise<{ text: string; vtt: string; seconds: number }>;
+  /** the model ids the provider offers this key (API management) */
+  listModels?(key: string | undefined): Promise<string[]>;
 }
 
 export class ProviderError extends Error {
@@ -76,11 +78,14 @@ async function readSse(res: Response, onData: (data: string) => void) {
 // ---------------------------------------------------------------- OpenAI-compatible (OpenAI, Groq)
 
 function openAiLike(name: 'openai' | 'groq', base: string): Provider {
+  // reasoning models (gpt-oss on Groq) think first: give them an effort and room for it
+  const reasoning = (model: string) => /(^|\/)gpt-oss|^o\d|qwen3/i.test(model);
   const body = (req: ChatRequest, stream = false) => ({
     model: req.model,
     messages: req.messages,
     temperature: req.temperature ?? 0.3,
-    max_tokens: req.maxTokens ?? 1200,
+    max_tokens: reasoning(req.model) ? Math.max(req.maxTokens ?? 0, 8000) : (req.maxTokens ?? 1200),
+    ...(reasoning(req.model) && req.effort && /gpt-oss|^o\d/i.test(req.model) ? { reasoning_effort: req.effort } : {}),
     ...(req.json ? { response_format: { type: 'json_object' } } : {}),
     ...(stream ? { stream: true, stream_options: { include_usage: true } } : {}),
   });
@@ -108,22 +113,29 @@ function openAiLike(name: 'openai' | 'groq', base: string): Provider {
       return { text, inputTokens: usage.prompt_tokens || estimate(JSON.stringify(req.messages)), outputTokens: usage.completion_tokens || estimate(text) };
     },
   };
+  p.listModels = async (key) => {
+    const res = await fetch(`${base}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) throw new ProviderError(`${name} models ${res.status}`, res.status);
+    const j = (await res.json()) as { data: { id: string; active?: boolean }[] };
+    return j.data.filter((m) => m.active !== false).map((m) => m.id).sort();
+  };
+  // speech to text (OpenAI Whisper, Groq Whisper)
+  p.transcribe = async (key, model, audio, filename, language) => {
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(audio)]), filename);
+    form.append('model', model);
+    form.append('response_format', 'verbose_json');
+    if (language) form.append('language', language);
+    const res = await fetch(`${base}/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form, signal: AbortSignal.timeout(300_000) });
+    if (!res.ok) throw new ProviderError(`${name} transcription ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`, res.status);
+    const j = (await res.json()) as { text: string; duration: number; segments?: { start: number; end: number; text: string }[] };
+    return { text: j.text, vtt: toVtt(j.segments ?? [{ start: 0, end: j.duration, text: j.text }]), seconds: j.duration };
+  };
   if (name === 'openai') {
     p.embed = async (key, model, texts) => {
       const res = await post(`${base}/embeddings`, { Authorization: `Bearer ${key}` }, { model, input: texts, dimensions: EMBED_DIMS });
       const j = (await res.json()) as { data: { embedding: number[] }[]; usage: { total_tokens: number } };
       return { vectors: j.data.map((d) => d.embedding), tokens: j.usage.total_tokens };
-    };
-    p.transcribe = async (key, audio, filename, language) => {
-      const form = new FormData();
-      form.append('file', new Blob([new Uint8Array(audio)]), filename);
-      form.append('model', 'whisper-1');
-      form.append('response_format', 'verbose_json');
-      if (language) form.append('language', language);
-      const res = await fetch(`${base}/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form, signal: AbortSignal.timeout(300_000) });
-      if (!res.ok) throw new ProviderError(`openai transcription ${res.status}`, res.status);
-      const j = (await res.json()) as { text: string; duration: number; segments?: { start: number; end: number; text: string }[] };
-      return { text: j.text, vtt: toVtt(j.segments ?? [{ start: 0, end: j.duration, text: j.text }]), seconds: j.duration };
     };
   }
   return p;
@@ -206,24 +218,58 @@ const anthropic: Provider = {
 
 // ---------------------------------------------------------------- Gemini
 
+const GEMINI = 'https://generativelanguage.googleapis.com/v1beta';
+
+/**
+ * Gemini 2.5 models think before answering and the thinking shares maxOutputTokens: set a
+ * thinking budget by effort (Flash / Flash-Lite can skip thinking; Pro needs at least 128) and
+ * leave room for it, or replies come back cut off.
+ */
+export function geminiGeneration(req: ChatRequest) {
+  const answer = req.maxTokens ?? 1200;
+  const cfg: Record<string, unknown> = { temperature: req.temperature ?? 0.3, maxOutputTokens: answer, ...(req.json ? { responseMimeType: 'application/json' } : {}) };
+  if (/^gemini-2\.5/.test(req.model)) {
+    const pro = /pro/.test(req.model);
+    const budget = { low: pro ? 128 : 0, medium: 1024, high: 4096 }[req.effort ?? 'medium'];
+    cfg.thinkingConfig = { thinkingBudget: budget };
+    cfg.maxOutputTokens = answer + budget;
+  }
+  return cfg;
+}
+
 const gemini: Provider = {
   name: 'gemini',
   async chat(key, req) {
     const system = req.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-    const res = await post(`https://generativelanguage.googleapis.com/v1beta/models/${req.model}:generateContent?key=${encodeURIComponent(key ?? '')}`, {}, {
+    const res = await post(`${GEMINI}/models/${req.model}:generateContent?key=${encodeURIComponent(key ?? '')}`, {}, {
       systemInstruction: { parts: [{ text: system }] },
       contents: req.messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-      generationConfig: { temperature: req.temperature ?? 0.3, maxOutputTokens: req.maxTokens ?? 1200, ...(req.json ? { responseMimeType: 'application/json' } : {}) },
-    });
-    const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; usageMetadata?: { promptTokenCount: number; candidatesTokenCount: number } };
+      generationConfig: geminiGeneration(req),
+    }, AbortSignal.timeout(180_000));
+    const j = (await res.json()) as { candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[]; promptFeedback?: { blockReason?: string }; usageMetadata?: { promptTokenCount: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } };
+    if (j.promptFeedback?.blockReason || j.candidates?.[0]?.finishReason === 'SAFETY') throw new ProviderError('The AI declined this request', 200, true);
     return {
-      text: j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '',
+      text: j.candidates?.[0]?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? '').join('') ?? '',
       inputTokens: j.usageMetadata?.promptTokenCount ?? 0,
-      outputTokens: j.usageMetadata?.candidatesTokenCount ?? 0,
+      // thinking is billed as output
+      outputTokens: (j.usageMetadata?.candidatesTokenCount ?? 0) + (j.usageMetadata?.thoughtsTokenCount ?? 0),
     };
   },
+  async listModels(key) {
+    const out: string[] = [];
+    let page = '';
+    for (let i = 0; i < 5; i++) {
+      const res = await fetch(`${GEMINI}/models?pageSize=200${page ? `&pageToken=${page}` : ''}&key=${encodeURIComponent(key ?? '')}`, { signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) throw new ProviderError(`gemini models ${res.status}`, res.status);
+      const j = (await res.json()) as { models?: { name: string; supportedGenerationMethods?: string[] }[]; nextPageToken?: string };
+      for (const m of j.models ?? []) if (m.supportedGenerationMethods?.some((x) => x === 'generateContent' || x === 'embedContent')) out.push(m.name.replace(/^models\//, ''));
+      if (!j.nextPageToken) break;
+      page = j.nextPageToken;
+    }
+    return out.sort();
+  },
   async embed(key, model, texts) {
-    const res = await post(`https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${encodeURIComponent(key ?? '')}`, {}, {
+    const res = await post(`${GEMINI}/models/${model}:batchEmbedContents?key=${encodeURIComponent(key ?? '')}`, {}, {
       requests: texts.map((t) => ({ model: `models/${model}`, content: { parts: [{ text: t }] }, outputDimensionality: EMBED_DIMS })),
     });
     const j = (await res.json()) as { embeddings: { values: number[] }[] };
@@ -265,9 +311,12 @@ const fake: Provider = {
   async embed(_key, _model, texts) {
     return { vectors: texts.map(fakeEmbedding), tokens: texts.reduce((n, t) => n + estimate(t), 0) };
   },
-  async transcribe(_key, audio, filename) {
+  async transcribe(_key, _model, audio, filename) {
     const text = `Transcript of ${filename} (${audio.length} bytes). Captions are generated by the speech-to-text provider when one is set up.`;
     return { text, vtt: toVtt([{ start: 0, end: 5, text }]), seconds: 5 };
+  },
+  async listModels() {
+    return ['fake-fast', 'fake-strong', 'fake-embed', 'fake-speech'];
   },
 };
 

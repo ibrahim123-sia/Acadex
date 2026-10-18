@@ -8,7 +8,8 @@ import { HELP_ARTICLES } from '@acadex/shared';
 import { db, runAsSystem } from '../db/context';
 import { logger } from '../lib/logger';
 import { storage } from '../storage';
-import { aiEmbed, aiStatus } from './client';
+import { defineJob } from '../jobs/queue';
+import { aiEmbed, aiStatus, embeddingModel } from './client';
 import { contentWords, fakeEmbedding } from './providers';
 
 export interface Chunk {
@@ -119,9 +120,14 @@ export async function indexOffering(offeringId: number, institutionId: number): 
   const st = await aiStatus({ institutionId, userId: null, feature: 'embeddings', offeringId });
   if (!st.enabled) return { indexed: 0, removed: 0, chunks: 0 };
   const sources = await sourcesOf(offeringId);
-  const { rows: existing } = await db.query<{ source_type: string; source_id: number; hash: string }>(`SELECT DISTINCT ON (source_type, source_id) source_type, source_id, hash FROM kb_chunks WHERE offering_id = $1 ORDER BY source_type, source_id, chunk_no`, [offeringId]);
+  const { rows: existing } = await db.query<{ source_type: string; source_id: number; hash: string; embedding_model: string | null }>(`SELECT DISTINCT ON (source_type, source_id) source_type, source_id, hash, embedding_model FROM kb_chunks WHERE offering_id = $1 ORDER BY source_type, source_id, chunk_no`, [offeringId]);
+  // a change of embedding model (API management) re-embeds everything
+  const model = await embeddingModel();
   const fp = (s: Source) => `fp:${crypto.createHash('sha1').update(`${s.fingerprint}|${s.title}`).digest('hex')}`;
-  const stale = sources.filter((s) => existing.find((e) => e.source_type === s.type && e.source_id === s.id)?.hash !== fp(s));
+  const stale = sources.filter((s) => {
+    const e = existing.find((x) => x.source_type === s.type && x.source_id === s.id);
+    return e?.hash !== fp(s) || e.embedding_model !== model;
+  });
   const gone = existing.filter((e) => !sources.some((s) => s.type === e.source_type && s.id === e.source_id));
   for (const g of gone) await db.query(`DELETE FROM kb_chunks WHERE offering_id = $1 AND source_type = $2 AND source_id = $3`, [offeringId, g.source_type, g.source_id]);
   let chunks = 0;
@@ -143,20 +149,22 @@ export async function indexOffering(offeringId: number, institutionId: number): 
 
 /** Hybrid search: meaning (embeddings) and words (full text), best first. */
 export async function searchOffering(offeringId: number, institutionId: number, query: string, k = 5): Promise<Chunk[]> {
-  const { vectors } = await aiEmbed({ institutionId, userId: null, offeringId }, [query]);
-  return rank(`offering_id = $3`, [vectors[0], wordQuery(query), offeringId], k);
+  const { vectors, model } = await aiEmbed({ institutionId, userId: null, offeringId }, [query]);
+  return rank(`offering_id = $3`, [vectors[0], wordQuery(query), offeringId], k, model);
 }
 
 /** The topic words of a question as an OR query (stopwords dropped); '' matches nothing. */
 const wordQuery = (q: string) => [...new Set(contentWords(q))].map((w) => w.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean).join(' | ');
 
-async function rank(where: string, params: unknown[], k: number): Promise<Chunk[]> {
+/** Meaning counts only for chunks embedded with the same model as the question. */
+async function rank(where: string, params: unknown[], k: number, model: string): Promise<Chunk[]> {
+  const m = params.length + 1;
   const { rows } = await db.query<Chunk>(
     `SELECT id, title, locator, content, source_type, source_id,
-            (0.75 * COALESCE(acadex_cosine(embedding, $1::real[]), 0)
+            (0.75 * COALESCE(CASE WHEN embedding_model = $${m} THEN acadex_cosine(embedding, $1::real[]) END, 0)
              + 0.25 * CASE WHEN $2 = '' THEN 0 ELSE LEAST(1, ts_rank(tsv, to_tsquery('simple', $2)) * 4) END)::float8 AS score
        FROM kb_chunks WHERE ${where} ORDER BY score DESC LIMIT ${Number(k)}`,
-    params
+    [...params, model]
   );
   return rows;
 }
@@ -186,5 +194,29 @@ export async function indexHelp(): Promise<number> {
 }
 
 export async function searchHelp(query: string, k = 4): Promise<Chunk[]> {
-  return rank(`source_type = 'help'`, [fakeEmbedding(query), wordQuery(query)], k);
+  return rank(`source_type = 'help'`, [fakeEmbedding(query), wordQuery(query)], k, 'local');
 }
+
+// ---------------------------------------------------------------- after a change of embedding model
+
+/** Re-embed every course whose chunks were made with another model (queued by API management). */
+export const reindexAllJob = defineJob<Record<string, never>>({
+  name: 'kb.reindex_all',
+  async run() {
+    const model = await runAsSystem(() => embeddingModel());
+    const { rows } = await runAsSystem(() =>
+      db.query<{ offering_id: number; institution_id: number }>(
+        `SELECT DISTINCT offering_id, institution_id FROM kb_chunks WHERE offering_id IS NOT NULL AND embedding_model IS DISTINCT FROM $1`,
+        [model]
+      )
+    );
+    for (const r of rows) {
+      try {
+        await runAsSystem(() => indexOffering(r.offering_id, r.institution_id));
+      } catch (err) {
+        logger.warn({ err, offering: r.offering_id }, 'course re-index failed');
+      }
+    }
+    logger.info({ courses: rows.length, model }, 'courses re-indexed for the new embedding model');
+  },
+});

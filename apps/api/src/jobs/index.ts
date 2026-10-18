@@ -3,6 +3,7 @@ import '../lib/notify';
 import './maintenance';
 import '../lib/finance/reminders';
 import '../ai/risk';
+import '../ai/kb';
 import '../routes/reach';
 import '../routes/modules';
 import '../lib/platform';

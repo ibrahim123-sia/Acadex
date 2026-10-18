@@ -6,7 +6,6 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import {
   activityBody,
-  aiKeyBody,
   aiSettingsBody,
   applyActionBody,
   askBody,
@@ -21,7 +20,6 @@ import {
   tutorStartBody,
   vivaAnswerBody,
 } from '@acadex/shared';
-import { encryptSecret } from '../auth/crypto';
 import { db } from '../db/context';
 import { ask } from '../ai/ask';
 import { aiJson, aiOverview, aiSettings, aiStatus, aiText, aiTranscribe, budget } from '../ai/client';
@@ -58,14 +56,10 @@ router.get('/ai/status', async (req, res) => {
 
 router.get('/ai/settings', manage, async (req, res) => {
   const inst = institutionId(req);
-  const [settings, overview, b, keys] = await Promise.all([
-    aiSettings(inst),
-    aiOverview(inst),
-    budget(inst),
-    db.query<{ provider: string; updated_at: Date }>(`SELECT provider, updated_at FROM ai_provider_keys WHERE institution_id = $1`, [inst]),
-  ]);
+  const [settings, overview, b] = await Promise.all([aiSettings(inst), aiOverview(inst), budget(inst)]);
   const { plan: _p, ...s } = settings;
-  res.json({ settings: s, features: overview.map((o) => ({ ...o, label: FEATURES[o.feature as Feature] })), budget: { spent_usd: b.spent, cap_usd: b.cap }, own_keys: keys.rows });
+  // the provider and model of each feature are chosen by the platform (read-only here)
+  res.json({ settings: s, features: overview.map((o) => ({ ...o, label: FEATURES[o.feature as Feature] })), budget: { spent_usd: b.spent, cap_usd: b.cap } });
 });
 
 router.put('/ai/settings', manage, async (req, res) => {
@@ -73,20 +67,6 @@ router.put('/ai/settings', manage, async (req, res) => {
   await db.query(`UPDATE institutions SET settings = jsonb_set(settings, '{ai}', $2::jsonb) WHERE id = $1`, [institutionId(req), JSON.stringify(b)]);
   await auditAs(req, 'update', 'AiSettings', JSON.stringify(b));
   res.json(b);
-});
-
-/** The institution's own key for a provider ('' removes it); never shown back. */
-router.put('/ai/keys', manage, async (req, res) => {
-  const b = aiKeyBody.parse(req.body);
-  if (!b.key) await db.query(`DELETE FROM ai_provider_keys WHERE institution_id = $1 AND provider = $2`, [institutionId(req), b.provider]);
-  else
-    await db.query(
-      `INSERT INTO ai_provider_keys (institution_id, provider, key_sealed, updated_by) VALUES ($1,$2,$3,$4)
-       ON CONFLICT ON CONSTRAINT ai_provider_keys_institution_id_provider_key DO UPDATE SET key_sealed = EXCLUDED.key_sealed, updated_by = EXCLUDED.updated_by, updated_at = now()`,
-      [institutionId(req), b.provider, encryptSecret(b.key), currentUser(req).id]
-    );
-  await auditAs(req, b.key ? 'set_ai_key' : 'remove_ai_key', 'AiProviderKey', b.provider);
-  res.json({ ok: true });
 });
 
 router.get('/ai/usage', manage, async (req, res) => {

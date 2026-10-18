@@ -1,16 +1,31 @@
 import { z } from 'zod';
-import { id, optionalId, requiredText, text } from './common';
+import { id, isoDate, optionalId, requiredText, text } from './common';
 
 export const AI_FEATURES = ['tutor', 'copilot', 'grading', 'evidence', 'ask', 'helpdesk', 'risk', 'captions', 'embeddings'] as const;
-export const AI_PROVIDERS = ['openai', 'anthropic', 'gemini', 'groq'] as const;
+export type AiFeature = (typeof AI_FEATURES)[number];
+/** Providers the platform owner can choose models from (API management). */
+export const PLATFORM_AI_PROVIDERS = ['gemini', 'groq'] as const;
+export type PlatformAiProvider = (typeof PLATFORM_AI_PROVIDERS)[number];
+
+/** What kind of model each feature needs. */
+export type AiCapability = 'chat' | 'embed' | 'speech';
+export const AI_FEATURE_CAPABILITY: Record<AiFeature, AiCapability> = {
+  tutor: 'chat',
+  copilot: 'chat',
+  grading: 'chat',
+  evidence: 'chat',
+  ask: 'chat',
+  helpdesk: 'chat',
+  risk: 'chat',
+  captions: 'speech',
+  embeddings: 'embed',
+};
+
 
 /** An institution's AI settings (in institutions.settings.ai). */
 export const aiSettingsBody = z.object({
   enabled: z.boolean().default(true),
   features: z.partialRecord(z.enum(AI_FEATURES), z.boolean()).default({}),
-  /** a provider other than the platform's (needs the institution's own key) */
-  provider: z.enum(AI_PROVIDERS).nullable().default(null),
-  models: z.partialRecord(z.enum(AI_FEATURES), z.string().trim().max(80)).default({}),
   /** a lower monthly cap than the plan's (USD) */
   monthly_budget_usd: z.coerce.number().min(0).max(100000).nullable().default(null),
   /** under-18 students: simpler language, stricter topics (always on for schools) */
@@ -21,7 +36,29 @@ export const aiSettingsBody = z.object({
 });
 export type AiSettings = z.infer<typeof aiSettingsBody>;
 
-export const aiKeyBody = z.object({ provider: z.enum(AI_PROVIDERS), key: z.string().trim().max(400) });
+// ---------------------------------------------------------------- platform: API management and usage
+
+const modelId = z.string().trim().min(1).max(120).regex(/^[\w./:-]+$/,'A model id like gemini-2.5-flash');
+
+/** The platform owner picks the provider and model for a feature. */
+export const aiAssignmentBody = z.object({ feature: z.enum(AI_FEATURES), provider: z.enum(PLATFORM_AI_PROVIDERS), model: modelId });
+/** USD per million tokens (speech: per hour of audio, as input). */
+export const aiPriceBody = z.object({ model: modelId, input: z.coerce.number().min(0).max(1000), output: z.coerce.number().min(0).max(1000) });
+/** The platform's key for a provider ('' removes it, falling back to the server's environment). */
+export const aiProviderKeyBody = z.object({ provider: z.enum(PLATFORM_AI_PROVIDERS), key: z.string().trim().max(400) });
+
+export const AI_USAGE_GROUPS = ['institution', 'feature', 'provider', 'model', 'day', 'status'] as const;
+export const aiUsageQuery = z.object({
+  from: isoDate.optional(),
+  to: isoDate.optional(),
+  institution_id: optionalId,
+  institution_type: z.enum(['school', 'chain', 'college', 'university', 'academy', 'training_center']).optional(),
+  feature: z.enum(AI_FEATURES).optional(),
+  provider: z.string().trim().max(20).optional(),
+  model: z.string().trim().max(120).optional(),
+  status: z.enum(['ok', 'error', 'blocked', 'quota']).optional(),
+  group: z.enum(AI_USAGE_GROUPS).default('institution'),
+});
 
 export const tutorStartBody = z.object({ offering_id: id, assessment_id: optionalId });
 export const tutorMessageBody = z.object({ content: requiredText(4000) });

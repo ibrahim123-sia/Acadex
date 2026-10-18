@@ -29,19 +29,20 @@ describe('settings, budget and transparency', () => {
   it('admins see which provider and model each feature uses; others cannot', async () => {
     const res = await admin.get('/api/ai/settings');
     expect(res.status).toBe(200);
-    expect(res.body.features.find((r: { feature: string }) => r.feature === 'tutor')).toMatchObject({ provider: 'fake', model: 'fake-strong', enabled: true });
+    expect(res.body.features.find((r: { feature: string }) => r.feature === 'tutor')).toMatchObject({ provider: 'fake', model: 'fake-fast', enabled: true });
     expect(res.body.budget.cap_usd).toBeGreaterThan(0);
     for (const who of ['t1', 's1', 'p1'] as const) expect((await as(f.tokens[who]).get('/api/ai/settings')).status, who).toBe(403);
   });
 
-  it('an institution key is stored sealed and never shown back', async () => {
-    expect((await admin.put('/api/ai/keys', { provider: 'openai', key: 'sk-test-secret-123' })).status).toBe(200);
+  it('an institution cannot choose the provider or model, or add its own key', async () => {
+    expect((await admin.put('/api/ai/keys', { provider: 'openai', key: 'test-key' })).status).toBe(404);
+    const put = await admin.put('/api/ai/settings', { enabled: true, provider: 'openai', models: { tutor: 'gpt-4.1' } });
+    expect(put.status).toBe(200);
+    expect(put.body.provider).toBeUndefined();
+    expect(put.body.models).toBeUndefined();
     const res = await admin.get('/api/ai/settings');
-    expect(JSON.stringify(res.body)).not.toContain('sk-test-secret-123');
-    expect(res.body.own_keys.map((k: { provider: string }) => k.provider)).toEqual(['openai']);
-    expect((await q(`SELECT key_sealed FROM ai_provider_keys`))[0].key_sealed).not.toContain('sk-test');
-    await admin.put('/api/ai/keys', { provider: 'openai', key: '' });
-    expect((await q(`SELECT count(*)::int n FROM ai_provider_keys`))[0].n).toBe(0);
+    expect(res.body.own_keys).toBeUndefined();
+    expect(res.body.features.find((r: { feature: string }) => r.feature === 'tutor').provider).toBe('fake');
   });
 });
 
@@ -65,7 +66,7 @@ describe('the tutor', () => {
     expect((await q(`SELECT count(*)::int n FROM kb_chunks WHERE offering_id = $1`, [x.offering]))[0].n).toBeGreaterThan(0);
     // every call is logged with its model and tokens
     const usage = await q(`SELECT feature, provider, model, status, input_tokens FROM ai_usage WHERE feature = 'tutor' ORDER BY id DESC LIMIT 1`);
-    expect(usage[0]).toMatchObject({ feature: 'tutor', provider: 'fake', model: 'fake-strong', status: 'ok' });
+    expect(usage[0]).toMatchObject({ feature: 'tutor', provider: 'fake', model: 'fake-fast', status: 'ok' });
     expect(usage[0].input_tokens).toBeGreaterThan(0);
   });
 
