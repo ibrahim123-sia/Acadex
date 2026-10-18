@@ -377,7 +377,9 @@ describe('reports', () => {
     const dl = await request(app).get(`/api/public/reports/download${u.search}`);
     expect(dl.status).toBe(200);
     expect(dl.text).toMatch(/Roll no/);
-    u.searchParams.set('sig', 'x' + u.searchParams.get('sig')!.slice(1));
+    // tamper with the signature (always a different first character)
+    const sig = u.searchParams.get('sig')!;
+    u.searchParams.set('sig', (sig[0] === 'x' ? 'y' : 'x') + sig.slice(1));
     expect((await request(app).get(`/api/public/reports/download${u.search}`)).status).toBe(404);
   });
 });
