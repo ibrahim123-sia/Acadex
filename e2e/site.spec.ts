@@ -39,6 +39,17 @@ test('the platform owner sees the business screen', async ({ page }) => {
   await page.goto('/platform/business');
   await expect(page.getByRole('heading', { name: 'Business' })).toBeVisible();
   await expect(page.locator('tbody tr').first()).toBeVisible();
+
+  // API management: every AI feature with a model dropdown
+  await page.goto('/platform/ai');
+  await expect(page.getByRole('heading', { name: 'API management' })).toBeVisible();
+  await expect(page.getByLabel(/^Model for /)).toHaveCount(9);
+  await expect(page.getByText('Provider keys')).toBeVisible();
+  // AI usage: filters and the breakdown
+  await page.goto('/platform/ai/usage');
+  await expect(page.getByRole('heading', { name: 'AI usage' })).toBeVisible();
+  await expect(page.getByLabel('Institution', { exact: true })).toBeVisible();
+  await expect(page.getByText('Estimated cost').first()).toBeVisible();
 });
 
 test('sign-up: the country sets the payment gateways', async ({ page }) => {
