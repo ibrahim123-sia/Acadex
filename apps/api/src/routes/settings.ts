@@ -19,6 +19,7 @@ import {
 } from '@acadex/shared';
 import { db, withTransaction } from '../db/context';
 import { badRequest, conflict, notFound } from '../lib/errors';
+import { assertCurrencyMayChange, countryChange } from '../lib/country';
 import { institutionTimeZone } from '../lib/institution';
 import { todayIn } from '../lib/locale';
 import { isUniqueViolation } from '../lib/structure';
@@ -52,13 +53,20 @@ router.get('/settings', manage, async (req, res) => {
 });
 
 router.patch('/settings', manage, async (req, res) => {
-  const b = institutionProfileBody.parse(req.body);
-  const params: unknown[] = [institutionId(req)];
-  const sets = Object.entries(b).map(([k, v]) => {
+  const parsed = institutionProfileBody.parse(req.body);
+  const inst = institutionId(req);
+  // a new country brings its currency, timezone and formats (unless given); the currency is
+  // locked once fee invoices exist
+  const { country, currency, timezone, locale, ...b } = parsed;
+  const { rows: cur } = await db.query<{ country: string; currency: string; timezone: string; locale: string }>(`SELECT country, currency, timezone, locale FROM institutions WHERE id = $1`, [inst]);
+  const loc = countryChange(cur[0]!, { country, currency, timezone, locale });
+  await assertCurrencyMayChange(inst, cur[0]!.currency, loc.currency);
+  const params: unknown[] = [inst];
+  const sets = Object.entries({ ...b, ...loc }).map(([k, v]) => {
     params.push(k === 'settings' ? JSON.stringify(v) : v);
     return `${k} = $${params.length}${k === 'settings' ? '::jsonb' : ''}`;
   });
-  await db.query(`UPDATE institutions SET ${sets.join(', ')} WHERE id = $1`, params);
+  if (sets.length) await db.query(`UPDATE institutions SET ${sets.join(', ')} WHERE id = $1`, params);
   res.json(await loadInstitution(req));
 });
 
