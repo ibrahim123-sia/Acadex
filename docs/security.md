@@ -4,15 +4,15 @@ How the API decides who may do what, and the layers that back each decision up.
 
 ## Tenant isolation (two layers)
 
-1. **In code.** Every query filters by the caller's `school_id`, and every id a client sends
-   (`student_id`, `class_id`, `fee_id`, …) is checked to belong to that school — and, for
+1. **In code.** Every query filters by the caller's `institution_id`, and every id a client sends
+   (`student_id`, `section_id`, `invoice_id`, …) is checked to belong to that institution — and, for
    teachers, parents and students, to their own classes / children / records
    (`apps/api/src/lib/access.ts`). Client-supplied tenant ids are never trusted.
 2. **In Postgres.** Row-level security is enabled and **forced** on every tenant table.
-   Policies compare `school_id` with `app_school_id()`, which reads the transaction-local
-   setting `app.school_id`. Each request runs in its own transaction
-   (`apps/api/src/db/context.ts`) that sets `app.school_id` / `app.user_id` from the
-   verified session before any route code runs. A query that forgets its `school_id`
+   Policies compare `institution_id` with `app_institution_id()`, which reads the transaction-local
+   setting `app.institution_id`. Each request runs in its own transaction
+   (`apps/api/src/db/context.ts`) that sets `app.institution_id` / `app.user_id` from the
+   verified session before any route code runs. A query that forgets its `institution_id`
    filter therefore still sees only the caller's rows.
    - Platform operations and sign-in run in an explicit system context
      (`asSystem` / `runAsSystem`, setting `app.bypass_rls`), which is used only in audited
@@ -56,7 +56,7 @@ masked name ("Ali B."). Codes are 12 random characters; the endpoint has its own
 ## Sessions
 
 - `POST /api/auth/login` returns a **15-minute access token** (JWT, HS256, audience
-  `acadex:access`, claims: user id, token version, session id, school id) and sets the
+  `acadex:access`, claims: user id, token version, session id, institution id) and sets the
   **refresh cookie** `acadex_rt` (httpOnly, `SameSite=Strict`, `Secure` in production,
   path `/api/auth`). The web app keeps the access token only in memory.
 - `POST /api/auth/refresh` rotates the refresh token. Presenting an already-rotated token
@@ -87,24 +87,25 @@ masked name ("Ali B."). Codes are 12 random characters; the endpoint has its own
 ## Permissions (RBAC)
 
 Permissions (`packages/shared/src/permissions.ts`) are granted through roles. Built-in
-roles (platform administrator, school administrator, teacher, student, parent) can't be
-edited; schools can create **custom roles** from any non-platform permission and assign
-several roles to a person. A school always keeps at least one administrator.
+roles (platform administrator, group administrator, institution administrator, teacher,
+student, parent / guardian) can't be edited; institutions can create **custom roles** from any non-platform permission and assign
+several roles to a person, optionally limited to one campus. An institution always keeps at
+least one administrator.
 
 Routes declare `requirePermission('…')`. Relationship rules sit on top of permissions:
 
 | Endpoint group | Permission | Extra checks |
 |---|---|---|
 | `/api/platform/*` | `platform.*` | — |
-| `/api/school/*` | per route (`students.read`, `fees.manage`, …) | every referenced id must belong to the school |
-| `/api/school/roles`, `/users/:id/roles` | `roles.manage` | only school roles; last-admin guard |
-| `/api/me/teacher/*` | `teaching.access`, `attendance.mark`, `grades.enter`, `assignments.manage` | class (and subject) must be assigned to the teacher; every student must be enrolled in that class |
-| `/api/me/student/*` | `learner.access`, `submissions.create` | own class's assignments only; http(s) links only |
+| `/api/institution/*` | per route (`students.read`, `fees.manage`, …) | every referenced id must belong to the institution; campus-scoped roles see only their campuses |
+| `/api/institution/roles`, `/api/institution/users/:userId/roles` | `roles.manage` | only the institution's roles; last-admin guard |
+| LMS routes under `/api` (attendance, assessments, gradebook, courses …) | `teaching.access`, `attendance.mark`, `grades.enter`, `assignments.manage`, `learner.access`, `submissions.create` | teachers only for the sections and courses they teach; students only for their own enrolments (`apps/api/src/lib/lms/access.ts`) |
+| `/api/me/*` | signed in | the caller's own dashboard and overviews only |
 | `/api/parent/*` | `guardian.access` | child must be linked to the parent |
 | `/api/pdf/report-card/:id` | — | `records.read_any`, the student, a linked parent, or a teacher of the student's class |
 | `/api/pdf/fee-voucher/:id` | — | `records.read_any`, the student, or a linked parent (not teachers) |
 
-Every rule has a denial test (cross-role, cross-teacher, cross-school) in `apps/api/tests/`.
+Every rule has a denial test (cross-role, cross-teacher, cross-institution) in `apps/api/tests/`.
 
 ## Input, output and errors
 
@@ -129,7 +130,8 @@ Unknown emails take as long to reject as wrong passwords.
 
 ## HTTP hardening
 
-`helmet` headers, CORS allow-list (`CORS_ORIGINS`), 100 kB JSON limit, `TRUST_PROXY` for
+`helmet` headers, CORS allow-list (`CORS_ORIGINS`), `Cache-Control: no-store` on every `/api`
+answer (personal data is never kept in browser or shared caches), 100 kB JSON limit, `TRUST_PROXY` for
 real client IPs behind a proxy, verified TLS to the database (`DATABASE_SSL`), and startup
 refuses unsafe configuration (missing `DATABASE_URL`, short `JWT_SECRET`, missing
 `MFA_ENCRYPTION_KEY` in production). The API docs page has its own narrow CSP and loads a

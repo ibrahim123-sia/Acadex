@@ -13,10 +13,10 @@
                  │  auth → permission → route          │
                  │  one DB transaction per request     │──▶ email outbox → SMTP
                  └───────┬─────────────────────────────┘──▶ Sentry (errors only)
-                         │ SET LOCAL app.school_id / app.user_id
+                         │ SET LOCAL app.institution_id / app.user_id
                  ┌───────▼─────────────────────────────┐
                  │  PostgreSQL 16 (Neon) + RLS         │
-                 │  pgvector available for Phase 3     │
+                 │  embeddings stored as real[]        │
                  └─────────────────────────────────────┘
 ```
 
@@ -37,7 +37,7 @@ document (`/api/openapi.json`, rendered at `/api/docs`) is generated from them.
 1. `pino-http` assigns a request id (or keeps `X-Request-Id` from the proxy).
 2. helmet, CORS, JSON body limit, rate limits.
 3. `dbContext` opens a transaction on a pooled connection and sets
-   `app.school_id`, `app.user_id` for the rest of the request (RLS reads these). Before
+   `app.institution_id`, `app.user_id` for the rest of the request (RLS reads these). Before
    authentication it runs in the context the token claims; `authenticate` then verifies
    the user, session and school against the database and refuses a mismatch.
 4. `requirePermission(...)` checks the caller's roles (cached per request).
@@ -125,7 +125,7 @@ fee, online test), `applications` (a hashed private token, status, test, merit, 
 `audit_log` records every change to money, exams, outcomes and admissions (triggers).
 
 AI (Phase 4; `schema/ai.ts`, code in `src/ai/`, see [ai.md](ai.md)): `ai_usage` (every call,
-tokens and cost), `ai_provider_keys` (sealed), `kb_chunks` (course material and help, with
+tokens and cost), `ai_provider_keys` (legacy, unused — provider keys are sealed in `platform_settings`), `kb_chunks` (course material and help, with
 `real[]` embeddings and a full-text index), `ai_conversations` → `ai_messages`, `ai_actions`
 (copilot proposals), `submission_activity`, `viva_sessions`, `risk_scores`, `interventions`,
 `media_transcripts`, `report_comments`; the read-only `ask_*` views for Ask Acadex.
@@ -180,8 +180,8 @@ Terminology, grading presets, institution-type defaults and the grading maths
 Auth: `sessions`, `refresh_tokens`, `email_tokens` (invite / reset / verify, hashed),
 `mfa_totp`, `mfa_recovery_codes`, `email_outbox`.
 
-RBAC: `permissions`, `roles` (system or per-school custom), `role_permissions`,
-`user_roles` (scope `platform` or `school`). Every tenant table has `school_id` and an RLS
+RBAC: `permissions`, `roles` (system or per-institution custom), `role_permissions`,
+`user_roles` (scope `platform`, `group`, `institution` or `campus`). Every tenant table has `institution_id` and an RLS
 policy.
 
 The schema lives in `apps/api/src/db/schema/*.ts`. `npm run db:generate -w @acadex/api`
@@ -208,8 +208,8 @@ Databases created before the TypeScript rewrite have the baseline recorded inste
 - `lib/lms.ts`: the live-event stream and the offline queue for registers taken without a
   connection (localStorage; sent when the browser is back online).
 - `components/RichText.tsx`: a light rich-text editor and the viewer (KaTeX for `$…$`).
-- i18n: English strings are the defaults in code; `locales/ur.json` and `ar.json`
-  translate the shell, sign-in and common UI. Money and dates are formatted with `Intl` in
+- Text: the interface is English only; strings are the defaults in code (`t('key', 'English')`)
+  and `locales/en.json` holds labels for enum values. Money and dates are formatted with `Intl` in
   the institution's currency and timezone.
 
 ## Configuration
