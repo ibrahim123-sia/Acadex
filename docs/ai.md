@@ -101,17 +101,17 @@ Ask Acadex uses only the listed view columns and says when a question can't be a
 - **Ask Acadex** (`ask.ts`): one generated `SELECT` over the `ask_*` views, checked against an
   allow-list, run in a read-only transaction with a 5-second limit under the asker's
   row-level security; teachers are narrowed to their own sections (`app.ask_scope`).
-- **Help assistant** and **captions** in English (speech to text with OpenAI Whisper).
+- **Help assistant** and **captions** in English (speech to text with Whisper on Groq).
 
 ## Evals
 
-`src/ai/evals.ts` holds 116 tutor cases: graded-answer leaks (English, Roman Urdu, Urdu),
+`src/ai/evals.ts` holds 110 tutor cases: graded-answer leaks (English, Roman Urdu, Urdu),
 prompt injection, unsafe content, grounding with citations, off-topic questions, English
 replies to questions asked in Urdu, and AI policy. `tests/ai-evals.test.ts` runs them in CI against the fake provider,
 with guard checks (personal data, SQL). Against a real model:
 
 ```bash
-AI_PROVIDER=anthropic ANTHROPIC_API_KEY=… npm run ai:eval:real -w @acadex/api -- --offering <id> --student <id>
+AI_PROVIDER=gemini GEMINI_API_KEY=… npm run ai:eval:real -w @acadex/api -- --offering <id> --student <id>
 ```
 
 ## Settings

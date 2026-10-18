@@ -62,7 +62,7 @@ gateway for platform invoices.
 ### 4. Platform prices in a few currencies
 Plans have prices in PKR, USD, AED, SAR and GBP. An institution whose currency is not one of them
 is billed in USD.
-**When needed:** add the currency's price to the plan (platform → Plans); no code change.
+**When needed:** add the currency's price to the plan (Platform → Business → Plans); no code change.
 
 ### 5. Tax on school fees
 Fee invoices that schools send to families have no VAT / GST line. (Acadex's own invoices to

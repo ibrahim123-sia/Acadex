@@ -57,8 +57,9 @@ production into a throwaway Neon branch.
 `STORAGE_DRIVER=local` keeps uploads in `STORAGE_LOCAL_DIR` (back it up with the database);
 `s3` uses any S3-compatible store (`S3_BUCKET`, `S3_ENDPOINT`, keys). Database backups do not
 contain file bytes: back up the bucket separately (versioning or replication on R2 / S3).
-Quotas per plan: free 500 MB, pro 10 GB, enterprise 100 GB (institution setting
-`storage_quota_mb` overrides). `VIRUS_SCAN=clamav` streams every upload to clamd.
+Quotas come from the plan (seeded: free 1 GB, pro 50 GB, enterprise unlimited; editable in
+Platform → Business → Plans; 500 MB when a plan sets none), and the institution setting
+`storage_quota_mb` overrides. `VIRUS_SCAN=clamav` streams every upload to clamd.
 
 ## Hosting on Cloudflare
 
@@ -181,10 +182,11 @@ production builds only; after a deploy, the new version takes over on the next v
 
 ## AI
 
-Set one provider key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` or
-`GROQ_API_KEY`); `AI_PROVIDER=auto` uses the first one found, else the offline fake
-provider. Embeddings and captions need an OpenAI or Gemini key (OpenAI for captions);
-without one, search uses local embeddings and captions are placeholders. `AI_DISABLED=true`
+Save the Gemini and/or Groq key in **Platform → API management** (or set `GEMINI_API_KEY` /
+`GROQ_API_KEY`) and pick the model of each feature there — see [ai.md](ai.md). Search
+embeddings use Gemini and captions use Whisper on Groq; without keys the built-in test provider
+answers and search uses local embeddings. (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` only keep older
+setups working.) `AI_DISABLED=true`
 turns every AI feature off. Budgets: `AI_BUDGET_FREE_USD`, `AI_BUDGET_PRO_USD`,
 `AI_BUDGET_ENTERPRISE_USD` (per month; institutions can set a lower cap). Spend is in
 `ai_usage`. The `risk.nightly` job (01:30 UTC) scores students for early warning.

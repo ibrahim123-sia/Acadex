@@ -129,7 +129,7 @@ with your account id.
 In `cloudflare/wrangler.jsonc` → `vars`, set `APP_URL` and `CORS_ORIGINS` to the address people
 will use (first deploy: `https://acadex.<your-subdomain>.workers.dev`; later your own domain) and
 `MAIL_FROM`. Any other API setting from [`apps/api/.env.example`](../apps/api/.env.example) can be
-added here the same way (for example `AI_PROVIDER`, `SMS_DRIVER`, `PUSH_DRIVER`).
+added here the same way (for example `SMS_DRIVER`, `PUSH_DRIVER`).
 
 ### 4. Put in the secrets
 
@@ -146,7 +146,8 @@ npx wrangler secret put S3_SECRET_ACCESS_KEY  # from step 2
 npx wrangler secret put SMTP_URL              # smtp://user:pass@smtp.provider.com:587
 npx wrangler secret put CRON_SECRET           # openssl rand -hex 32
 # only the ones you use:
-npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put GEMINI_API_KEY        # or save the AI keys later in Platform → API management
+npx wrangler secret put GROQ_API_KEY
 npx wrangler secret put BILLING_STRIPE_SECRET_KEY
 npx wrangler secret put BILLING_STRIPE_WEBHOOK_SECRET
 npx wrangler secret put GOOGLE_CLIENT_SECRET
@@ -196,7 +197,7 @@ Cloudflare (step 4); GitHub never sees them.
 | Live logs (Worker and container) | `npx wrangler tail`, or the dashboard: **Workers & Pages → acadex → Observability** |
 | Roll back a bad deploy | `npx wrangler deployments list`, then `npx wrangler rollback <version-id>` |
 | Change a setting | edit `vars` and deploy, or `npx wrangler secret put NAME` (takes effect when the container restarts — deploy, or wait for it to sleep) |
-| Rotate a secret | `wrangler secret put` the new value; for `JWT_SECRET` everyone signs in again |
+| Rotate a secret | `wrangler secret put` the new value; for `JWT_SECRET`, access tokens are reissued silently on the next refresh (nobody is signed out) |
 | More capacity | raise `API_INSTANCES` (requests are spread over that many containers) and `max_instances`; or a bigger `instance_type` |
 | Backups | Neon's point-in-time restore, plus `ops/backup.sh` (encrypted dumps) as before; R2 keeps files durably — enable bucket versioning if you want older copies |
 | Health | `https://your-domain/api/health` |
