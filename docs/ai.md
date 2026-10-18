@@ -13,7 +13,8 @@ through `client.ts`, which applies the same rules to every call.
 | Provider and model per feature; an institution's own key (sealed with AES-GCM) is used first and not counted against the plan | `client.ts` `resolve`, `models.ts` |
 | Personal data (names, emails, phones, ID numbers) removed before sending | `guard.ts` `redact` |
 | Course and student content fenced as `<<<DATA … DATA>>>` and never followed as instructions | `prompts.ts` `data`, `SAFETY` |
-| Moderation of input and output (English, Urdu in both scripts, Arabic), prompt-injection detection | `guard.ts` |
+| Moderation of input and output (it also recognises harmful text written in Urdu or Arabic), prompt-injection detection | `guard.ts` |
+| Replies are in English, whatever language the question is in | `prompts.ts` `SAFETY`, `tutorPrompt` |
 | Structured replies validated with Zod, one repair retry | `client.ts` `aiJson` |
 | Nothing writes to Acadex without a person: copilot output is an `ai_actions` proposal applied or rejected by the teacher; grading help is saved as an `ai_assisted` draft | `copilot.ts` |
 | Every AI output is labelled "AI-generated" in the UI | `apps/web/src/pages/ai` |
@@ -42,16 +43,32 @@ are indexed at start-up with local embeddings.
 > (including the tests' embedded server). At course scope this is fast; for very large
 > institutions an HNSW index on a pgvector column is the upgrade path.
 
+## Models and accuracy
+
+With Anthropic, the features where a wrong answer costs most — the tutor, grading suggestions,
+copilot drafts, Ask Acadex (generated SQL) and viva questions — use Claude Opus 5.5; the help
+assistant and intervention suggestions use Claude Haiku 5.5 (`models.ts`; an institution can pick
+another model per feature). Each feature sets how hard the model thinks before answering
+(`effortFor`: grading and Ask Acadex `high`, tutor and copilot `medium`, quick help `low`).
+Requests to current Claude models send no temperature (they reject it), leave room for thinking
+in `max_tokens`, and turn on the server-side refusal fallback where the model has one; a request
+the model declines comes back as `422 AI_DECLINED` with a plain message.
+
+The prompts are written for accuracy: the tutor states only what the cited material says and says
+so when the material doesn't cover a question; quiz questions must have exactly one answer that
+the material settles; grading picks the rubric level whose description fits and quotes the work;
+Ask Acadex uses only the listed view columns and says when a question can't be answered.
+
 ## Features
 
 - **Tutor** (`tutor.ts`): answers only from the section's material and cites it; follows the
   assessment's policy (`not_allowed` → no help, `limited` → hints only); simpler and stricter
-  for under-18s; replies in the student's language. Graded answers of open quizzes are
+  for under-18s; replies in English. Graded answers of open quizzes are
   blanked out of the material before the model sees it, and every streamed sentence is
   checked before it reaches the screen. Teachers see anonymous stuck points (counts per
   topic; example questions only when three or more students asked).
 - **Copilot** (`copilot.ts`): quiz questions (difficulty, CLO), rubrics, course outlines,
-  lesson plans, differentiated versions, feedback drafts, rubric score suggestions,
+  lesson plans, easier / harder versions, feedback drafts, rubric score suggestions,
   report-card comments, guardian messages, bulk actions ("extend … by 2 days") limited to the
   teacher's own work.
 - **Learning-process evidence** (`evidence.ts`): versions, active writing time, typing and
@@ -63,14 +80,14 @@ are indexed at start-up with local embeddings.
 - **Ask Acadex** (`ask.ts`): one generated `SELECT` over the `ask_*` views, checked against an
   allow-list, run in a read-only transaction with a 5-second limit under the asker's
   row-level security; teachers are narrowed to their own sections (`app.ask_scope`).
-- **Help assistant** and **captions / translation** (speech to text with OpenAI Whisper).
+- **Help assistant** and **captions** in English (speech to text with OpenAI Whisper).
 
 ## Evals
 
 `src/ai/evals.ts` holds 116 tutor cases: graded-answer leaks (English, Roman Urdu, Urdu),
-prompt injection, unsafe content, grounding with citations, off-topic questions, Urdu
-replies and AI policy. `tests/ai-evals.test.ts` runs them in CI against the fake provider,
-with guard checks (personal data, language, SQL). Against a real model:
+prompt injection, unsafe content, grounding with citations, off-topic questions, English
+replies to questions asked in Urdu, and AI policy. `tests/ai-evals.test.ts` runs them in CI against the fake provider,
+with guard checks (personal data, SQL). Against a real model:
 
 ```bash
 AI_PROVIDER=anthropic ANTHROPIC_API_KEY=… npm run ai:eval:real -w @acadex/api -- --offering <id> --student <id>

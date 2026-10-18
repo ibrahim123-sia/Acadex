@@ -57,7 +57,7 @@ verifiable transcript. **Outcome-based education**: CLOs, PLOs, mapping, attainm
 accreditation reports, skills transcripts.
 
 **AI that coaches** — a tutor that answers from the course's own material with sources,
-gives hints instead of answers (following each assignment's AI policy), and replies in the language the student writes in; a
+gives hints instead of answers (following each assignment's AI policy), and replies in English; a
 teacher copilot whose drafts (quizzes, rubrics, lesson plans, feedback, report comments,
 "extend this by two days") are applied only on approval; grading suggestions kept as
 drafts; evidence of how work was written instead of AI detection; nightly early-warning

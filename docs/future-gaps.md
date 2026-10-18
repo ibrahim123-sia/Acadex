@@ -92,9 +92,9 @@ come back as one file.
 **When needed:** restore or add `locales/<lang>.json`, list it in `apps/web/src/lib/i18n.ts`,
 bring back a language picker, and translate the strings added since.
 
-Not affected: the AI tutor replies in the language a student writes in, and teachers can still
-ask the copilot for a translated version of material or captions — those are teaching features,
-not the interface language.
+The AI is English only too (decision of 2026-10-18): the tutor and help assistant reply in English
+whatever language a question is in, captions are made in English, and the copilot no longer offers
+translated versions of material or captions.
 
 ### 9. Text messages and WhatsApp per country
 SMS goes through Twilio and WhatsApp through Meta's Cloud API. Sender IDs, registration rules and

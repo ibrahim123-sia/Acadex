@@ -120,7 +120,7 @@ Items that were partial or missing in the walk-through were closed on this branc
 |---|---|---|
 | Foundation: providers, usage, quotas, BYO key, kill-switches, transparency page | Done | `api/ai/client.ts`, `api/ai/providers.ts`, `web/pages/ai/OfficeAi.tsx` |
 | Course knowledge base | Done | `api/ai/kb.ts` |
-| Tutor (coach, cites, AI policy, under-18 mode, language, streaming, stuck points) | Done | `api/ai/tutor.ts`, `web/pages/ai/CourseAi.tsx` |
+| Tutor (coach, cites, AI policy, under-18 mode, streaming, stuck points; replies in English) | Done | `api/ai/tutor.ts`, `web/pages/ai/CourseAi.tsx` |
 | Teacher copilot (approve before apply) | Done | `api/ai/copilot.ts` |
 | Grading assistant (human in the loop, `ai_assisted`) | Done | `api/routes/ai.ts` |
 | Learning-process evidence, similarity in class, mini-viva | Done | `api/ai/evidence.ts` |
