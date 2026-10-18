@@ -304,11 +304,11 @@ describe('live-class providers', () => {
 });
 
 describe('account preferences', () => {
-  it('keeps the language and low-bandwidth mode on the account', async () => {
-    const r = await as(f.tokens.s1).put('/api/notifications/account-preferences', { locale: 'ur', low_bandwidth: true });
-    expect(r.body).toEqual({ locale: 'ur', low_bandwidth: true });
+  it('keeps low-bandwidth mode on the account; the interface is English only', async () => {
+    const r = await as(f.tokens.s1).put('/api/notifications/account-preferences', { locale: 'en', low_bandwidth: true });
+    expect(r.body).toEqual({ locale: 'en', low_bandwidth: true });
     const me = await as(f.tokens.s1).get('/api/auth/me');
-    expect(me.body.user ?? me.body).toMatchObject({ locale: 'ur', low_bandwidth: true });
-    expect((await as(f.tokens.s1).put('/api/notifications/account-preferences', { locale: 'fr' })).status).toBe(400);
+    expect(me.body.user ?? me.body).toMatchObject({ locale: 'en', low_bandwidth: true });
+    expect((await as(f.tokens.s1).put('/api/notifications/account-preferences', { locale: 'ur' })).status).toBe(400);
   });
 });

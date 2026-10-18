@@ -106,7 +106,8 @@ export const DIGEST_MODES = ['off', 'daily', 'weekly'] as const;
 
 /** Per-person account preferences kept on the server (follow the person across devices). */
 export const accountPreferencesBody = z.object({
-  locale: z.enum(['en', 'ur', 'ar']).nullable().optional(),
+  /** the interface is in English; kept for accounts saved before */
+  locale: z.enum(['en']).nullable().optional(),
   low_bandwidth: z.boolean().optional(),
 });
 
