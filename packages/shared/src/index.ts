@@ -20,4 +20,5 @@ export * from './schemas/ai';
 export * from './schemas/reach';
 export * from './schemas/saas';
 export * from './changelog';
+export * from './countries';
 export * from './help';
