@@ -165,7 +165,9 @@ Items that were partial or missing in the walk-through were closed on this branc
 | Feature | Status | Where |
 |---|---|---|
 | WCAG 2.2 AA | Done | `e2e/a11y.spec.ts` (axe-core) |
-| English, Urdu, Arabic (RTL); per-user language; Intl formats; tenant timezone | Done | `web/locales/`, `web/lib/format.ts` |
+| Interface language | English only (product decision, 2026-10-18); Urdu and Arabic were built and removed — see [future-gaps.md](future-gaps.md) | `web/lib/i18n.ts`, `web/locales/en.json` |
+| Country → currency, timezone, formats, week start, payment gateways | Done | `shared/countries.ts`, `api/lib/country.ts`, `web/components/CountrySelect.tsx` |
+| Intl formats; tenant timezone | Done | `web/lib/format.ts` |
 | Per-tenant week start | Done *(closed in the walk-through)* | `settings.week_start`, `web/lib/format.ts` (`weekStart`), `web/pages/admin/Calendar.tsx` |
 | PWA, web push, offline, low-bandwidth mode | Done | `web/public/sw.js`, `web/lib/device.ts` |
 | 360 px phones | Done | every E2E journey runs at 360 px (`playwright.config.ts`) |

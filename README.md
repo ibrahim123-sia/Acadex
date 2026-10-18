@@ -57,7 +57,7 @@ verifiable transcript. **Outcome-based education**: CLOs, PLOs, mapping, attainm
 accreditation reports, skills transcripts.
 
 **AI that coaches** — a tutor that answers from the course's own material with sources,
-gives hints instead of answers (following each assignment's AI policy), and speaks Urdu; a
+gives hints instead of answers (following each assignment's AI policy), and replies in the language the student writes in; a
 teacher copilot whose drafts (quizzes, rubrics, lesson plans, feedback, report comments,
 "extend this by two days") are applied only on approval; grading suggestions kept as
 drafts; evidence of how work was written instead of AI detection; nightly early-warning
@@ -67,8 +67,7 @@ assistant — with budgets, usage and cost, and off switches everywhere ([docs/a
 **Reach** — safeguarded messaging (guardians copied when a student under 18 is involved, a
 review queue, reports, nothing deleted), SMS / WhatsApp / email / push with digests and
 emergency broadcasts, parent–teacher meeting booking, a help desk, Zoom / Teams / Meet created
-from Acadex, an installable app that works offline, low-bandwidth mode, and every screen in
-Urdu and Arabic.
+from Acadex, an installable app that works offline, and low-bandwidth mode.
 
 **Platform** — plans with limits, trials and self-serve sign-up, invoices with tax, card or
 bank payment, usage and margin, white-label domains, data exports and account closing; Library,
@@ -113,12 +112,13 @@ by browser push with per-type choices and quiet hours, live updates without relo
   with recovery codes (required for administrators in production), per-device sessions
   with rotating refresh tokens and "sign out other devices"
 - 🧩 **RBAC** — permissions, built-in and custom roles; the UI shows exactly what a role may do
-- 🌍 **Locale** — per-institution currency, timezone and locale; Urdu and Arabic UI with
-  right-to-left layout; light / dark theme
+- 🌍 **Country** — each institution picks its country; currency, timezone, number format, week start
+  and online payments follow (JazzCash / Easypaisa in Pakistan, Stripe elsewhere). The interface is in
+  English; light / dark theme
 - 📜 **API docs** generated from the same Zod schemas that validate requests (`/api/docs`)
 
 Details: [docs/architecture.md](docs/architecture.md) · [docs/security.md](docs/security.md) ·
-[docs/operations.md](docs/operations.md) · [docs/cloudflare.md](docs/cloudflare.md) (hosting on Cloudflare) · [docs/checklist.md](docs/checklist.md) (where every feature lives)
+[docs/operations.md](docs/operations.md) · [docs/cloudflare.md](docs/cloudflare.md) (hosting on Cloudflare) · [docs/future-gaps.md](docs/future-gaps.md) (what is not done yet) · [docs/checklist.md](docs/checklist.md) (where every feature lives)
 
 ## 🚀 Getting started
 

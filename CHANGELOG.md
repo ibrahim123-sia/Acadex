@@ -1,5 +1,18 @@
 # Changelog
 
+## Country-based setup, English interface (2026-10-18)
+
+- An institution picks its **country** (platform registration, public sign-up, Settings) from a full
+  list; the currency, timezone, number format and week start follow, and the online payment
+  gateway too: **JazzCash and Easypaisa in Pakistan, Stripe in every other country** (bank transfer
+  everywhere). The currency locks once fee invoices exist.
+- The interface is **English only**; the language picker and the Urdu / Arabic translations were
+  removed (they remain in git history).
+- [docs/future-gaps.md](docs/future-gaps.md) lists what is deliberately not done yet (one database,
+  more gateways, fee tax, Hijri dates, …) and what is out of scope (certifications).
+- The floating feedback button moved into the menu on phones; the production server no longer runs
+  migrations itself (a bug that closed its database pool).
+
 ## Cloudflare hosting (2026-10-17)
 
 Acadex can run entirely on Cloudflare — guide: [docs/cloudflare.md](docs/cloudflare.md).

@@ -199,7 +199,7 @@ Databases created before the TypeScript rewrite have the baseline recorded inste
 - `lib/queries.ts`: TanStack Query hooks; `usePagedList` follows the API's pagination headers.
 - `components/ui/`: the design system (buttons, fields, dialogs, data tables with loading,
   empty and error states, toasts). Semantic colour tokens with light/dark themes; logical
-  CSS properties so right-to-left languages lay out correctly.
+  CSS properties (so a right-to-left language could be added later).
 - Portals are lazy-loaded (`pages/platform|admin|teacher|student|parent`); charts load only
   with the dashboards. The LMS pages (`pages/lms`) serve every role: `/teach/courses/…` and
   `/learn/courses/…` are the same pages, and the person's role in the course decides what
