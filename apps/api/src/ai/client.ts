@@ -9,7 +9,7 @@ import { getConfig } from '../config';
 import { db, inContext, runAsSystem } from '../db/context';
 import { HttpError } from '../lib/errors';
 import { logger } from '../lib/logger';
-import { costUsd, defaultModel, DEFAULT_MODELS, type Feature } from './models';
+import { costUsd, defaultModel, DEFAULT_MODELS, type Feature, effortFor } from './models';
 import { PROVIDERS, ProviderError, type ChatMessage, type ProviderName } from './providers';
 import type { PromptDef } from './prompts';
 
@@ -22,7 +22,7 @@ export interface AiCtx {
 
 export class AiUnavailable extends HttpError {
   constructor(message: string, code: string) {
-    super(code === 'AI_QUOTA' ? 429 : code === 'AI_ERROR' ? 502 : 403, message, undefined, code);
+    super(code === 'AI_QUOTA' ? 429 : code === 'AI_ERROR' ? 502 : code === 'AI_DECLINED' ? 422 : 403, message, undefined, code);
   }
 }
 
@@ -130,6 +130,7 @@ async function call<T>(ctx: AiCtx, r: Resolved, fn: () => Promise<{ inputTokens:
     return out;
   } catch (e) {
     await logUsage(ctx, r, 0, 0, performance.now() - t0, 'error', (e as Error).message.slice(0, 500));
+    if (e instanceof ProviderError && e.refused) throw new AiUnavailable('The AI declined to help with this request. Try rephrasing it, or ask your teacher.', 'AI_DECLINED');
     if (e instanceof ProviderError) {
       logger.warn({ err: e.message, provider: r.provider }, 'ai provider error');
       throw new AiUnavailable('The AI service is not available right now. Please try again later.', 'AI_ERROR');
@@ -148,7 +149,7 @@ export interface TextResult {
 export async function aiText(ctx: AiCtx, prompt: PromptDef, messages: ChatMessage[], opts: { onDelta?: (t: string) => void; maxTokens?: number } = {}): Promise<TextResult> {
   const r = await prepare(ctx);
   const p = PROVIDERS[r.provider];
-  const req = { model: r.model, messages: [{ role: 'system' as const, content: prompt.system }, ...messages], maxTokens: opts.maxTokens };
+  const req = { model: r.model, messages: [{ role: 'system' as const, content: prompt.system }, ...messages], maxTokens: opts.maxTokens, effort: effortFor(ctx.feature) };
   const out = await call(ctx, r, () => (opts.onDelta && p.stream ? p.stream(r.key, req, opts.onDelta) : p.chat(r.key, req)));
   return { text: out.text, provider: r.provider, model: r.model };
 }
@@ -172,7 +173,7 @@ export async function aiJson<S extends z.ZodType>(ctx: AiCtx, prompt: PromptDef<
     { role: 'user', content: userContent },
   ];
   for (let attempt = 0; attempt < 2; attempt++) {
-    const out = await call(ctx, r, () => p.chat(r.key, { model: r.model, messages, json: true, maxTokens: opts.maxTokens ?? 3000 }));
+    const out = await call(ctx, r, () => p.chat(r.key, { model: r.model, messages, json: true, maxTokens: opts.maxTokens ?? 3000, effort: effortFor(ctx.feature) }));
     try {
       return { data: prompt.schema!.parse(extractJson(out.text)), provider: r.provider, model: r.model };
     } catch (e) {

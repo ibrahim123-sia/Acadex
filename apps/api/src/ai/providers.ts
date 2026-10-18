@@ -16,6 +16,8 @@ export interface ChatRequest {
   maxTokens?: number;
   /** ask for a JSON object back */
   json?: boolean;
+  /** how hard to think before answering (providers that support it) */
+  effort?: 'low' | 'medium' | 'high';
 }
 export interface ChatResult {
   text: string;
@@ -31,7 +33,12 @@ export interface Provider {
 }
 
 export class ProviderError extends Error {
-  constructor(message: string, readonly status?: number) {
+  constructor(
+    message: string,
+    readonly status?: number,
+    /** the model declined the request (safety classifiers), as opposed to failing */
+    readonly refused = false
+  ) {
     super(message);
   }
 }
@@ -129,37 +136,70 @@ export function toVtt(segments: { start: number; end: number; text: string }[]) 
 
 // ---------------------------------------------------------------- Anthropic
 
+/** Claude models that take output_config.effort and reject sampling parameters such as temperature. */
+const claudeCurrent = (model: string) => /^claude-(fable-5|mythos-5|opus-5|sonnet-5|haiku-5|opus-4-[5-8])/.test(model);
+/** Claude models with the server-side refusal fallback ("default" picks the substitute by refusal category). */
+const claudeFallback = (model: string) => /^claude-(fable-5|opus-5|sonnet-5-5)/.test(model);
+const REFUSED = 'The AI declined this request';
+
+export function anthropicRequest(key: string | undefined, req: ChatRequest, stream: boolean) {
+  const system = req.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+  const headers: Record<string, string> = { 'x-api-key': key ?? '', 'anthropic-version': '2023-06-01' };
+  const body: Record<string, unknown> = {
+    model: req.model,
+    // current models think before answering and thinking counts towards max_tokens: leave room
+    // so the reply isn't cut off (only the tokens actually used are billed)
+    max_tokens: Math.max(req.maxTokens ?? 0, 16000),
+    system: system + (req.json ? '\n\nReply with one JSON object only.' : ''),
+    messages: req.messages.filter((m) => m.role !== 'system'),
+  };
+  if (stream) body.stream = true;
+  if (claudeCurrent(req.model)) {
+    if (req.effort) body.output_config = { effort: req.effort };
+  } else {
+    body.temperature = req.temperature ?? 0.3;
+  }
+  if (claudeFallback(req.model)) {
+    headers['anthropic-beta'] = 'server-side-fallback-2026-07-01';
+    body.fallbacks = 'default';
+  }
+  return { headers, body };
+}
+
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+// higher effort can take minutes on hard grading or copilot work
+const anthropicTimeout = () => AbortSignal.timeout(300_000);
+
 const anthropic: Provider = {
   name: 'anthropic',
   async chat(key, req) {
-    const system = req.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-    const res = await post(
-      'https://api.anthropic.com/v1/messages',
-      { 'x-api-key': key ?? '', 'anthropic-version': '2023-06-01' },
-      { model: req.model, max_tokens: req.maxTokens ?? 1200, temperature: req.temperature ?? 0.3, system: system + (req.json ? '\n\nReply with one JSON object only.' : ''), messages: req.messages.filter((m) => m.role !== 'system') }
-    );
-    const j = (await res.json()) as { content: { type: string; text?: string }[]; usage: { input_tokens: number; output_tokens: number } };
+    const { headers, body } = anthropicRequest(key, req, false);
+    const res = await post(ANTHROPIC_URL, headers, body, anthropicTimeout());
+    const j = (await res.json()) as { content: { type: string; text?: string }[]; stop_reason?: string; usage: { input_tokens: number; output_tokens: number } };
+    if (j.stop_reason === 'refusal') throw new ProviderError(REFUSED, 200, true);
     return { text: j.content.filter((c) => c.type === 'text').map((c) => c.text).join(''), inputTokens: j.usage.input_tokens, outputTokens: j.usage.output_tokens };
   },
   async stream(key, req, onDelta) {
-    const system = req.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
-    const res = await post(
-      'https://api.anthropic.com/v1/messages',
-      { 'x-api-key': key ?? '', 'anthropic-version': '2023-06-01' },
-      { model: req.model, max_tokens: req.maxTokens ?? 1200, temperature: req.temperature ?? 0.3, system, messages: req.messages.filter((m) => m.role !== 'system'), stream: true }
-    );
+    const { headers, body } = anthropicRequest(key, req, true);
+    const res = await post(ANTHROPIC_URL, headers, body, anthropicTimeout());
     let text = '';
     let input = 0;
     let output = 0;
+    let refused = false;
     await readSse(res, (d) => {
-      const j = JSON.parse(d) as { type: string; delta?: { text?: string }; message?: { usage?: { input_tokens: number } }; usage?: { output_tokens: number } };
-      if (j.type === 'content_block_delta' && j.delta?.text) {
+      const j = JSON.parse(d) as { type: string; delta?: { type?: string; text?: string; stop_reason?: string }; message?: { usage?: { input_tokens: number } }; usage?: { output_tokens: number } };
+      // only answer text: thinking deltas carry no text for the student
+      if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta' && j.delta.text) {
         text += j.delta.text;
         onDelta(j.delta.text);
       }
       if (j.type === 'message_start') input = j.message?.usage?.input_tokens ?? 0;
-      if (j.type === 'message_delta') output = j.usage?.output_tokens ?? output;
+      if (j.type === 'message_delta') {
+        output = j.usage?.output_tokens ?? output;
+        if (j.delta?.stop_reason === 'refusal') refused = true;
+      }
     });
+    if (refused) throw new ProviderError(REFUSED, 200, true);
     return { text, inputTokens: input, outputTokens: output };
   },
 };
