@@ -8,20 +8,13 @@ import { inviteUser } from '../auth/invites';
 import { db, runAsSystem, withTransaction } from '../db/context';
 import { audit } from '../lib/audit';
 import { conflict, notFound } from '../lib/errors';
+import { locationFor } from '../lib/country';
 import { sendEmail } from '../lib/mailer';
 import { verifyDownload } from '../lib/reports';
 import { grantSystemRole } from '../rbac';
 import { storage } from '../storage';
 
 const router = Router();
-
-const COUNTRY_DEFAULTS: Record<string, { currency: string; timezone: string; locale: string }> = {
-  PK: { currency: 'PKR', timezone: 'Asia/Karachi', locale: 'en-PK' },
-  AE: { currency: 'AED', timezone: 'Asia/Dubai', locale: 'en-AE' },
-  SA: { currency: 'SAR', timezone: 'Asia/Riyadh', locale: 'ar-SA' },
-  GB: { currency: 'GBP', timezone: 'Europe/London', locale: 'en-GB' },
-  US: { currency: 'USD', timezone: 'America/New_York', locale: 'en-US' },
-};
 
 /** Public plans with prices, limits and features. */
 router.get('/plans', async (_req, res) => {
@@ -40,12 +33,13 @@ router.post('/signup', async (req, res) => {
     const base = b.institution.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'school';
     let slug = base;
     for (let i = 2; (await db.query(`SELECT 1 FROM institutions WHERE slug = $1`, [slug])).rows[0]; i++) slug = `${base}-${i}`;
-    const d = COUNTRY_DEFAULTS[b.country] ?? COUNTRY_DEFAULTS.PK!;
+    // currency, timezone, formats and week start follow the chosen country
+    const d = locationFor(b.country);
     return withTransaction(async (client) => {
       const { rows: inst } = await client.query<{ id: number; name: string }>(
-        `INSERT INTO institutions (name, slug, plan, contact_email, phone, currency, timezone, locale, type, country, trial_ends_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $11::int > 0 THEN CURRENT_DATE + $11::int END) RETURNING id, name`,
-        [b.institution, slug, p.key, b.email, b.phone, d.currency, d.timezone, d.locale, b.type, b.country, p.trial_days]
+        `INSERT INTO institutions (name, slug, plan, contact_email, phone, currency, timezone, locale, type, country, trial_ends_at, settings)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $11::int > 0 THEN CURRENT_DATE + $11::int END, $12) RETURNING id, name`,
+        [b.institution, slug, p.key, b.email, b.phone, d.currency, d.timezone, d.locale, b.type, d.country, p.trial_days, JSON.stringify({ week_start: d.weekStart })]
       );
       const { rows: admin } = await client.query<{ id: number }>(`INSERT INTO users (institution_id, role, email, password_hash, full_name) VALUES ($1,'institution_admin',$2,NULL,$3) RETURNING id`, [inst[0]!.id, b.email, b.name]);
       await grantSystemRole(client, admin[0]!.id, 'institution_admin', inst[0]!.id, null);

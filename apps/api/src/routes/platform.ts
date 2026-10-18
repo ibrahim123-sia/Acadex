@@ -3,6 +3,7 @@ import { createInstitutionBody, id, updateInstitutionBody } from '@acadex/shared
 import { db, systemContext, withTransaction } from '../db/context';
 import { audit } from '../lib/audit';
 import { conflict, notFound } from '../lib/errors';
+import { assertCurrencyMayChange, countryChange, locationFor } from '../lib/country';
 import { parsePage, sendPage } from '../lib/pagination';
 import { inviteUser } from '../auth/invites';
 import { auth, currentUser, requirePermission } from '../middleware/auth';
@@ -61,13 +62,15 @@ router.get('/institutions', requirePermission('platform.institutions.read'), asy
 router.post('/institutions', requirePermission('platform.institutions.manage'), async (req, res) => {
   const b = createInstitutionBody.parse(req.body);
   const actor = currentUser(req);
+  // currency, timezone, formats and week start follow the country unless given
+  const loc = locationFor(b.country, b);
   try {
     const out = await withTransaction(async (client) => {
       const institution = (
         await client.query(
-          `INSERT INTO institutions (name, slug, plan, primary_color, contact_email, currency, timezone, locale)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-          [b.name, b.slug, b.plan, b.primary_color || '#2563EB', b.adminEmail, b.currency, b.timezone, b.locale]
+          `INSERT INTO institutions (name, slug, plan, primary_color, contact_email, country, currency, timezone, locale, settings)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+          [b.name, b.slug, b.plan, b.primary_color || '#2563EB', b.adminEmail, loc.country, loc.currency, loc.timezone, loc.locale, JSON.stringify({ week_start: loc.weekStart })]
         )
       ).rows[0];
       const admin = (
@@ -88,15 +91,19 @@ router.post('/institutions', requirePermission('platform.institutions.manage'), 
   }
 });
 
-// Update institution (plan / status / locale)
+// Update institution (plan / status / country and what follows from it)
 router.patch('/institutions/:id', requirePermission('platform.institutions.manage'), async (req, res) => {
   const target = id.parse(req.params.id);
   const p = updateInstitutionBody.parse(req.body);
+  const { rows: cur } = await db.query<{ country: string; currency: string; timezone: string; locale: string }>(`SELECT country, currency, timezone, locale FROM institutions WHERE id = $1`, [target]);
+  if (!cur[0]) throw notFound('Institution not found');
+  const loc = countryChange(cur[0], p);
+  await assertCurrencyMayChange(target, cur[0].currency, loc.currency);
   const { rows } = await db.query(
     `UPDATE institutions SET plan=COALESCE($2,plan), status=COALESCE($3,status), currency=COALESCE($4,currency),
-            timezone=COALESCE($5,timezone), locale=COALESCE($6,locale)
+            timezone=COALESCE($5,timezone), locale=COALESCE($6,locale), country=COALESCE($7,country)
       WHERE id=$1 RETURNING *`,
-    [target, p.plan ?? null, p.status ?? null, p.currency ?? null, p.timezone ?? null, p.locale ?? null]
+    [target, p.plan ?? null, p.status ?? null, loc.currency ?? null, loc.timezone ?? null, loc.locale ?? null, loc.country ?? null]
   );
   if (!rows[0]) throw notFound('Institution not found');
   res.json(rows[0]);
