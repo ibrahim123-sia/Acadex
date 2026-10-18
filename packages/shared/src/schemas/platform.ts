@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PLANS, INSTITUTION_STATUSES } from '../constants';
 import { currency, email, locale, requiredText, text, timeZone } from './common';
+import { countryCode } from '../countries';
 
 export const slug = z
   .string()
@@ -18,14 +19,17 @@ export const createInstitutionBody = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
-  currency: currency.default('PKR'),
-  timezone: timeZone.default('Asia/Karachi'),
-  locale: locale.default('en-PK'),
+  /** the currency, timezone and formats follow the country unless given */
+  country: countryCode.default('PK'),
+  currency: currency.optional(),
+  timezone: timeZone.optional(),
+  locale: locale.optional(),
 });
 
 export const updateInstitutionBody = z.object({
   plan: z.enum(PLANS).optional(),
   status: z.enum(INSTITUTION_STATUSES).optional(),
+  country: countryCode.optional(),
   currency: currency.optional(),
   timezone: timeZone.optional(),
   locale: locale.optional(),

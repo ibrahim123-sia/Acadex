@@ -1,6 +1,7 @@
 // Request bodies for the academic structure (campuses → departments → programs → levels →
 // sections; years → terms; courses → offerings → enrolments; the calendar).
 import { z } from 'zod';
+import { countryCode } from '../countries';
 import { HOLIDAY_KINDS, INSTITUTION_TYPES, SECTION_STAFF_ROLES, TERM_KINDS, institutionSettings } from '../academics';
 import { currency, id, isoDate, locale, optionalDate, optionalId, requiredText, text, timeZone, patchSchema } from './common';
 
@@ -172,11 +173,7 @@ export const institutionProfileBody = patchOf({
   currency,
   timezone: timeZone,
   locale,
-  country: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{2}$/, 'Two-letter country code'),
+  country: countryCode,
   settings: institutionSettings,
 });
 

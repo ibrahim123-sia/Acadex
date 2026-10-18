@@ -3,6 +3,7 @@
 // consents and privacy requests, scheduled reports, the public site, and the optional
 // institute modules.
 import { z } from 'zod';
+import { countryCode } from '../countries';
 import { email, id, isoDate, optionalId, requiredText, text } from './common';
 
 // ---------------------------------------------------------------- plans and billing
@@ -77,7 +78,7 @@ export const tenantOverridesBody = z.object({
 export const signupBody = z.object({
   institution: requiredText(120),
   type: z.enum(['school', 'chain', 'college', 'university', 'academy', 'training_center']).default('school'),
-  country: z.string().trim().length(2).toUpperCase().default('PK'),
+  country: countryCode.default('PK'),
   name: requiredText(120),
   email,
   phone: text(30).default(''),
