@@ -54,17 +54,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({ status: 'loading', user: null, institution: null });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // whether someone was signed in: only then is there private data in the cache to drop
+  const wasSignedIn = useRef(false);
 
   const signedOut = useCallback(() => {
     clearTimeout(timer.current);
     tokenStore.set(null);
     setFormatInstitution(null);
-    queryClient.clear();
+    // a visitor who was never signed in keeps the cache: clearing it would orphan public queries
+    // still loading (the pricing page would spin for ever)
+    if (wasSignedIn.current) queryClient.clear();
+    wasSignedIn.current = false;
     setState({ status: 'anonymous', user: null, institution: null });
   }, [queryClient]);
 
   const applySession = useCallback(
     (res: AuthResponse) => {
+      wasSignedIn.current = true;
       tokenStore.set(res.access_token);
       setFormatInstitution(res.institution);
       setState({ status: 'authenticated', user: res.user, institution: res.institution });
@@ -90,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const last = lastSession();
       if (!navigator.onLine && last) {
         setFormatInstitution(last.institution);
+        wasSignedIn.current = true;
         setState({ status: 'authenticated', user: last.user, institution: last.institution, offline: true });
       } else signedOut();
     });
