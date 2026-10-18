@@ -265,7 +265,7 @@ function FileView({ item, canEdit }: { item: ItemDetail; canEdit: boolean }) {
   );
 }
 
-const LANGS = { en: 'English', ur: 'اردو', ar: 'العربية' } as const;
+const LANGS = { en: 'English' } as const;
 
 /** Caption tracks (fetched with the session, so <track> gets a local URL). */
 function CaptionTracks({ fileId }: { fileId: number }) {
@@ -299,14 +299,13 @@ function CaptionTracks({ fileId }: { fileId: number }) {
   );
 }
 
-/** Teachers make captions (speech to text) and translate them; everyone sees which exist. */
+/** Teachers make English captions (speech to text); everyone sees whether they exist. */
 function CaptionControls({ fileId, canEdit }: { fileId: number; canEdit: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const list = useQuery({ queryKey: ['captions', fileId], queryFn: () => api.get<{ language: keyof typeof LANGS; status: string }[]>(`/ai/captions/${fileId}`) });
   const refresh = () => qc.invalidateQueries({ queryKey: ['captions', fileId] });
   const make = useMutation({ mutationFn: () => api.post(`/ai/captions/${fileId}`, {}), onSuccess: refresh });
-  const translate = useMutation({ mutationFn: (language: string) => api.post(`/ai/captions/${fileId}/translate`, { language }), onSuccess: refresh });
   const have = new Set((list.data ?? []).filter((c) => c.status === 'done').map((c) => c.language));
   if (!canEdit && !have.size) return null;
   return (
@@ -315,10 +314,7 @@ function CaptionControls({ fileId, canEdit }: { fileId: number; canEdit: boolean
       {have.size ? <span>{t('cap.have', 'Captions')}: {[...have].map((l) => LANGS[l]).join(', ')}</span> : <span className="text-fg-muted">{t('cap.none', 'No captions yet')}</span>}
       {have.size > 0 && <AiBadge />}
       {canEdit && !have.has('en') && <Button size="sm" variant="outline" loading={make.isPending} onClick={() => make.mutate()}>{t('cap.make', 'Make captions')}</Button>}
-      {canEdit && have.has('en') && (['ur', 'ar'] as const).filter((l) => !have.has(l)).map((l) => (
-        <Button key={l} size="sm" variant="ghost" loading={translate.isPending && translate.variables === l} onClick={() => translate.mutate(l)}>{t('cap.translate', 'Translate to {{lang}}', { lang: LANGS[l] })}</Button>
-      ))}
-      {(make.error || translate.error) && <span className="text-danger">{errorMessage(make.error ?? translate.error)}</span>}
+      {make.error && <span className="text-danger">{errorMessage(make.error)}</span>}
     </div>
   );
 }

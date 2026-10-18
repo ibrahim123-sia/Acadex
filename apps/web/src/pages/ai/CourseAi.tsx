@@ -170,7 +170,7 @@ export function CopilotTab({ courseId }: { courseId: number }) {
   const reindex = useMutation({ mutationFn: () => api.post('/ai/kb/reindex', { offering_id: courseId }), onSuccess: () => void kb.refetch() });
   const toggle = useMutation({ mutationFn: (on: boolean) => api.patch(`/courses/${courseId}/ai`, { ai_enabled: on }), onSuccess: () => void qc.invalidateQueries({ queryKey: ['/ai/status'] }) });
   const [kind, setKind] = useState<(typeof KINDS)[number]>('quiz_questions');
-  const [v, setV] = useState({ items: [] as number[], count: '5', difficulty: 'mixed', assessment_id: '', syllabus: '', topic: '', minutes: '40', variant: 'easier', language: 'ur', request: '' });
+  const [v, setV] = useState({ items: [] as number[], count: '5', difficulty: 'mixed', assessment_id: '', syllabus: '', topic: '', minutes: '40', variant: 'easier', request: '' });
   const [proposal, setProposal] = useState<number | null>(null);
   const pages = (course.data?.modules ?? []).flatMap((m) => m.items).filter((i) => i.kind === 'page');
   const gen = useMutation({
@@ -185,7 +185,6 @@ export function CopilotTab({ courseId }: { courseId: number }) {
         topic: v.topic || undefined,
         minutes: Number(v.minutes),
         variant: v.variant,
-        language: v.language,
         request: v.request || undefined,
       }),
     onSuccess: (r) => setProposal(r.id),
@@ -242,8 +241,7 @@ export function CopilotTab({ courseId }: { courseId: number }) {
         )}
         {kind === 'differentiate' && (
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={t('ai.version', 'Version')}>{(a) => <Select {...a} value={v.variant} onChange={(e) => setV({ ...v, variant: e.target.value })}><option value="easier">{t('ai.easier', 'Easier')}</option><option value="harder">{t('ai.harder', 'Harder')}</option><option value="translated">{t('ai.translated', 'Translated')}</option></Select>}</Field>
-            {v.variant === 'translated' && <Field label={t('ai.language', 'Language')}>{(a) => <Select {...a} value={v.language} onChange={(e) => setV({ ...v, language: e.target.value })}><option value="ur">اردو</option><option value="ar">العربية</option><option value="en">English</option></Select>}</Field>}
+            <Field label={t('ai.version', 'Version')}>{(a) => <Select {...a} value={v.variant} onChange={(e) => setV({ ...v, variant: e.target.value })}><option value="easier">{t('ai.easier', 'Easier')}</option><option value="harder">{t('ai.harder', 'Harder')}</option></Select>}</Field>
           </div>
         )}
         {kind === 'bulk_action' && <Field label={t('ai.request', 'What should happen?')} hint={t('ai.requestHint', 'e.g. extend the due date of "Fractions worksheet" by 2 days for section B')}>{(a) => <Input {...a} value={v.request} onChange={(e) => setV({ ...v, request: e.target.value })} />}</Field>}
