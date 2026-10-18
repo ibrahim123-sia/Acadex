@@ -1,5 +1,24 @@
 # Changelog
 
+## AI: API management and usage for the platform owner; English only (2026-10-18)
+
+- **API management** (Platform → API management): the platform owner saves the Gemini and Groq
+  keys (encrypted) and picks the model of every AI feature from a dropdown that offers only models
+  of the right kind, including the providers' latest model lists. A model is tested before it is
+  saved; a chosen model that later stops working falls back to the provider's default, so features
+  keep running. Changing the search model re-indexes course material in the background.
+- **AI usage** (Platform → AI usage): calls, tokens, estimated cost, failures and time by
+  institution, kind of institution, feature, provider, model, day or status, with date and other
+  filters, a cost-per-day chart, each call, and CSV export. Model prices are editable estimates.
+- Institutions no longer choose the provider or model or add their own keys; their AI page shows
+  the model the platform chose. Low-cost defaults: Gemini 2.5 Flash / Flash-Lite, Gemini Embedding,
+  Groq Llama 3.3 and Whisper for captions.
+- The AI answers in English; prompts sharpened for grounded tutoring, quizzes, grading and Ask
+  Acadex; Gemini 2.5 thinking budgets by effort so replies aren't cut off; current Claude API
+  request shape for older setups.
+- Fixed: on the public site, a visitor's pricing page could keep spinning (the cache was cleared on
+  load while plans were still loading). API answers now carry `Cache-Control: no-store`.
+
 ## Country-based setup, English interface (2026-10-18)
 
 - An institution picks its **country** (platform registration, public sign-up, Settings) from a full

@@ -10,7 +10,7 @@ through `client.ts`, which applies the same rules to every call.
 | Off switches: server (`AI_DISABLED`), institution, each feature, each course, each assessment (`ai_policy`) | `client.ts` `aiStatus`, `tutor.ts` |
 | Monthly budget per plan (`AI_BUDGET_*_USD`) or a lower institution cap; hard stop with `429 AI_QUOTA` | `client.ts` `budget` |
 | Usage and estimated cost of every call, ok or failed, in `ai_usage` (survives a failed request) | `client.ts` `logUsage` |
-| Provider and model per feature; an institution's own key (sealed with AES-GCM) is used first and not counted against the plan | `client.ts` `resolve`, `models.ts` |
+| Provider and model per feature chosen only by the platform owner (API management); institutions can't choose or bring keys | `catalog.ts` `assignmentFor`, `client.ts` |
 | Personal data (names, emails, phones, ID numbers) removed before sending | `guard.ts` `redact` |
 | Course and student content fenced as `<<<DATA … DATA>>>` and never followed as instructions | `prompts.ts` `data`, `SAFETY` |
 | Moderation of input and output (it also recognises harmful text written in Urdu or Arabic), prompt-injection detection | `guard.ts` |
@@ -22,9 +22,10 @@ through `client.ts`, which applies the same rules to every call.
 
 ## Providers
 
-`providers.ts` speaks HTTPS to Anthropic, OpenAI, Gemini and Groq (no SDKs). Embeddings use
-OpenAI or Gemini at 768 dimensions; when neither is configured, a local hashed bag-of-words
-embedding is used. `AI_PROVIDER=auto` picks the first provider with a key, else `fake`.
+`providers.ts` speaks HTTPS to **Gemini** and **Groq** — the providers the platform uses — and still to
+OpenAI and Anthropic for older setups (no SDKs). Gemini handles text and search embeddings (768
+dimensions); Groq handles text and speech to text (Whisper) for captions. When no provider has a key,
+the built-in test provider answers locally and a hashed bag-of-words embedding is used.
 
 The **fake provider** (`fake.ts`) answers deterministically from the prompt and behaves like
 a naive model on purpose — it follows injected instructions and repeats answers it can see —
@@ -43,16 +44,36 @@ are indexed at start-up with local embeddings.
 > (including the tests' embedded server). At course scope this is fast; for very large
 > institutions an HNSW index on a pgvector column is the upgrade path.
 
-## Models and accuracy
+## API management (platform owner only)
 
-With Anthropic, the features where a wrong answer costs most — the tutor, grading suggestions,
-copilot drafts, Ask Acadex (generated SQL) and viva questions — use Claude Opus 5.5; the help
-assistant and intervention suggestions use Claude Haiku 5.5 (`models.ts`; an institution can pick
-another model per feature). Each feature sets how hard the model thinks before answering
-(`effortFor`: grading and Ask Acadex `high`, tutor and copilot `medium`, quick help `low`).
-Requests to current Claude models send no temperature (they reject it), leave room for thinking
-in `max_tokens`, and turn on the server-side refusal fallback where the model has one; a request
-the model declines comes back as `422 AI_DECLINED` with a plain message.
+**Platform → API management** (`/platform/ai`, `routes/platform-ai.ts`, `catalog.ts`):
+
+- **Provider keys** for Gemini and Groq, saved encrypted (AES-GCM with `MFA_ENCRYPTION_KEY`) in
+  `platform_settings` and never shown again; without one, `GEMINI_API_KEY` / `GROQ_API_KEY` from the
+  environment is used. **Get latest models** fetches each provider's current model list.
+- **Every AI feature with a model dropdown** — only models of the right kind (text, search
+  embeddings, speech to text) are offered. **Test and save** calls the model once; a model that
+  doesn't answer is never saved. Prices (USD per million tokens, speech per hour) are estimates
+  the platform owner can correct; they drive the cost shown in usage.
+- Every AI call reads the configuration (cached 10 seconds), so a change applies at once with no
+  restart. If a chosen model later disappears at the provider (404), the call is retried with the
+  provider's default model for that feature and logged, so features keep working.
+- Changing the search (embeddings) model queues `kb.reindex_all`; until a course is re-embedded,
+  its search uses words only (vectors from different models are never compared).
+- Defaults when nothing is chosen (low cost): text — Gemini 2.5 Flash (help and early-warning
+  suggestions: Flash-Lite) or Llama 3.3 70B on Groq; search — Gemini Embedding; captions — Whisper
+  Large v3 Turbo on Groq.
+
+Each feature sets how hard the model thinks (`effortFor`: grading and Ask Acadex `high`, tutor and
+copilot `medium`, quick help `low`). On Gemini 2.5 this is a thinking budget (Flash and Flash-Lite
+skip thinking at `low`), with room for it in `maxOutputTokens` so replies aren't cut off; Groq's
+reasoning models get `reasoning_effort`. A request the model declines comes back as
+`422 AI_DECLINED` with a plain message.
+
+**Platform → AI usage** (`/platform/ai/usage`): calls, tokens, estimated cost, failures and
+average time for any date range, filtered by institution, kind of institution, feature, provider,
+model and status, grouped by institution, feature, provider, model, day or status; a cost-per-day
+chart; each call (paged); and a CSV export of the calls.
 
 The prompts are written for accuracy: the tutor states only what the cited material says and says
 so when the material doesn't cover a question; quiz questions must have exactly one answer that
@@ -95,7 +116,7 @@ AI_PROVIDER=anthropic ANTHROPIC_API_KEY=… npm run ai:eval:real -w @acadex/api 
 
 ## Settings
 
-Admins: **AI** in the menu (`/ai/settings`) — on/off per feature, the provider and model of
-each feature, the monthly budget and spend, an own key, usage and cost by feature and the
-most recent calls. Teachers: a course's AI switch on its Copilot tab, and each assignment's
+Institution admins: **AI** in the menu (`/ai/settings`) — on/off per feature (the model of each
+feature is shown, chosen by the platform), the monthly budget and spend, usage and cost by feature
+and the most recent calls. Teachers: a course's AI switch on its Copilot tab, and each assignment's
 AI-help policy.

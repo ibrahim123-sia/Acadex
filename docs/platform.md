@@ -29,6 +29,9 @@ invoices), **Inventory & assets** and **Visitors** (gate passes).
   `suspend_after_days` (21) the workspace is paused, and it reopens as soon as it is paid.
 - `usage.daily` records students, storage, AI cost, messages and active users per institution;
   **Business → Usage & margin** shows cost (from `unit_costs`) against revenue.
+- **API management** chooses the AI model of every feature (Gemini / Groq) and holds the provider
+  keys; **AI usage** breaks AI calls and cost down by institution, feature, model and day — see
+  [ai.md](ai.md#api-management-platform-owner-only).
 
 ## Tenant tools
 
