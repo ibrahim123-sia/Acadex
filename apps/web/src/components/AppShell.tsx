@@ -23,7 +23,6 @@ import {
   CalendarCheck,
   ClipboardList,
   GraduationCap,
-  Languages,
   LayoutDashboard,
   LogOut,
   MessageSquareHeart,
@@ -70,7 +69,6 @@ import {
 import type { Permission, Role } from '@acadex/shared';
 import { useAuth } from '@/lib/auth';
 import { useTerms } from '@/lib/terms';
-import { LANGUAGES, onLanguagePicked, setLanguage, type Language } from '@/lib/i18n';
 import { setLowBandwidth, useLowBandwidth } from '@/lib/device';
 import { api } from '@/lib/api';
 import { useUnreadMessages } from '@/pages/reach/Messages';
@@ -295,7 +293,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="truncate font-medium text-white">{user?.full_name}</div>
           <div className="truncate text-xs text-sidebar-fg/70">{user?.email}</div>
         </div>
-        <LanguageSelect className="px-3 py-1 sm:hidden" />
         <NavLink to="/account/security" onClick={onNavigate} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-white/5 hover:text-white">
           <ShieldCheck className="size-4" aria-hidden /> {t('nav.security', 'Security')}
         </NavLink>
@@ -310,26 +307,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function LanguageSelect({ className }: { className?: string }) {
-  const { t, i18n } = useTranslation();
-  return (
-    <label className={cn('flex items-center gap-1.5 text-sm text-fg-muted', className)}>
-      <Languages className="size-4" aria-hidden />
-      <span className="sr-only">{t('language.label', 'Language')}</span>
-      <select
-        value={i18n.language}
-        onChange={(e) => setLanguage(e.target.value as Language)}
-        className="rounded-md border border-border bg-surface px-1.5 py-1 text-sm text-fg"
-      >
-        {LANGUAGES.map((l) => (
-          <option key={l.code} value={l.code}>
-            {l.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 function UnreadBadge() {
   const q = useUnreadMessages();
@@ -395,12 +372,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [drawer, setDrawer] = useState(false);
   const location = useLocation();
   useEffect(() => setDrawer(false), [location.pathname]);
-  // the account remembers the language the person picks
-  const { user } = useAuth();
-  useEffect(() => {
-    if (!user) return;
-    return onLanguagePicked((code) => void api.put('/notifications/account-preferences', { locale: code }).catch(() => {}));
-  }, [user]);
 
   return (
     <div className="flex min-h-full">
@@ -427,7 +398,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Menu className="size-5" />
           </button>
           <div className="flex-1" />
-          <LanguageSelect className="hidden sm:flex" />
           <LowBandwidthToggle />
           <WhatsNewLink />
           <HelpLink />

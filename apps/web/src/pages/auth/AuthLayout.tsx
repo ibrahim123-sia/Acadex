@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { BarChart3, ShieldCheck, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { LanguageSelect, ThemeToggle } from '@/components/AppShell';
+import { ThemeToggle } from '@/components/AppShell';
 
 /** Two-panel layout for sign-in screens (brand panel hidden on small screens). */
 export function AuthLayout({ children }: { children: ReactNode }) {
@@ -31,7 +31,6 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       </div>
       <div className="flex flex-col bg-background">
         <div className="flex justify-end gap-2 p-4">
-          <LanguageSelect />
           <ThemeToggle />
         </div>
         <div className="flex flex-1 items-center justify-center px-4 pb-12">

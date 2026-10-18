@@ -8,7 +8,6 @@ import type { AuthResponse, MfaChallengeResponse, Permission, InstitutionSummary
 import { api, onSessionEnded, refreshSession, tokenStore } from './api';
 import { setFormatInstitution } from './format';
 import { clearOfflineData, setLowBandwidth } from './device';
-import { setLanguage, type Language } from './i18n';
 
 const LAST = 'acadex.lastSession';
 const remember = (v: { user: SessionUser; institution: InstitutionSummary | null } | null) => {
@@ -70,7 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setFormatInstitution(res.institution);
       setState({ status: 'authenticated', user: res.user, institution: res.institution });
       remember({ user: res.user, institution: res.institution });
-      if (res.user.locale) setLanguage(res.user.locale as Language, { sync: false });
       if (res.user.low_bandwidth !== undefined) setLowBandwidth(res.user.low_bandwidth, { sync: false });
       clearTimeout(timer.current);
       // renew a minute before expiry
