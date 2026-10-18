@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Plus, RotateCcw, Trash2 } from 'lucide-react';
-import { GRADING_KINDS, INSTITUTION_TYPES, TERM_KEYS, gradeFor, type GradeBand, type Terminology } from '@acadex/shared';
+import { GRADING_KINDS, INSTITUTION_TYPES, TERM_KEYS, countryDefaults, gradeFor, type GradeBand, type Terminology } from '@acadex/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useTerms } from '@/lib/terms';
 import { FormDialog, useFormDialog } from '@/components/FormDialog';
 import type { CustomFieldDef } from '@/components/CustomFields';
+import { CountrySelect, gatewaysText } from '@/components/CountrySelect';
 import { Alert, Badge, Button, Card, ErrorState, Field, Input, MutationError, PageHeader, Select, Skeleton, Tabs, Textarea, useToast } from '@/components/ui';
 
 interface Settings {
@@ -71,6 +72,19 @@ function Profile({ s }: { s: Settings }) {
             </Select>
           )}
         </Field>
+        <Field label={t('settings.country', 'Country')} hint={t('settings.countryHint', 'Online payments: {{gateways}}. Changing it fills in the currency, time zone and formats.', { gateways: gatewaysText(v.country) })}>
+          {(a) => (
+            <CountrySelect
+              {...a}
+              value={v.country}
+              onChange={(e) => {
+                const d = countryDefaults(e.target.value);
+                setV({ ...v, country: d.country, currency: d.currency, timezone: d.timezone, locale: d.locale });
+                setWeekStartDay(d.weekStart);
+              }}
+            />
+          )}
+        </Field>
         {text('contact_email', t('common.email', 'Email'), { type: 'email', dir: 'ltr' })}
         {text('phone', t('common.phone', 'Phone'), { dir: 'ltr' })}
         {text('address', t('common.address', 'Address'))}
@@ -82,10 +96,9 @@ function Profile({ s }: { s: Settings }) {
             </div>
           )}
         </Field>
-        {text('currency', t('settings.currency', 'Currency'), { dir: 'ltr', hint: 'PKR, USD, AED…' })}
+        {text('currency', t('settings.currency', 'Currency'), { dir: 'ltr', hint: t('settings.currencyHint', 'Set by the country; it can no longer change once fee invoices exist') })}
         {text('timezone', t('settings.timezone', 'Time zone'), { dir: 'ltr', hint: 'Asia/Karachi' })}
         {text('locale', t('settings.locale', 'Number and date format'), { dir: 'ltr', hint: 'en-PK, ur-PK, ar-AE' })}
-        {text('country', t('settings.country', 'Country'), { dir: 'ltr', hint: 'PK' })}
       </div>
       <fieldset>
         <legend className="mb-2 text-sm font-medium">{t('settings.workingDays', 'Working days')}</legend>

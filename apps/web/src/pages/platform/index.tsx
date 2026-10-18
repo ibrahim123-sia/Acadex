@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { Building2, GraduationCap, Plus, Users, Wallet } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { createInstitutionBody, PLANS } from '@acadex/shared';
+import { countryDefaults, createInstitutionBody, PLANS } from '@acadex/shared';
+import { CountrySelect, gatewaysText } from '@/components/CountrySelect';
 import { api, errorMessage } from '@/lib/api';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { usePagedList } from '@/lib/queries';
@@ -91,7 +92,7 @@ function RegisterInstitutionDialog({ open, onClose }: { open: boolean; onClose: 
   const [created, setCreated] = useState<{ name: string; invite: Invite } | null>(null);
   const form = useForm<z.input<typeof createInstitutionBody>>({
     resolver: zodResolver(createInstitutionBody),
-    defaultValues: { name: '', slug: '', plan: 'free', adminName: '', adminEmail: '', currency: 'PKR', timezone: 'Asia/Karachi', locale: 'en-PK' },
+    defaultValues: { name: '', slug: '', plan: 'free', adminName: '', adminEmail: '', country: 'PK', currency: 'PKR', timezone: 'Asia/Karachi', locale: 'en-PK' },
   });
   const m = useMutation({
     mutationFn: (v: z.input<typeof createInstitutionBody>) => api.post<{ institution: { name: string }; admin: { invite: Invite } }>('/platform/institutions', v),
@@ -107,6 +108,14 @@ function RegisterInstitutionDialog({ open, onClose }: { open: boolean; onClose: 
     onClose();
   };
   const e = form.formState.errors;
+  const country = form.watch('country') ?? 'PK';
+  // the country fills in the currency, timezone and formats (still editable)
+  const pickCountry = (code: string) => {
+    const d = countryDefaults(code);
+    form.setValue('currency', d.currency);
+    form.setValue('timezone', d.timezone);
+    form.setValue('locale', d.locale);
+  };
   return (
     <Dialog open={open} onClose={close} title={t('platform.register', 'Register an institution')}>
       {created ? (
@@ -144,6 +153,9 @@ function RegisterInstitutionDialog({ open, onClose }: { open: boolean; onClose: 
           </Field>
           <Field label={t('platform.adminEmail', 'Administrator email')} error={e.adminEmail?.message}>
             {(a) => <Input {...a} type="email" dir="ltr" {...form.register('adminEmail')} />}
+          </Field>
+          <Field label={t('platform.country', 'Country')} hint={t('platform.countryHint', 'Online payments: {{gateways}}', { gateways: gatewaysText(country) })} error={e.country?.message}>
+            {(a) => <CountrySelect {...a} {...form.register('country', { onChange: (ev) => pickCountry(ev.target.value) })} />}
           </Field>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label={t('platform.currency', 'Currency')} error={e.currency?.message}>

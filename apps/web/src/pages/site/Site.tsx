@@ -9,7 +9,8 @@ import { BarChart3, Bot, Check, CreditCard, Globe2, HeartHandshake, MessagesSqua
 import { HELP_ARTICLES, MODULE_LABELS, type ModuleKey } from '@acadex/shared';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { LanguageSelect, ThemeToggle } from '@/components/AppShell';
+import { ThemeToggle } from '@/components/AppShell';
+import { CountrySelect, gatewaysText } from '@/components/CountrySelect';
 import { Alert, Button, Card, EmptyState, Field, Input, MutationError, Select, Spinner, Textarea } from '@/components/ui';
 
 interface Plan {
@@ -38,7 +39,6 @@ function SiteLayout({ children }: { children: ReactNode }) {
             <Link className="rounded px-2 py-1 hover:bg-surface-2" to="/docs">{t('site.help', 'Help center')}</Link>
             <Link className="rounded px-2 py-1 hover:bg-surface-2" to="/demo">{t('site.demo', 'Book a demo')}</Link>
           </div>
-          <LanguageSelect />
           <ThemeToggle />
           {user ? <Link to="/home"><Button size="sm">{t('site.open', 'Open Acadex')}</Button></Link> : <Link to="/login"><Button size="sm" variant="outline">{t('site.signIn', 'Sign in')}</Button></Link>}
         </nav>
@@ -76,7 +76,7 @@ function CookieNotice() {
 
 const FEATURES = [
   { icon: Sparkles, title: 'AI that coaches, not cheats', text: 'A tutor that answers from your own course with sources and gives hints instead of answers; a copilot for teachers whose drafts are applied only on approval.' },
-  { icon: Globe2, title: 'Any kind of institution', text: 'Schools, networks, colleges, universities and academies — each with its own words, grading and terms. English, Urdu and Arabic.' },
+  { icon: Globe2, title: 'Any kind of institution', text: 'Schools, networks, colleges, universities and academies — each with its own words, grading and terms, in any country and currency.' },
   { icon: CreditCard, title: 'Fees that collect themselves', text: 'Vouchers, JazzCash, Easypaisa, cards and bank transfer on your own account, reminders by SMS and WhatsApp, reconciliation.' },
   { icon: MessagesSquare, title: 'Families in the loop, safely', text: 'Safeguarded messaging, parent–teacher meetings, emergency broadcasts and digests on every channel.' },
   { icon: WifiOff, title: 'Works on any phone', text: 'Installable, works offline for attendance and saved lessons, and a low-bandwidth mode for slow connections.' },
@@ -215,7 +215,7 @@ export function SignupPage() {
               <Field label={t('site.institution', 'Institution')}>{(a) => <Input {...a} required autoComplete="organization" value={v.institution} onChange={(e) => setV({ ...v, institution: e.target.value })} />}</Field>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label={t('site.type', 'Kind')}>{(a) => <Select {...a} value={v.type} onChange={(e) => setV({ ...v, type: e.target.value })}>{['school', 'chain', 'college', 'university', 'academy', 'training_center'].map((x) => <option key={x} value={x}>{t(`institutionType.${x}`, x)}</option>)}</Select>}</Field>
-                <Field label={t('site.country', 'Country')}>{(a) => <Select {...a} value={v.country} onChange={(e) => setV({ ...v, country: e.target.value })}>{[['PK', 'Pakistan'], ['AE', 'United Arab Emirates'], ['SA', 'Saudi Arabia'], ['GB', 'United Kingdom'], ['US', 'United States']].map(([c, n]) => <option key={c} value={c}>{n}</option>)}</Select>}</Field>
+                <Field label={t('site.country', 'Country')} hint={t('site.countryHint', 'Sets your currency, timezone and online payments ({{gateways}})', { gateways: gatewaysText(v.country) })}>{(a) => <CountrySelect {...a} value={v.country} onChange={(e) => setV({ ...v, country: e.target.value })} />}</Field>
               </div>
               <Field label={t('site.yourName', 'Your name')}>{(a) => <Input {...a} required autoComplete="name" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} />}</Field>
               <div className="grid gap-3 sm:grid-cols-2">
