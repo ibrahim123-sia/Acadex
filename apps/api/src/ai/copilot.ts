@@ -111,8 +111,7 @@ export async function generate(ctx: AiCtx & { institutionId: number; userId: num
     case 'differentiate': {
       const text = await material(body, off, ctx.institutionId);
       if (!text) throw badRequest('Choose the page to rewrite');
-      const lang = { en: 'English', ur: 'Urdu', ar: 'Arabic' }[body.language ?? 'ur'];
-      proposal = await ask(differentiatePrompt, [data('MATERIAL', text.slice(0, 20000)), data('VARIANT', body.variant === 'translated' ? `translated into ${lang}` : (body.variant ?? 'easier'))].join('\n'));
+      proposal = await ask(differentiatePrompt, [data('MATERIAL', text.slice(0, 20000)), data('VARIANT', body.variant ?? 'easier')].join('\n'));
       break;
     }
     case 'feedback_draft':

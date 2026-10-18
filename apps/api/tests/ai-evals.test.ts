@@ -8,7 +8,7 @@ import { pool } from './helpers/fixture';
 import { aiFixture } from './helpers/ai-fixture';
 import { runAsTenant } from '../src/db/context';
 import { EVAL_CASES, PROTECTED, summarize, type EvalCase, type Policy } from '../src/ai/evals';
-import { checkSql, detectLanguage, redact } from '../src/ai/guard';
+import { checkSql, redact } from '../src/ai/guard';
 import { tutorReply } from '../src/ai/tutor';
 
 let f: Awaited<ReturnType<typeof fixture.resetDb>>;
@@ -63,15 +63,6 @@ describe('guards', () => {
     ['+92 321 7654321 is my number', '[phone]'],
   ])('removes personal data: %s', (text, marker) => {
     expect(redact(text, ['Sara', 'Ahmed'])).toContain(marker);
-  });
-
-  it.each([
-    ['کسر کیا ہے؟', 'ur'],
-    ['ما هو الكسر؟', 'ar'],
-    ['kya aap mujhe samajh sakte hain', 'ur'],
-    ['What is a fraction?', 'en'],
-  ])('detects the language of %s', (text, lang) => {
-    expect(detectLanguage(text)).toBe(lang);
   });
 
   it.each([

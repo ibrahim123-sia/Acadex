@@ -1,11 +1,11 @@
 // The coach-don't-answer tutor. A reply is built only from the course's published material
 // (cited), follows the assessment's AI policy (not allowed: no help; limited: hints only),
-// is simpler and stricter for under-18s, and answers in the student's language. Whatever the
+// is simpler and stricter for under-18s, and always answers in English. Whatever the
 // model says, the reply is checked before it is kept: unsafe content, a leaked graded answer
 // or the instructions themselves are replaced with a safe reply.
 import { db } from '../db/context';
 import { aiText } from './client';
-import { detectLanguage, isInjection, LANGUAGE_NAMES, leaksAnswer, moderate, redact, refusal, type Flag, type Lang } from './guard';
+import { isInjection, leaksAnswer, moderate, redact, refusal, type Flag } from './guard';
 import { indexOffering, searchOffering, type Chunk } from './kb';
 import { data, tutorPrompt } from './prompts';
 
@@ -13,7 +13,6 @@ export interface TutorTurn {
   reply: string;
   citations: { n: number; chunk_id: number; title: string; locator: string }[];
   flag: Flag | null;
-  language: Lang;
 }
 
 interface Conversation {
@@ -69,21 +68,20 @@ async function protectedAnswers(offeringId: number): Promise<string[]> {
 const leaksInstructions = (reply: string) => /\[task: \w+ v\d+\]|Rules that always apply|<<<DATA/.test(reply);
 
 export async function tutorReply(conv: Conversation, content: string, onDelta?: (t: string) => void): Promise<TutorTurn> {
-  const language = detectLanguage(content);
-  const done = (reply: string, flag: Flag | null, citations: TutorTurn['citations'] = []) => ({ reply, flag, citations, language });
+  const done = (reply: string, flag: Flag | null, citations: TutorTurn['citations'] = []) => ({ reply, flag, citations });
 
   // the assessment's AI policy
   let mode: 'coach' | 'hints' = 'coach';
   if (conv.assessment_id) {
     const { rows } = await db.query<{ ai_policy: string }>(`SELECT ai_policy FROM assessments WHERE id = $1`, [conv.assessment_id]);
-    if (rows[0]?.ai_policy === 'not_allowed') return done(language === 'ur' ? 'آپ کے استاد نے اس کام کے لیے AI مدد بند کی ہوئی ہے۔ اپنے نوٹس دیکھیں یا استاد سے پوچھیں۔' : 'Your teacher has turned off AI help for this piece of work. Use your notes, or ask your teacher.', 'policy');
+    if (rows[0]?.ai_policy === 'not_allowed') return done('Your teacher has turned off AI help for this piece of work. Use your notes, or ask your teacher.', 'policy');
     if (rows[0]?.ai_policy === 'limited') mode = 'hints';
   }
 
   // what the student wrote
   const mod = moderate(content);
-  if (mod.flagged) return done(refusal(mod.flag!, language), mod.flag!);
-  if (isInjection(content)) return done(refusal('injection', language), 'injection');
+  if (mod.flagged) return done(refusal(mod.flag!), mod.flag!);
+  if (isInjection(content)) return done(refusal('injection'), 'injection');
 
   // the course material
   // incremental: only material changed since the last question is read again
@@ -112,7 +110,7 @@ export async function tutorReply(conv: Conversation, content: string, onDelta?: 
     `SELECT role, content FROM (SELECT role, content, id FROM ai_messages WHERE conversation_id = $1 AND flag IS NULL ORDER BY id DESC LIMIT 8) h ORDER BY id`,
     [conv.id]
   );
-  const prompt = tutorPrompt({ mode, minor: await isMinor(conv.student_id, conv.institution_id), language: LANGUAGE_NAMES[language], course: course[0]?.name ?? 'this course' });
+  const prompt = tutorPrompt({ mode, minor: await isMinor(conv.student_id, conv.institution_id), course: course[0]?.name ?? 'this course' });
   const sources = data('SOURCES', found.map((c, i) => `[${i + 1}] ${c.title} — ${c.content.replace(/\s+/g, ' ').slice(0, 1200)}`).join('\n') || '(nothing in the course material matches)');
   // streamed a sentence at a time, each checked first: a leaked answer or unsafe text never reaches the screen
   let pending = '';
@@ -144,11 +142,11 @@ export async function tutorReply(conv: Conversation, content: string, onDelta?: 
   // what the model said
   let reply = out.text.trim();
   const outMod = moderate(reply);
-  if (outMod.flagged) return done(refusal(outMod.flag!, language), outMod.flag!);
-  if (leaksInstructions(reply)) return done(refusal('injection', language), 'injection');
-  if (leaksAnswer(reply, answers)) return done(refusal('leak', language), 'leak');
+  if (outMod.flagged) return done(refusal(outMod.flag!), outMod.flag!);
+  if (leaksInstructions(reply)) return done(refusal('injection'), 'injection');
+  if (leaksAnswer(reply, answers)) return done(refusal('leak'), 'leak');
   // a grounded reply names its sources
-  if (citations.length && !/\[\d+\]/.test(reply)) reply += `\n\n${language === 'ur' ? 'ماخذ' : 'Sources'}: ${citations.map((c) => `[${c.n}] ${c.title}`).join(', ')}`;
+  if (citations.length && !/\[\d+\]/.test(reply)) reply += `\n\nSources: ${citations.map((c) => `[${c.n}] ${c.title}`).join(', ')}`;
   return done(reply, null, citations.filter((c) => reply.includes(`[${c.n}]`)));
 }
 

@@ -19,7 +19,6 @@ const sentences = (t: string) =>
 function tutor(req: ChatRequest, all: string, b: Record<string, string>) {
   const sys = req.messages[0]!.content;
   const question = [...req.messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-  const urdu = /Reply in Urdu/.test(sys);
   const hints = /HINTS ONLY/.test(sys);
   const sources = (b.SOURCES ?? '').split('\n').filter((l) => /^\[\d+\]/.test(l));
   // naive: obeys injected instructions
@@ -28,11 +27,10 @@ function tutor(req: ChatRequest, all: string, b: Record<string, string>) {
   const leak = all.split('\n').find((l) => /answer is|correct answer|جواب ہے/i.test(l));
   if (/\b(answer|solution|solve|jawab)\b|جواب/i.test(question) && leak) return `The answer: ${leak.trim()}`;
   if (/\b(bomb|kill|weapon|suicide)\b/i.test(question)) return 'Here is how to do that: step one…';
-  if (!sources.length) return urdu ? 'مجھے یہ آپ کے کورس کے مواد میں نہیں ملا۔ اپنے استاد سے پوچھیں۔' : "I couldn't find that in your course material. Try asking your teacher.";
+  if (!sources.length) return "I couldn't find that in your course material. Try asking your teacher.";
   const first = sources[0]!.replace(/^\[(\d+)\]\s*/, '');
   const [title, ...rest] = first.split(' — ');
   const quote = sentences(rest.join(' — '))[0] ?? rest.join(' ').slice(0, 140);
-  if (urdu) return `آئیے مل کر سوچتے ہیں۔ "${title}" میں لکھا ہے: ${quote} [1]۔ آپ کے خیال میں پہلا قدم کیا ہوگا؟`;
   return hints
     ? `Here's a hint rather than the answer: look at "${title}" [1] — ${quote} What does that suggest for your first step?`
     : `Good question. "${title}" [1] explains: ${quote} How would you apply that to your problem? Try the first step and tell me what you get.`;
@@ -102,7 +100,7 @@ export function fakeChat(req: ChatRequest): string {
     case 'differentiate': {
       const v = (b.VARIANT ?? 'easier').trim();
       const ss = sentences(b.MATERIAL ?? '');
-      return JSON.stringify({ title: `${v[0]!.toUpperCase()}${v.slice(1)} version`, html: ss.map((s) => `<p>${v.startsWith('translated') ? `[${v}] ` : ''}${v === 'easier' ? s.split(',')[0] : s}</p>`).join('') || '<p>…</p>' });
+      return JSON.stringify({ title: `${v[0]!.toUpperCase()}${v.slice(1)} version`, html: ss.map((s) => `<p>${v === 'easier' ? s.split(',')[0] : s}</p>`).join('') || '<p>…</p>' });
     }
     case 'feedback_draft':
       return JSON.stringify({ feedback: 'You explain the main idea clearly. Add an example from the material to support your point, and check your final step.', strengths: ['Clear main idea'], next_steps: ['Support claims with an example', 'Check the final step'] });
@@ -133,8 +131,6 @@ export function fakeChat(req: ChatRequest): string {
       return JSON.stringify(askSql(b.QUESTION ?? lastUser));
     case 'intervention':
       return JSON.stringify(/attendance/i.test(b.FACTORS ?? '') ? { suggestion: 'Call the guardian to understand the absences and agree a plan to catch up missed lessons.', kind: 'call_guardian' } : { suggestion: 'Meet the student to review missed work and agree a short study plan with weekly check-ins.', kind: 'study_plan' });
-    case 'translate':
-      return JSON.stringify({ text: `[${(b.LANGUAGE ?? 'translated').trim()}] ${b.TEXT ?? ''}` });
     default:
       return 'OK.';
   }

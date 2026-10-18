@@ -27,10 +27,10 @@ import { ask } from '../ai/ask';
 import { aiJson, aiOverview, aiSettings, aiStatus, aiText, aiTranscribe, budget } from '../ai/client';
 import { apply, COPILOT_KINDS, generate, type CopilotKind } from '../ai/copilot';
 import { processReport, similarity } from '../ai/evidence';
-import { detectLanguage, moderate, refusal } from '../ai/guard';
+import { moderate, refusal } from '../ai/guard';
 import { indexOffering, searchHelp } from '../ai/kb';
 import { FEATURE_KEYS, FEATURES, type Feature } from '../ai/models';
-import { data, helpPrompt, interventionPrompt, translatePrompt, translateSchema, vivaPrompt } from '../ai/prompts';
+import { data, helpPrompt, interventionPrompt, vivaPrompt } from '../ai/prompts';
 import { alertGuardians, computeRisk } from '../ai/risk';
 import { stuckPoints, tutorReply } from '../ai/tutor';
 import { audit } from '../lib/audit';
@@ -233,13 +233,12 @@ router.get('/ai/help/articles', async (req, res) => {
 
 router.post('/ai/help', async (req, res) => {
   const b = helpBody.parse(req.body);
-  const lang = detectLanguage(b.question);
   const mod = moderate(b.question);
-  if (mod.flagged) return void res.json({ answer: refusal(mod.flag!, lang), citations: [], ai_generated: true });
+  if (mod.flagged) return void res.json({ answer: refusal(mod.flag!), citations: [], ai_generated: true });
   const found = (await searchHelp(b.question, 4)).filter((c) => c.score > 0.05);
   const citations = found.map((c, i) => ({ n: i + 1, title: c.title, locator: c.locator }));
   const out = await aiText(ctxOf(req, 'helpdesk'), helpPrompt, [{ role: 'user', content: `${data('HELP', found.map((c, i) => `[${i + 1}] ${c.title} — ${c.content}`).join('\n') || '(no matching article)')}\n\nQuestion: ${b.question}` }], { maxTokens: 400 });
-  res.json({ answer: moderate(out.text).flagged ? refusal('off_topic', lang) : out.text, citations, ai_generated: true });
+  res.json({ answer: moderate(out.text).flagged ? refusal('off_topic') : out.text, citations, ai_generated: true });
 });
 
 // ---------------------------------------------------------------- copilot
@@ -532,46 +531,30 @@ router.post('/ai/captions/:fileId', async (req, res) => {
   const fileId = id.parse(req.params.fileId);
   const f = await fileInMyCourse(req, fileId, true);
   if (!/^(audio|video)\//.test(f.content_type)) throw badRequest('Captions are for audio and video files');
-  const b = z.object({ language: z.enum(['en', 'ur', 'ar']).optional() }).parse(req.body ?? {});
-  const t = await aiTranscribe({ institutionId: institutionId(req), userId: currentUser(req).id, offeringId: f.offering_id }, await storage().get(f.storage_key), f.original_name, b.language);
+  // captions are in English
+  const t = await aiTranscribe({ institutionId: institutionId(req), userId: currentUser(req).id, offeringId: f.offering_id }, await storage().get(f.storage_key), f.original_name, 'en');
   const { rows } = await db.query(
     `INSERT INTO media_transcripts (institution_id, file_id, language, text, vtt, status) VALUES ($1,$2,$3,$4,$5,'done')
      ON CONFLICT ON CONSTRAINT media_transcripts_file_id_language_key DO UPDATE SET text = EXCLUDED.text, vtt = EXCLUDED.vtt, status = 'done', updated_at = now() RETURNING id, language, status`,
-    [institutionId(req), fileId, b.language ?? 'en', t.text, t.vtt]
+    [institutionId(req), fileId, 'en', t.text, t.vtt]
   );
   // the transcript becomes searchable course material for the tutor
   await indexOffering(f.offering_id, institutionId(req));
   res.status(201).json({ ...rows[0], ai_generated: true });
 });
 
-router.post('/ai/captions/:fileId/translate', async (req, res) => {
-  const fileId = id.parse(req.params.fileId);
-  const f = await fileInMyCourse(req, fileId, true);
-  const b = z.object({ language: z.enum(['en', 'ur', 'ar']), from: z.enum(['en', 'ur', 'ar']).default('en') }).parse(req.body);
-  const { rows: src } = await db.query<{ vtt: string }>(`SELECT vtt FROM media_transcripts WHERE file_id = $1 AND language = $2 AND status = 'done'`, [fileId, b.from]);
-  if (!src[0]) throw badRequest('Make the captions first');
-  const lang = { en: 'English', ur: 'Urdu', ar: 'Arabic' }[b.language];
-  const gen = await aiJson(ctxOf(req, 'captions', f.offering_id), translatePrompt, [data('LANGUAGE', lang), data('TEXT', src[0].vtt.slice(0, 40000))].join('\n'));
-  const vtt = translateSchema.parse(gen.data).text;
-  await db.query(
-    `INSERT INTO media_transcripts (institution_id, file_id, language, text, vtt, status) VALUES ($1,$2,$3,$4,$5,'done')
-     ON CONFLICT ON CONSTRAINT media_transcripts_file_id_language_key DO UPDATE SET text = EXCLUDED.text, vtt = EXCLUDED.vtt, status = 'done', updated_at = now()`,
-    [institutionId(req), fileId, b.language, vtt.replace(/^WEBVTT\s*/, '').replace(/^\d+\n[\d:.]+ --> [\d:.]+\n/gm, ''), vtt]
-  );
-  res.status(201).json({ language: b.language, ai_generated: true });
-});
 
 router.get('/ai/captions/:fileId', async (req, res) => {
   const fileId = id.parse(req.params.fileId);
   await fileInMyCourse(req, fileId, false);
-  const { rows } = await db.query(`SELECT language, status, updated_at FROM media_transcripts WHERE file_id = $1 ORDER BY language`, [fileId]);
+  const { rows } = await db.query(`SELECT language, status, updated_at FROM media_transcripts WHERE file_id = $1 AND language = 'en'`, [fileId]);
   res.json(rows);
 });
 
 router.get('/ai/captions/:fileId/:language.vtt', async (req, res) => {
   const fileId = id.parse(req.params.fileId);
   await fileInMyCourse(req, fileId, false);
-  const { rows } = await db.query<{ vtt: string }>(`SELECT vtt FROM media_transcripts WHERE file_id = $1 AND language = $2 AND status = 'done'`, [fileId, z.enum(['en', 'ur', 'ar']).parse(req.params.language)]);
+  const { rows } = await db.query<{ vtt: string }>(`SELECT vtt FROM media_transcripts WHERE file_id = $1 AND language = $2 AND status = 'done'`, [fileId, z.literal('en').parse(req.params.language)]);
   if (!rows[0]) throw notFound();
   res.type('text/vtt').send(rows[0].vtt);
 });

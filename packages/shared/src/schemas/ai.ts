@@ -42,8 +42,7 @@ export const copilotBody = z.object({
   topic: text(300).optional(),
   minutes: z.coerce.number().int().min(10).max(240).optional(),
   /** differentiate */
-  variant: z.enum(['easier', 'harder', 'translated']).optional(),
-  language: z.enum(['en', 'ur', 'ar']).optional(),
+  variant: z.enum(['easier', 'harder']).optional(),
   /** report comment, guardian message */
   student_id: optionalId,
   term_id: optionalId,

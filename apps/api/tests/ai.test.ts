@@ -92,9 +92,10 @@ describe('the tutor', () => {
     expect(harm.body.content).toMatch(/trusted adult|counsellor/);
   });
 
-  it('replies in Urdu to an Urdu question', async () => {
+  it('replies in English to a question asked in Urdu', async () => {
     const res = await s1.post(`/api/ai/tutor/conversations/${conv}/messages`, { content: 'کسروں کو کیسے جمع کرتے ہیں؟ fractions denominator' });
-    expect(res.body.content).toMatch(/[؀-ۿ]/);
+    expect(res.body.content).not.toMatch(/[؀-ۿ]/);
+    expect(res.body.content).toMatch(/[a-z]/i);
   });
 
   it('follows the work’s AI policy: hints only, or no help at all', async () => {
@@ -303,16 +304,17 @@ describe('help and captions', () => {
     expect((await s1.get('/api/ai/help/articles')).body.every((a: { roles: string[] }) => a.roles.includes('student'))).toBe(true);
   });
 
-  it('captions a course video and translates them', async () => {
+  it('captions a course video in English (no translation)', async () => {
     const key = `${f.institutions.A.id}/course/test/lesson.mp4`;
     await storage().put(key, Buffer.from('fake video bytes'), 'video/mp4');
     const file = (await q(`INSERT INTO files (institution_id, storage_key, original_name, content_type, size_bytes, sha256, purpose) VALUES ($1,$2,'lesson.mp4','video/mp4',16,'x','course') RETURNING id`, [f.institutions.A.id, key]))[0];
     await q(`INSERT INTO content_items (institution_id, module_id, kind, title, file_id, completion, position, published) VALUES ($1,$2,'file','Lesson video',$3,'view',5,true)`, [f.institutions.A.id, x.module, file.id]);
     expect((await s1.post(`/api/ai/captions/${file.id}`, {})).status).toBe(403);
     expect((await t1.post(`/api/ai/captions/${file.id}`, {})).status).toBe(201);
-    expect((await t1.post(`/api/ai/captions/${file.id}/translate`, { language: 'ur' })).status).toBe(201);
+    expect((await t1.post(`/api/ai/captions/${file.id}/translate`, { language: 'ur' })).status).toBe(404);
     const vtt = await s1.get(`/api/ai/captions/${file.id}/en.vtt`);
     expect(vtt.text).toMatch(/^WEBVTT/);
-    expect((await s1.get(`/api/ai/captions/${file.id}`)).body.map((l: { language: string }) => l.language)).toEqual(['en', 'ur']);
+    expect((await s1.get(`/api/ai/captions/${file.id}`)).body.map((l: { language: string }) => l.language)).toEqual(['en']);
+    expect((await s1.get(`/api/ai/captions/${file.id}/ur.vtt`)).status).toBe(400);
   });
 });

@@ -466,7 +466,6 @@ export const lmsRoutes = (r: R): RouteDoc[] => [
   r('patch', '/api/ai/interventions/:id', 'AI', 'Update ai interventions', 'session', { body: interventionUpdateBody }),
   r('post', '/api/ai/ask', 'AI', 'Create ai ask', 'session', { body: askBody }),
   r('post', '/api/ai/captions/:fileId', 'AI', 'Create ai captions', 'session'),
-  r('post', '/api/ai/captions/:fileId/translate', 'AI', 'Create captions translate', 'session'),
   r('get', '/api/ai/captions/:fileId', 'AI', 'Get ai captions', 'session'),
   r('get', '/api/ai/captions/:fileId/:language.vtt', 'AI', 'Get ai captions', 'session'),
   r('get', '/api/messages/contacts', 'Messaging', 'People the caller may start a conversation with (search by name)', 'session'),

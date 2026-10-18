@@ -28,23 +28,20 @@ export function moderate(text: string): Moderation {
 
 export const isInjection = (text: string) => INJECTION.test(text);
 
-/** Safe replies when something is refused (in the person's language). */
-export function refusal(flag: Flag, lang: Lang): string {
-  const ur = lang === 'ur';
+/** Safe replies when something is refused (Acadex's AI replies in English). */
+export function refusal(flag: Flag): string {
   switch (flag) {
     case 'self_harm':
-      return ur
-        ? 'لگتا ہے آپ بہت مشکل وقت سے گزر رہے ہیں۔ آپ اکیلے نہیں ہیں — ابھی کسی قابلِ اعتماد بڑے، اپنے استاد یا اسکول کونسلر سے بات کریں۔ فوری خطرے میں ہوں تو 1122 پر کال کریں۔'
-        : "It sounds like you're going through something really hard. You're not alone — please talk to a trusted adult, your teacher or the school counsellor now. If you are in danger, call your local emergency number (1122 in Pakistan).";
+      return "It sounds like you're going through something really hard. You're not alone — please talk to a trusted adult, your teacher or the school counsellor now. If you are in danger, call your local emergency number (1122 in Pakistan).";
     case 'injection':
-      return ur ? 'میں صرف اس کورس میں آپ کی پڑھائی میں مدد کر سکتا ہوں۔' : "I can only help with your learning in this course.";
+      return "I can only help with your learning in this course.";
     case 'leak':
     case 'policy':
-      return ur ? 'میں اس کام کا جواب نہیں دے سکتا، لیکن ایک اشارہ دے سکتا ہوں: سوال کو چھوٹے حصوں میں تقسیم کریں اور مواد میں متعلقہ حصہ دیکھیں۔' : "I can't give the answer to graded work, but here's a hint: break the question into smaller steps and look at the related part of your course material. What's the first step?";
+      return "I can't give the answer to graded work, but here's a hint: break the question into smaller steps and look at the related part of your course material. What's the first step?";
     case 'off_topic':
-      return ur ? 'میں اس کورس کے بارے میں سوالات میں مدد کرتا ہوں۔ کورس سے متعلق کچھ پوچھیں۔' : 'I help with questions about this course. Ask me something about the course material.';
+      return 'I help with questions about this course. Ask me something about the course material.';
     default:
-      return ur ? 'میں اس میں مدد نہیں کر سکتا۔' : "I can't help with that.";
+      return "I can't help with that.";
   }
 }
 
@@ -58,18 +55,6 @@ export function redact(text: string, names: string[] = []): string {
     .replace(/(\+?\d[\d\s-]{8,}\d)/g, '[phone]');
   for (const n of names.filter((x) => x && x.length > 2)) out = out.replace(new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '[student]');
   return out;
-}
-
-// ---------------------------------------------------------------- language
-
-export type Lang = 'en' | 'ur' | 'ar';
-export const LANGUAGE_NAMES: Record<Lang, string> = { en: 'English', ur: 'Urdu', ar: 'Arabic' };
-
-/** Urdu (Nastaliq letters or common Roman Urdu), Arabic, or English. */
-export function detectLanguage(text: string): Lang {
-  if (/[؀-ۿ]/.test(text)) return /[ٹڈڑںےگچپژک]/.test(text) ? 'ur' : 'ar';
-  const roman = text.toLowerCase().match(/\b(kya|kaise|kyun|mujhe|samajh|nahi|hai|hain|batao|sawal|jawab|kaisay|karna|chahiye)\b/g);
-  return roman && roman.length >= 2 ? 'ur' : 'en';
 }
 
 // ---------------------------------------------------------------- answer leaks
