@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '6.1',
+    date: '2026-10-18',
+    title: 'Your country, your currency',
+    items: [
+      'Choose your country in Settings: currency, time zone, date format and week start follow',
+      'Online payments for your country: JazzCash and Easypaisa in Pakistan, Stripe elsewhere',
+      'Send feedback from the menu on phones',
+    ],
+  },
+  {
     version: '6.0',
     date: '2026-10-17',
     title: 'Platform, modules and connections',
@@ -29,7 +39,6 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Parent–teacher meeting booking and a help desk',
       'SMS, WhatsApp, digests and emergency broadcasts',
       'Install Acadex on your phone, use it offline, and switch on low-bandwidth mode',
-      'Every screen in Urdu and Arabic',
     ],
   },
   {
