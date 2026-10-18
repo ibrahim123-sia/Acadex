@@ -55,6 +55,7 @@ import {
   Gauge,
   WifiOff,
   BarChart3,
+  Activity,
   LibraryBig,
   Briefcase,
   Bus,
@@ -116,6 +117,8 @@ function useNav(): { title: string; items: NavItem[] }[] {
         { to: '/platform/institutions', label: t('nav.institutions', 'Institutions'), icon: Building2, permission: 'platform.institutions.read' },
         { to: '/platform/audit', label: t('nav.audit', 'Audit log'), icon: ScrollText, permission: 'platform.audit.read' },
         { to: '/platform/business', label: t('nav.business', 'Business'), icon: BarChart3, permission: 'platform.institutions.read' },
+        { to: '/platform/ai', label: t('nav.apiManagement', 'API management'), icon: Sparkles, permission: 'platform.institutions.read', end: true },
+        { to: '/platform/ai/usage', label: t('nav.aiUsage', 'AI usage'), icon: Activity, permission: 'platform.institutions.read' },
       ],
     },
     {

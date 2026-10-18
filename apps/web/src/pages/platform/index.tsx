@@ -15,6 +15,7 @@ import { usePagedList } from '@/lib/queries';
 import { InviteNotice, type Invite } from '@/components/InviteNotice';
 import { Alert, Button, Card, DataTable, Dialog, ErrorState, Field, Input, PageHeader, Pager, Select, Spinner, StatCard, StatusBadge, useToast } from '@/components/ui';
 import { RequireAuth } from '@/components/RequireAuth';
+import { AiUsagePage, ApiManagementPage } from './Ai';
 
 interface Stats {
   institutions: number;
@@ -298,6 +299,8 @@ export default function PlatformRoutes() {
       <Route index element={<RequireAuth permission="platform.institutions.read"><PlatformDashboard /></RequireAuth>} />
       <Route path="institutions" element={<RequireAuth permission="platform.institutions.read"><PlatformInstitutions /></RequireAuth>} />
       <Route path="audit" element={<RequireAuth permission="platform.audit.read"><PlatformAudit /></RequireAuth>} />
+      <Route path="ai" element={<RequireAuth permission="platform.institutions.read"><ApiManagementPage /></RequireAuth>} />
+      <Route path="ai/usage" element={<RequireAuth permission="platform.institutions.read"><AiUsagePage /></RequireAuth>} />
     </Routes>
   );
 }
