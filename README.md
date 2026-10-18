@@ -118,7 +118,7 @@ by browser push with per-type choices and quiet hours, live updates without relo
 - 📜 **API docs** generated from the same Zod schemas that validate requests (`/api/docs`)
 
 Details: [docs/architecture.md](docs/architecture.md) · [docs/security.md](docs/security.md) ·
-[docs/operations.md](docs/operations.md) · [docs/cloudflare.md](docs/cloudflare.md) (hosting on Cloudflare) · [docs/future-gaps.md](docs/future-gaps.md) (what is not done yet) · [docs/checklist.md](docs/checklist.md) (where every feature lives)
+[docs/operations.md](docs/operations.md) · [docs/cloudflare.md](docs/cloudflare.md) (hosting on Cloudflare) · [docs/future-gaps.md](docs/future-gaps.md) (what is not done yet) · [docs/checklist.md](docs/checklist.md) (where every feature lives) · [docs/learning-guide.md](docs/learning-guide.md) (how everything is built — also as [PDF](docs/Acadex-Learning-Guide.pdf))
 
 ## 🚀 Getting started
 
@@ -178,8 +178,9 @@ database in `apps/api/.env` with the demo data. First time: `npx playwright inst
 Every endpoint has denial tests (cross-role, cross-teacher, cross-institution), and the
 RLS suite checks isolation directly in the database as a non-superuser role. To use an
 existing server instead of the embedded one, set `TEST_DATABASE_URL` to a **separate**
-database. CI runs all of this plus a migrate-twice check, a backup-and-restore drill and
-the Docker image builds.
+database. CI runs the tests, typecheck, lint and build (the browser tests run locally with
+`npm run e2e`) plus a migrate-twice check, a backup-and-restore drill, a smoke test of the
+built server, the Docker image builds, gitleaks and `npm audit`.
 
 ## 📁 Project structure
 
@@ -187,27 +188,31 @@ the Docker image builds.
 apps/
   api/                 @acadex/api — Express 5 + TypeScript
     src/
-      app.ts, server.ts, config.ts, openapi.ts
-      auth/            sessions, refresh tokens, invitations, password reset, 2FA
-      rbac/            permission catalogue, can(), requirePermission
+      app.ts, server.ts, worker.ts, config.ts, openapi.ts
+      auth/            sessions, refresh tokens, invitations, password reset, 2FA, SSO helpers
+      rbac/            permission catalogue sync, can(), requirePermission
       db/              Drizzle schema, migration runner, request context (RLS), seed
-      lib/             access checks, audit, errors, mailer, pagination, locale, sentry
+      ai/              AI gate (client), model catalog, providers, prompts, tutor, knowledge base
+      jobs/            background job queue (pg-boss) and job registry
+      lib/             domain logic: ledger, payments, notify, webhooks, LTI, reports, privacy …
       middleware/      authentication
-      routes/          auth, platform, institution, structure, settings, people, imports,
-                       documents, yearend, records, roles, group, files, public, me, parent, pdf
-      storage/         file storage drivers (local / S3), uploads, virus scanning
+      routes/          one file per area (institution, people, lms, finance, exams, ai,
+                       platform-ai, platform-saas, api-v1 … — see apps/api/src/routes)
+      storage/         file storage drivers (local / S3 / R2), uploads, virus scanning
     drizzle/           migrations (generated, reviewed, forward-only)
     tests/             Vitest + Supertest, two-tenant fixture
   web/                 @acadex/web — React + Vite + TypeScript
     src/
       components/      design system (ui/), AppShell, dialogs
       lib/             api client, auth, i18n, formatting, theme, queries
-      locales/         ur.json, ar.json
-      pages/           auth, account, platform, admin, teacher, student, parent
+      locales/         en.json (labels for enum values; the interface is English)
+      pages/           account, admin, ai, auth, group, lms, modules, office, parent,
+                       platform, public, reach, site, student, teacher
 packages/
   shared/              @acadex/shared — Zod schemas, permissions, constants, types
 ops/                   backup / restore / restore-verification scripts
-docs/                  architecture, security, operations, Cloudflare hosting, feature checklist
+docs/                  architecture, security, operations, AI, platform, Cloudflare hosting,
+                       feature checklist, future gaps, learning guide (+ PDF)
 cloudflare/            the Cloudflare Worker and wrangler config (docs/cloudflare.md)
 ```
 
