@@ -12,10 +12,10 @@ Items that were partial or missing in the walk-through were closed on this branc
 
 | Feature | Status | Where |
 |---|---|---|
-| Self-serve sign-up with trial, manual onboarding | Done | `api/routes/site.ts` (`/site/signup`), `api/routes/platform.ts`, `web/pages/site/Site.tsx` |
+| Self-serve sign-up with trial, manual onboarding | Done | `api/routes/site.ts` (`/api/public/signup`), `api/routes/platform.ts`, `web/pages/site/Site.tsx` |
 | Plans, feature flags per plan and per tenant, add-on modules | Done | `plans` table, `institutions.feature_overrides`, `api/lib/platform.ts` (`entitlements`, `assertFeature`, `assertModule`) |
 | SaaS billing: Stripe + bank transfer / manual, multi-currency, tax, invoices, dunning, up/downgrade, AI add-on | Done | `api/lib/platform.ts` (`invoiceInstitution`, `dunningJob`, `stripeCheckout`), `api/routes/billing-webhook.ts`, `web/pages/office/Platform.tsx` (Billing) |
-| Usage metering with cost and margin; AI usage by institution / feature / model / day with filters and CSV | Done | `usage_snapshots`, `api/lib/platform.ts` (`usageJob`, `costReport`), `web/pages/platform/Saas.tsx` |
+| Usage metering with cost and margin; AI usage by institution / feature / model / day with filters and CSV | Done | `usage_snapshots`, `api/lib/platform.ts` (`usageJob`, `costReport`), `web/pages/platform/Saas.tsx`; AI usage: `api/routes/platform-ai.ts`, `web/pages/platform/Ai.tsx` (`AiUsagePage`) |
 | Tenant health, impersonation with audit + tenant consent, platform audit log, announcements | Done | `api/routes/platform-saas.ts` (`/impersonate` refuses without `support_access`), `web/pages/platform/Saas.tsx` |
 | In-app changelog | Done *(closed in the walk-through)* | `shared/changelog.ts`, `web/pages/office/Extras.tsx` (`WhatsNewPage`, header `WhatsNewLink`) |
 | Full ZIP export, deletion with grace period | Done | `api/lib/platform.ts` (`buildExport`, `tenantCleanupJob`), `api/lib/zip.ts` |
@@ -127,7 +127,7 @@ Items that were partial or missing in the walk-through were closed on this branc
 | Early warning with explainable factors | Done *(teachers now see it on the dashboard)* | `api/ai/risk.ts`, `api/routes/me.ts` (`at_risk`) |
 | Ask Acadex over safe views | Done | `api/ai/ask.ts` |
 | AI helpdesk | Done | `api/routes/ai.ts` |
-| Smart timetable + captions / translation | Done | `api/routes/timetable.ts`, `api/routes/reach.ts` |
+| Smart timetable + captions (English) | Done | `api/routes/timetable.ts`, `api/routes/ai.ts` (`/ai/captions/:fileId`) |
 | Safety: moderation, jailbreak / leak tests, ≥100-case eval suite in CI, "AI-generated" labels | Done | `api/ai/guard.ts`, `api/ai/evals.ts`, `apps/api/tests/ai-evals.test.ts` |
 
 ## 4.11 Analytics & reports

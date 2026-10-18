@@ -76,7 +76,7 @@ email a signed download link at 07:00 local time (weekly on Mondays, monthly on 
 
 ## Load test
 
-`npx tsx scripts/load-test.ts --url http://localhost:5000/api --users 50 --seconds 60` — virtual
+From `apps/api`: `npx tsx scripts/load-test.ts --url http://localhost:5000/api --users 50 --seconds 60` — virtual
 users sign in with the demo accounts and browse dashboards, courses, notifications, the
 timetable and fees; it prints requests per second, p50 / p95 / p99 and errors per endpoint and
 fails above the budgets (`--max-p95 800 --max-errors 1`).
