@@ -118,6 +118,9 @@ describe('HTTP hardening', () => {
     const res = await request(app).get('/api/health');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['x-powered-by']).toBeUndefined();
+    // personal API answers are never cached
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect((await request(app).get('/api/public/plans')).headers['cache-control']).toBe('no-store');
   });
 
   it('rejects oversized JSON bodies', async () => {

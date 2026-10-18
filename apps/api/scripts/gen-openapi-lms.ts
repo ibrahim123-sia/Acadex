@@ -27,6 +27,7 @@ const FILES = {
   'bookings.ts': ['/api', 'Room bookings'],
   'tenant-saas.ts': ['/api', 'Institution platform'],
   'platform-saas.ts': ['/api/platform', 'Platform business'],
+  'platform-ai.ts': ['/api/platform', 'Platform AI'],
   'site.ts': ['/api/public', 'Public site'],
   'lti-launch.ts': ['/api/lti', 'LTI 1.3 (public)'],
   'sso.ts': ['/api/auth/sso', 'Single sign-on (public)'],

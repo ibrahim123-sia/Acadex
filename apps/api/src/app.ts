@@ -33,6 +33,7 @@ import lmsRoutes from './routes/lms';
 import paymentRoutes from './routes/payments';
 import integrationWebhooks from './routes/integrations';
 import platformSaasRoutes from './routes/platform-saas';
+import platformAiRoutes from './routes/platform-ai';
 import siteRoutes from './routes/site';
 import ltiLaunchRoutes from './routes/lti-launch';
 import ssoRoutes from './routes/sso';
@@ -58,6 +59,12 @@ export function createApp(config: Config = getConfig()) {
     })
   );
   // provider webhooks are verified against the exact bytes sent
+  // API answers are personal and change often: never kept in browser or shared caches (a route
+  // that wants caching sets its own header)
+  app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use('/api/payments/webhook', express.raw({ type: () => true, limit: '1mb' }));
   app.use('/api/integrations/zoom/webhook', express.raw({ type: () => true, limit: '1mb' }));
   app.use('/api/billing/stripe/webhook', express.raw({ type: () => true, limit: '1mb' }));
@@ -151,6 +158,7 @@ export function createApp(config: Config = getConfig()) {
   app.use('/api/auth', authRoutes);
   app.use('/api/platform', platformRoutes);
   app.use('/api/platform', platformSaasRoutes);
+  app.use('/api/platform', platformAiRoutes);
   app.use('/api/institution', rolesRoutes);
   app.use('/api/institution', institutionRoutes);
   app.use('/api/institution', structureRoutes);
