@@ -54,7 +54,7 @@ To draft questions with AI, open Copilot, choose Quiz questions, pick the course
     slug: 'collect-fees',
     title: 'Collect fees',
     roles: ['admin'],
-    body: `Set up a fee structure once (Finance → Fee structures): fee heads, instalments and a late fine. Click Generate invoices: you see every invoice before it is created. Families pay online from their Fees page or the pay link in reminders, or at the counter: open the invoice and click Record payment to print a receipt. Defaulters lists everyone overdue; tick them and click Remind to send SMS, WhatsApp or email.`,
+    body: `Set up a fee structure once (Finance → Fee structures): fee heads, instalments and a late fine. Click Generate invoices: you see every invoice before it is created. Families pay online from their Fees page or the pay link in reminders, or at the counter: open the invoice and click Record payment to print a receipt. Defaulters lists everyone overdue; tick them and click Remind to notify them in the app and by email (and WhatsApp, if it is set up).`,
   },
   {
     slug: 'online-payments',

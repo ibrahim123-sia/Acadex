@@ -8,6 +8,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '6.2',
+    date: '2026-10-19',
+    title: 'Notifications that cost nothing',
+    items: [
+      'Notifications, fee reminders and emergency alerts go in the app, by email and by push',
+      'Text messages (SMS) are no longer sent; WhatsApp appears only where it is switched on',
+    ],
+  },
+  {
     version: '6.1',
     date: '2026-10-18',
     title: 'Your country, your currency',
@@ -37,7 +46,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [
       'Messages with safeguarding for students under 18',
       'Parent–teacher meeting booking and a help desk',
-      'SMS, WhatsApp, digests and emergency broadcasts',
+      'Digests and emergency broadcasts',
       'Install Acadex on your phone, use it offline, and switch on low-bandwidth mode',
     ],
   },

@@ -147,7 +147,7 @@ function UsageTab() {
           { key: 's', header: t('plat.students', 'Students'), cell: (r) => r.students },
           { key: 'g', header: 'GB', cell: (r) => r.storage_gb.toFixed(2), hideOnMobile: true },
           { key: 'ai', header: 'AI $', cell: (r) => r.ai_usd.toFixed(2), hideOnMobile: true },
-          { key: 'm', header: t('plat.messages', 'SMS / WA'), cell: (r) => `${r.sms} / ${r.whatsapp}`, hideOnMobile: true },
+          { key: 'm', header: t('plat.messages', 'WhatsApp'), cell: (r) => r.whatsapp, hideOnMobile: true },
           { key: 'c', header: t('plat.cost', 'Cost $'), cell: (r) => r.cost_usd.toFixed(2) },
           { key: 'r', header: t('plat.revenue', 'Revenue'), cell: (r) => Object.entries(r.revenue).map(([c, v]) => `${c} ${v.toFixed(0)}`).join(', ') || '—' },
           { key: 'mg', header: t('plat.margin', 'Margin $'), cell: (r) => (r.margin_usd == null ? '—' : <span className={r.margin_usd < 0 ? 'text-danger' : 'text-success'}>{r.margin_usd.toFixed(2)}</span>) },
