@@ -6,6 +6,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Copy, FileUp, Pencil, Plus, Trash2, Wand2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useChannels } from '@/lib/queries';
 import { useAuth } from '@/lib/auth';
 import { formatDate, formatMoney, todayISO } from '@/lib/format';
 import { usePagedList } from '@/lib/queries';
@@ -671,6 +672,8 @@ export function SettingsTab() {
 }
 
 function FeeSettingsCard() {
+  const offered = useChannels();
+  const reminderChannels = (['in_app', 'email', 'whatsapp'] as const).filter((c) => c !== 'whatsapp' || offered.data?.whatsapp);
   const { t } = useTranslation();
   const toast = useToast();
   const q = useQuery({ queryKey: ['/finance/settings'], queryFn: () => api.get<{ show_to_students: boolean; remind_before_days: number[]; remind_after_days: number[]; reminder_channels: string[]; voucher_note: string }>('/finance/settings') });
@@ -692,10 +695,10 @@ function FeeSettingsCard() {
         <Field label={t('fees.remindAfter', 'And this many days after it')} hint="e.g. 1, 7">{(a) => <Input {...a} defaultValue={days(cur.remind_after_days)} onBlur={(e) => setV({ ...cur, remind_after_days: parse(e.target.value).filter((x) => x > 0) })} />}</Field>
       </div>
       <div className="flex flex-wrap gap-4 text-sm">
-        {(['in_app', 'email', 'sms', 'whatsapp'] as const).map((c) => (
+        {reminderChannels.map((c) => (
           <label key={c} className="flex items-center gap-1.5">
             <input type="checkbox" checked={cur.reminder_channels.includes(c)} onChange={(e) => setV({ ...cur, reminder_channels: e.target.checked ? [...cur.reminder_channels, c] : cur.reminder_channels.filter((x) => x !== c) })} />
-            {{ in_app: t('fees.inApp', 'App'), email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp' }[c]}
+            {{ in_app: t('fees.inApp', 'App'), email: 'Email', whatsapp: 'WhatsApp' }[c]}
           </label>
         ))}
       </div>

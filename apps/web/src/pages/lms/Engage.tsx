@@ -165,13 +165,13 @@ export function CalendarPage() {
 
 // ---------------------------------------------------------------- notifications
 
-type Chan = { email: boolean; push: boolean; sms?: boolean; whatsapp?: boolean };
+type Chan = { email: boolean; push: boolean; whatsapp?: boolean };
 interface Prefs {
   types: { key: string; label: string; urgent?: boolean; default: Chan }[];
   channels: Record<string, Chan>;
   quiet_hours: { start: string; end: string } | null;
   digest: 'off' | 'daily' | 'weekly';
-  phone: { sms: boolean; whatsapp: boolean };
+  phone: { whatsapp: boolean };
   push: { available: boolean; public_key: string | null };
 }
 
@@ -245,7 +245,6 @@ export function NotificationsPage() {
                     <th className="text-start font-medium" />
                     <th className="w-16 font-medium">{t('notif.email', 'Email')}</th>
                     <th className="w-16 font-medium">{t('notif.push', 'Push')}</th>
-                    {prefs.data.phone.sms && <th className="w-16 font-medium">SMS</th>}
                     {prefs.data.phone.whatsapp && <th className="w-16 font-medium">WhatsApp</th>}
                   </tr>
                 </thead>
@@ -263,7 +262,6 @@ export function NotificationsPage() {
                         <td className="py-1">{t(`notif.types.${ty.key}`, ty.label)}{ty.urgent && <span className="block text-[11px] text-fg-muted">{t('notif.alwaysOn', 'Always on every channel')}</span>}</td>
                         {box('email', t('notif.email', 'Email'))}
                         {box('push', t('notif.push', 'Push'))}
-                        {prefs.data!.phone.sms && box('sms', 'SMS')}
                         {prefs.data!.phone.whatsapp && box('whatsapp', 'WhatsApp')}
                       </tr>
                     );
