@@ -69,7 +69,8 @@ export const emailTokens = pgTable(
   ]
 );
 
-/** A second factor. The TOTP secret is encrypted at rest (AES-256-GCM). */
+/** A second factor: an authenticator app (TOTP; the secret encrypted at rest with AES-256-GCM) or codes
+ * sent by email (no secret: the codes live in mfa_email_codes). */
 export const mfaFactors = pgTable(
   'mfa_factors',
   {
@@ -85,7 +86,28 @@ export const mfaFactors = pgTable(
   (t) => [
     unique('mfa_factors_user_id_type_key').on(t.userId, t.type),
     foreignKey({ columns: [t.userId], foreignColumns: [users.id], name: 'mfa_factors_user_id_fkey' }).onDelete('cascade'),
-    check('mfa_factors_type_check', sql`${t.type} IN ('totp')`),
+    check('mfa_factors_type_check', sql`${t.type} IN ('totp', 'email')`),
+  ]
+);
+
+/** Six-digit codes sent by email for two-step verification (stored hashed, 10 minutes, 5 tries). */
+export const mfaEmailCodes = pgTable(
+  'mfa_email_codes',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull(),
+    /** enable: confirming the email method; verify: signing in or confirming a security change */
+    purpose: text('purpose').notNull(),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index('idx_mfa_email_codes_user').on(t.userId, t.purpose, t.createdAt),
+    foreignKey({ columns: [t.userId], foreignColumns: [users.id], name: 'mfa_email_codes_user_id_fkey' }).onDelete('cascade'),
+    check('mfa_email_codes_purpose_check', sql`${t.purpose} IN ('enable', 'verify')`),
   ]
 );
 

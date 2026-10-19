@@ -155,6 +155,13 @@
       "when": 1792244596299,
       "tag": "0021_room_bookings",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792396651578,
+      "tag": "0022_mfa_email",
+      "breakpoints": true
     }
   ]
 }
