@@ -71,13 +71,10 @@ const schema = z.object({
   VAPID_SUBJECT: z.string().default('mailto:admin@acadex.app'),
   /** where payment providers send results (webhooks); defaults to APP_URL/api */
   API_PUBLIC_URL: z.string().url().optional(),
-  /** text messages: none | log (printed) | fake (tests) | twilio */
-  SMS_DRIVER: z.enum(['none', 'log', 'fake', 'twilio']).default('log'),
-  /** WhatsApp: none | log | fake | twilio | meta (WhatsApp Cloud API) */
-  WHATSAPP_DRIVER: z.enum(['none', 'log', 'fake', 'twilio', 'meta']).default('log'),
+  /** WhatsApp (charged per message by the provider, so off by default): none | log | fake | twilio | meta (WhatsApp Cloud API) */
+  WHATSAPP_DRIVER: z.enum(['none', 'log', 'fake', 'twilio', 'meta']).default('none'),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
-  TWILIO_SMS_FROM: z.string().optional(),
   TWILIO_WHATSAPP_FROM: z.string().optional(),
   META_WHATSAPP_TOKEN: z.string().optional(),
   META_WHATSAPP_PHONE_ID: z.string().optional(),
@@ -154,9 +151,8 @@ export interface Config {
   billing: { stripeSecretKey?: string; stripeWebhookSecret?: string };
   sso: { google: { clientId?: string; clientSecret?: string }; microsoft: { clientId?: string; clientSecret?: string; tenant: string } };
   messaging: {
-    sms: 'none' | 'log' | 'fake' | 'twilio';
     whatsapp: 'none' | 'log' | 'fake' | 'twilio' | 'meta';
-    twilio: { accountSid?: string; authToken?: string; smsFrom?: string; whatsappFrom?: string };
+    twilio: { accountSid?: string; authToken?: string; whatsappFrom?: string };
     meta: { token?: string; phoneId?: string; template: string };
   };
 }
@@ -191,8 +187,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (c.JOBS_SCHEDULE === 'external' && !c.CRON_SECRET) problems.push('  - CRON_SECRET: required when JOBS_SCHEDULE=external (otherwise no scheduled job ever runs)');
   if (c.CRON_SECRET && c.CRON_SECRET.length < 32) problems.push('  - CRON_SECRET: at least 32 characters (openssl rand -hex 32)');
   if (c.STORAGE_DRIVER === 's3' && !c.S3_BUCKET) problems.push('  - S3_BUCKET: required when STORAGE_DRIVER=s3');
-  if ((c.SMS_DRIVER === 'twilio' || c.WHATSAPP_DRIVER === 'twilio') && (!c.TWILIO_ACCOUNT_SID || !c.TWILIO_AUTH_TOKEN)) {
-    problems.push('  - TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN: required when SMS_DRIVER or WHATSAPP_DRIVER is twilio');
+  if (c.WHATSAPP_DRIVER === 'twilio' && (!c.TWILIO_ACCOUNT_SID || !c.TWILIO_AUTH_TOKEN)) {
+    problems.push('  - TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN: required when WHATSAPP_DRIVER is twilio');
   }
   if (c.WHATSAPP_DRIVER === 'meta' && (!c.META_WHATSAPP_TOKEN || !c.META_WHATSAPP_PHONE_ID)) {
     problems.push('  - META_WHATSAPP_TOKEN / META_WHATSAPP_PHONE_ID: required when WHATSAPP_DRIVER=meta');
@@ -276,9 +272,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       microsoft: { clientId: c.MICROSOFT_CLIENT_ID, clientSecret: c.MICROSOFT_CLIENT_SECRET, tenant: c.MICROSOFT_TENANT },
     },
     messaging: {
-      sms: c.SMS_DRIVER,
       whatsapp: c.WHATSAPP_DRIVER,
-      twilio: { accountSid: c.TWILIO_ACCOUNT_SID, authToken: c.TWILIO_AUTH_TOKEN, smsFrom: c.TWILIO_SMS_FROM, whatsappFrom: c.TWILIO_WHATSAPP_FROM },
+      twilio: { accountSid: c.TWILIO_ACCOUNT_SID, authToken: c.TWILIO_AUTH_TOKEN, whatsappFrom: c.TWILIO_WHATSAPP_FROM },
       meta: { token: c.META_WHATSAPP_TOKEN, phoneId: c.META_WHATSAPP_PHONE_ID, template: c.META_WHATSAPP_TEMPLATE },
     },
   };

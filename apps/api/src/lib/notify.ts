@@ -1,5 +1,5 @@
 // Notifications. notify() writes the in-app notification (and a live event for open tabs) in
-// the caller's transaction and queues delivery by email, push, SMS and WhatsApp, which then
+// the caller's transaction and queues delivery by email, push and WhatsApp, which then
 // follows each person's preferences, quiet hours and digest choice and is recorded in
 // delivery_logs. Urgent types (emergency) go out at once on every channel. The digest job
 // sends one email a day or a week instead of one per notification.
@@ -33,7 +33,7 @@ export interface NotifyInput {
   /** only these delivery channels (broadcasts); in-app is always written */
   channels?: DeliveryChannel[];
 }
-export type DeliveryChannel = 'email' | 'push' | 'sms' | 'whatsapp';
+export type DeliveryChannel = 'email' | 'push' | 'whatsapp';
 
 /** Notify people. Returns how many notifications were created. */
 export async function notify(n: NotifyInput): Promise<number> {
@@ -71,7 +71,7 @@ interface DeliveryRow {
   link: string;
   email: string;
   is_active: boolean;
-  channels: Record<string, { email: boolean; push: boolean; sms?: boolean; whatsapp?: boolean }> | null;
+  channels: Record<string, { email: boolean; push: boolean; whatsapp?: boolean }> | null;
   quiet_hours: { start: string; end: string } | null;
   digest: string | null;
   by_phone: boolean | null;
@@ -111,10 +111,10 @@ export const deliverJob = defineJob<{ ids: number[]; now?: string; channels?: De
       const ch = channelsFor(n.type, n.channels);
       // a daily / weekly digest replaces single emails (urgent ones still go at once)
       if (!urgent && n.digest && n.digest !== 'off') ch.email = false;
-      // text messages cost the institution money: only where it allows them (always for emergencies)
-      if (!urgent && !n.by_phone) ch.sms = ch.whatsapp = false;
-      if (channels) for (const k of ['email', 'push', 'sms', 'whatsapp'] as const) if (!channels.includes(k)) ch[k] = false;
-      if (!ch.email && !ch.push && !ch.sms && !ch.whatsapp) continue;
+      // WhatsApp messages cost money: only where the institution allows them (always for emergencies)
+      if (!urgent && !n.by_phone) ch.whatsapp = false;
+      if (channels) for (const k of ['email', 'push', 'whatsapp'] as const) if (!channels.includes(k)) ch[k] = false;
+      if (!ch.email && !ch.push && !ch.whatsapp) continue;
       const tz = n.timezone ?? 'Asia/Karachi';
       if (!urgent && inQuietHours(minutesIn(tz, at), n.quiet_hours)) {
         // try again when quiet hours are over (checked every 15 minutes)
@@ -137,7 +137,7 @@ export const deliverJob = defineJob<{ ids: number[]; now?: string; channels?: De
         );
         logs.push({ notification_id: n.id, user_id: n.user_id, institution_id: n.institution_id, channel: 'email', status: 'sent', error: null });
       }
-      for (const phoneChannel of ['sms', 'whatsapp'] as Channel[]) {
+      for (const phoneChannel of ['whatsapp'] as Channel[]) {
         if (!ch[phoneChannel] || !channelEnabled(phoneChannel) || !n.institution_id) continue;
         if (!n.phone) {
           logs.push({ notification_id: n.id, user_id: n.user_id, institution_id: n.institution_id, channel: phoneChannel, status: 'skipped', error: 'no phone number' });

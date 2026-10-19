@@ -92,7 +92,7 @@ export const ptmSlotPatch = z.object({ status: z.enum(['open', 'blocked', 'done'
 
 // ---------------------------------------------------------------- broadcasts and delivery
 
-export const BROADCAST_CHANNELS = ['app', 'email', 'push', 'sms', 'whatsapp'] as const;
+export const BROADCAST_CHANNELS = ['app', 'email', 'push', 'whatsapp'] as const;
 export const broadcastBody = z.object({
   title: requiredText(160),
   message: requiredText(1000),

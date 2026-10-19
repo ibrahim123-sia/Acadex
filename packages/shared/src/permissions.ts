@@ -68,7 +68,7 @@ export const PERMISSIONS = {
   'ptm.manage': 'Organise parent–teacher meetings',
   'broadcast.send': 'Send emergency broadcasts on every channel',
   'integrations.manage': 'Connect Zoom, Microsoft Teams and Google Meet',
-  'delivery.read': 'See delivery logs of emails, push, SMS and WhatsApp and retry failures',
+  'delivery.read': 'See delivery logs of emails, push and WhatsApp and retry failures',
   'billing.manage': "Manage the institution's Acadex plan, billing details and invoices",
   'reports.view': 'Run, export and schedule institution reports',
   'privacy.manage': "Handle people's privacy requests and see consent records",

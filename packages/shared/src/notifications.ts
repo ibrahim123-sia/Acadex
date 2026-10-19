@@ -9,8 +9,8 @@ interface TypeDef {
 }
 
 /**
- * What people can be notified about. In-app notifications are always on; email, push, SMS and
- * WhatsApp follow each person's preferences, starting from these defaults (SMS and WhatsApp
+ * What people can be notified about. In-app notifications are always on; email, push and
+ * WhatsApp follow each person's preferences, starting from these defaults (WhatsApp
  * start off, and only work where the institution allows them).
  */
 export const NOTIFICATION_TYPES = {
@@ -39,7 +39,8 @@ export const NOTIFICATION_TYPE_KEYS = Object.keys(NOTIFICATION_TYPES) as Notific
 
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected a time as HH:MM');
 
-export const channelChoice = z.object({ email: z.boolean(), push: z.boolean(), sms: z.boolean().default(false), whatsapp: z.boolean().default(false) });
+/** (SMS was removed; old saved choices that mention it are ignored) */
+export const channelChoice = z.object({ email: z.boolean(), push: z.boolean(), whatsapp: z.boolean().default(false) });
 export type ChannelChoice = z.infer<typeof channelChoice>;
 
 export const notificationPreferencesBody = z.object({
@@ -71,7 +72,7 @@ export const isUrgent = (type: string) => !!(NOTIFICATION_TYPES[type as Notifica
 /** The channels a person gets for a type: their choice, else the default. Urgent types use every channel. */
 export function channelsFor(type: string, prefs: Partial<Record<string, Partial<ChannelChoice>>> | null | undefined): ChannelChoice {
   const def: TypeDef = NOTIFICATION_TYPES[type as NotificationType] ?? NOTIFICATION_TYPES.system;
-  if (def.urgent) return { email: true, push: true, sms: true, whatsapp: true };
+  if (def.urgent) return { email: true, push: true, whatsapp: true };
   const p = prefs?.[type];
-  return { email: p?.email ?? def.email, push: p?.push ?? def.push, sms: p?.sms ?? false, whatsapp: p?.whatsapp ?? false };
+  return { email: p?.email ?? def.email, push: p?.push ?? def.push, whatsapp: p?.whatsapp ?? false };
 }

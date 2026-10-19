@@ -1,4 +1,4 @@
-// Fee reminders (before and after the due date) over in-app / email notifications, SMS and
+// Fee reminders (before and after the due date) over in-app / email notifications and
 // WhatsApp, each sent once per invoice, step and channel; and the daily fee job (late fines,
 // then reminders) for every institution.
 import { feeSettingsBody, type FeeSettings } from '@acadex/shared';
@@ -39,7 +39,7 @@ const DUE_SQL = `
     FROM invoices i JOIN institutions ins ON ins.id = i.institution_id JOIN students st ON st.id = i.student_id
    WHERE i.institution_id = $1 AND i.status IN ('issued', 'partially_paid') AND i.total > i.paid`;
 
-/** Guardians who may see fees, with their phones (for SMS / WhatsApp). */
+/** Guardians who may see fees, with their phones (for WhatsApp). */
 async function guardianPhones(invoiceId: number) {
   const { rows } = await db.query<{ phone: string; user_id: number | null }>(
     `SELECT g.phone, g.user_id FROM invoices i JOIN guardianships gs ON gs.student_id = i.student_id JOIN guardians g ON g.id = gs.guardian_id

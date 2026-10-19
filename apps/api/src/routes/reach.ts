@@ -1,6 +1,6 @@
 // Reach: help-desk tickets (complaints, feedback — optionally anonymous — with status, SLA and
 // satisfaction), parent–teacher meetings (slots generated per teacher, booked by guardians),
-// emergency broadcasts on every channel (also to guardians without an account, by SMS /
+// emergency broadcasts on every channel (also to guardians without an account, by
 // WhatsApp), delivery logs with retry, and the institution's Zoom / Teams / Meet accounts.
 // Mounted under /api.
 import { Router, type Request } from 'express';
@@ -478,7 +478,7 @@ export const broadcastJob = defineJob<{ id: number }>({
       const delivery = b.channels.filter((c): c is DeliveryChannel => c !== 'app');
       const people = await notify({ institutionId: b.institution_id, userIds, type: 'emergency', title: b.title, message: b.message, link: '/notifications', channels: delivery, dedupeKey: `broadcast:${b.id}` });
       let texted = 0;
-      for (const ch of ['sms', 'whatsapp'] as Channel[]) {
+      for (const ch of ['whatsapp'] as Channel[]) {
         if (!b.channels.includes(ch) || !channelEnabled(ch)) continue;
         for (const phone of phones) if (await sendAndLog(b.institution_id, { channel: ch, to: phone, text: `${b.title}: ${b.message}`.slice(0, 640) })) texted++;
       }
@@ -496,7 +496,7 @@ router.get('/broadcasts', requirePermission('broadcast.send'), async (req, res) 
   res.json(rows);
 });
 
-/** Send an emergency broadcast now (in the app, by email, push, SMS and WhatsApp). */
+/** Send an emergency broadcast now (in the app, by email, push and WhatsApp). */
 router.post('/broadcasts', requirePermission('broadcast.send'), async (req, res) => {
   const b = broadcastBody.parse(req.body);
   const inst = institutionId(req);
@@ -518,14 +518,14 @@ router.post('/broadcasts', requirePermission('broadcast.send'), async (req, res)
 
 // ---------------------------------------------------------------- delivery logs
 
-/** What went out by email, push, SMS and WhatsApp, and what failed. */
+/** What went out by email, push and WhatsApp (and SMS, before it was removed), and what failed. */
 router.get('/delivery-logs', requirePermission('delivery.read'), async (req, res) => {
   const pg = parsePage(req.query, { defaultSize: 50 });
   const f = z.object({ status: z.enum(['sent', 'failed', 'skipped']).optional(), channel: z.enum(['email', 'push', 'sms', 'whatsapp']).optional() }).parse(req.query);
   // delivery logs are private to their person under row-level security; the office reads its own institution's here
   const { rows } = await asSystem(() => db.query(
     `SELECT l.id, l.channel, l.status, l.error, l.attempts, l.created_at, l.to_address, u.full_name AS person, n.title,
-            (l.status = 'failed' AND (l.channel IN ('sms', 'whatsapp') AND l.body IS NOT NULL OR l.notification_id IS NOT NULL)) AS retryable,
+            (l.status = 'failed' AND l.channel <> 'sms' AND (l.channel = 'whatsapp' AND l.body IS NOT NULL OR l.notification_id IS NOT NULL)) AS retryable,
             count(*) OVER () AS _total
        FROM delivery_logs l LEFT JOIN users u ON u.id = l.user_id LEFT JOIN notifications n ON n.id = l.notification_id
       WHERE l.institution_id = $1 AND ($2::text IS NULL OR l.status = $2) AND ($3::text IS NULL OR l.channel = $3)
@@ -543,7 +543,8 @@ router.post('/delivery-logs/:id/retry', requirePermission('delivery.read'), asyn
   const l = rows[0];
   if (!l) throw notFound();
   if (l.status !== 'failed') throw conflict('Only failed deliveries can be retried', 'NOT_FAILED');
-  if (l.channel === 'sms' || l.channel === 'whatsapp') {
+  if (l.channel === 'sms') throw conflict('SMS is no longer sent', 'NOT_RETRYABLE');
+  if (l.channel === 'whatsapp') {
     const r = await resend(l.id);
     if (r.error === 'nothing to resend' && l.notification_id) {
       await enqueue('notify.deliver', { ids: [l.notification_id], channels: [l.channel] });

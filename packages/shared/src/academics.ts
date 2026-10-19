@@ -404,7 +404,7 @@ export const institutionSettings = z.object({
   ai: aiSettingsBody.partial().optional(),
   /** messaging and safeguarding rules */
   messaging: messagingSettingsBody.partial().optional(),
-  /** notifications may also go out by SMS / WhatsApp when a person chooses it (the institution pays for messages) */
+  /** notifications may also go out by WhatsApp when a person chooses it (the institution pays for messages) */
   notify_by_phone: z.boolean().optional(),
   /** the first day of the week in calendars and timetables (0 = Sunday … 6 = Saturday) */
   week_start: z.number().int().min(0).max(6).optional(),

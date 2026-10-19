@@ -389,11 +389,11 @@ router.get('/safeguarding/conversations', requirePermission('messages.review'), 
 
 // ---------------------------------------------------------------- settings
 
-/** Messaging and safeguarding rules, and whether notifications may go out by SMS / WhatsApp. */
+/** Messaging and safeguarding rules, and whether notifications may go out by WhatsApp. */
 router.get('/messaging/settings', requirePermission('settings.manage'), async (req, res) => {
   const inst = institutionId(req);
   const { rows } = await db.query<{ by_phone: boolean | null }>(`SELECT (settings->>'notify_by_phone')::boolean AS by_phone FROM institutions WHERE id = $1`, [inst]);
-  res.json({ messaging: await messagingSettings(inst), notify_by_phone: !!rows[0]?.by_phone, drivers: { sms: channelEnabled('sms'), whatsapp: channelEnabled('whatsapp') } });
+  res.json({ messaging: await messagingSettings(inst), notify_by_phone: !!rows[0]?.by_phone, drivers: { whatsapp: channelEnabled('whatsapp') } });
 });
 
 router.put('/messaging/settings', requirePermission('settings.manage'), async (req, res) => {
