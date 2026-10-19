@@ -62,7 +62,7 @@ teacher copilot whose drafts (quizzes, rubrics, lesson plans, feedback, report c
 "extend this by two days") are applied only on approval; grading suggestions kept as
 drafts; evidence of how work was written instead of AI detection; nightly early-warning
 scores with interventions; Ask Acadex for questions about your own data; captions; a help
-assistant — with budgets, usage and cost, and off switches everywhere ([docs/ai.md](docs/ai.md)).
+assistant — with budgets, usage and cost, and off switches everywhere (details in `docs/ai.md`).
 
 **Reach** — safeguarded messaging (guardians copied when a student under 18 is involved, a
 review queue, reports, nothing deleted), email / push (WhatsApp optional) with digests and
@@ -72,7 +72,7 @@ from Acadex, an installable app that works offline, and low-bandwidth mode.
 **Platform** — plans with limits, trials and self-serve sign-up, invoices with tax, card or
 bank payment, usage and margin, white-label domains, data exports and account closing; Library,
 HR & payroll, Transport, Hostel, Inventory and Visitors modules; reports with scheduled emails;
-a REST API, webhooks, LTI 1.3, OneRoster and Google / Microsoft sign-in ([docs/platform.md](docs/platform.md)).
+a REST API, webhooks, LTI 1.3, OneRoster and Google / Microsoft sign-in (details in `docs/platform.md`).
 
 **Admissions** — branded online application forms with documents and an application fee,
 an enquiry tracker with follow-ups, online or in-hall entrance tests, merit lists, offers
@@ -117,8 +117,9 @@ by browser push with per-type choices and quiet hours, live updates without relo
   English; light / dark theme
 - 📜 **API docs** generated from the same Zod schemas that validate requests (`/api/docs`)
 
-Details: [docs/architecture.md](docs/architecture.md) · [docs/security.md](docs/security.md) ·
-[docs/operations.md](docs/operations.md) · [docs/cloudflare.md](docs/cloudflare.md) (hosting on Cloudflare) · [docs/future-gaps.md](docs/future-gaps.md) (what is not done yet) · [docs/checklist.md](docs/checklist.md) (where every feature lives) · [docs/learning-guide.md](docs/learning-guide.md) (how everything is built — also as [PDF](docs/Acadex-Learning-Guide.pdf))
+Details are in the `docs/` folder, which the team keeps locally (it is not in the repository):
+architecture, security, operations, Cloudflare hosting, future gaps, the feature checklist and the
+learning guide (also as a PDF).
 
 ## 🚀 Getting started
 
@@ -211,8 +212,8 @@ apps/
 packages/
   shared/              @acadex/shared — Zod schemas, permissions, constants, types
 ops/                   backup / restore / restore-verification scripts
-docs/                  architecture, security, operations, AI, platform, Cloudflare hosting,
-                       feature checklist, future gaps, learning guide (+ PDF)
+docs/                  (local only, git-ignored) architecture, security, operations, AI, platform,
+                       Cloudflare hosting, feature checklist, future gaps, learning guide (+ PDF)
 cloudflare/            the Cloudflare Worker and wrangler config (docs/cloudflare.md)
 ```
 
