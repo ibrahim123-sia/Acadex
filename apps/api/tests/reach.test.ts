@@ -16,7 +16,7 @@ beforeAll(async () => {
   f = await fixture.resetDb();
   clearJobs();
   // Sara's guardian (p1) has an account; Sam's guardian only a phone number
-  const g2 = (await q(`INSERT INTO guardians (institution_id, first_name, phone) VALUES ($1,'Guardian','0300 1112223') RETURNING id`, [f.institutions.A.id]))[0];
+  const g2 = (await q(`INSERT INTO guardians (institution_id, first_name, phone, email) VALUES ($1,'Guardian','0300 1112223','No.Account@family.test') RETURNING id`, [f.institutions.A.id]))[0];
   await q(`INSERT INTO guardianships (institution_id, guardian_id, student_id, relationship) VALUES ($1,$2,$3,'father')`, [f.institutions.A.id, g2.id, f.students.S2.id]);
   await q(`UPDATE guardians SET phone = '03001234567' WHERE id = $1`, [f.guardians.G1.id]);
 });
@@ -202,6 +202,9 @@ describe('emergency broadcasts and delivery', () => {
     expect((await fixture.outbox('p1@alpha.test')).some((m) => m.subject === 'School closed tomorrow')).toBe(true);
     const list = await as(f.tokens.adminA).get('/api/broadcasts');
     expect(list.body[0].counts.phones_without_account).toBe(1);
+    // a guardian without an account is reached by email too (free), from the address on their record
+    expect(list.body[0].counts.emails_without_account).toBe(1);
+    expect((await fixture.outbox('no.account@family.test')).map((m) => m.subject)).toContain('Urgent: School closed tomorrow');
     expect((await as(f.tokens.t1).post('/api/broadcasts', { title: 'x', message: 'y' })).status).toBe(403);
     await as(f.tokens.p1).put('/api/notifications/preferences', { channels: {}, quiet_hours: null });
   });

@@ -1,7 +1,7 @@
 // Reach: help-desk tickets (complaints, feedback — optionally anonymous — with status, SLA and
 // satisfaction), parent–teacher meetings (slots generated per teacher, booked by guardians),
 // emergency broadcasts on every channel (also to guardians without an account, by
-// WhatsApp), delivery logs with retry, and the institution's Zoom / Teams / Meet accounts.
+// email and WhatsApp), delivery logs with retry, and the institution's Zoom / Teams / Meet accounts.
 // Mounted under /api.
 import { Router, type Request } from 'express';
 import { z } from 'zod';
@@ -25,6 +25,7 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
 import { institutionTimeZone } from '../lib/institution';
 import { defineJob, enqueue } from '../jobs/queue';
 import { jitsiRoom, loadAccount, saveAccount } from '../lib/live';
+import { sendEmail } from '../lib/mailer';
 import { channelEnabled, resend, sendAndLog, type Channel } from '../lib/messaging';
 import { notify, type DeliveryChannel } from '../lib/notify';
 import { parsePage, sendPage } from '../lib/pagination';
@@ -437,7 +438,7 @@ interface BroadcastRow {
 }
 
 /** Everyone a broadcast reaches: accounts, and phone numbers of guardians without one. */
-async function broadcastAudience(b: BroadcastRow): Promise<{ userIds: number[]; phones: string[] }> {
+async function broadcastAudience(b: BroadcastRow): Promise<{ userIds: number[]; phones: string[]; emails: string[] }> {
   const students = `SELECT st.id FROM students st LEFT JOIN sections sec ON sec.id = st.section_id
                      WHERE st.institution_id = $1 AND COALESCE(st.status, 'active') = 'active' AND st.deleted_at IS NULL
                        AND ($2::int IS NULL OR sec.campus_id = $2) AND (cardinality($3::int[]) = 0 OR st.section_id = ANY($3::int[]))`;
@@ -454,8 +455,16 @@ async function broadcastAudience(b: BroadcastRow): Promise<{ userIds: number[]; 
   }
   const params = [b.institution_id, b.campus_id, b.section_ids];
   const userIds = (await db.query<{ id: number }>(`SELECT DISTINCT id FROM (${parts.join(' UNION ')}) x WHERE id IS NOT NULL`, params)).rows.map((r) => r.id);
+  // guardians without an account: their email (free) and phone (WhatsApp, when switched on) from the record
   let phones: string[] = [];
+  let emails: string[] = [];
   if (b.audience === 'everyone' || b.audience === 'guardians') {
+    emails = (
+      await db.query<{ email: string }>(
+        `SELECT DISTINCT lower(g.email) AS email FROM guardianships gs JOIN guardians g ON g.id = gs.guardian_id WHERE gs.student_id IN (${students}) AND g.user_id IS NULL AND g.email LIKE '%_@_%' AND g.deleted_at IS NULL`,
+        params
+      )
+    ).rows.map((r) => r.email);
     phones = (
       await db.query<{ phone: string }>(
         `SELECT DISTINCT g.phone FROM guardianships gs JOIN guardians g ON g.id = gs.guardian_id WHERE gs.student_id IN (${students}) AND g.user_id IS NULL AND g.phone <> '' AND g.deleted_at IS NULL`,
@@ -463,7 +472,7 @@ async function broadcastAudience(b: BroadcastRow): Promise<{ userIds: number[]; 
       )
     ).rows.map((r) => r.phone);
   }
-  return { userIds, phones };
+  return { userIds, phones, emails };
 }
 
 export const broadcastJob = defineJob<{ id: number }>({
@@ -474,15 +483,23 @@ export const broadcastJob = defineJob<{ id: number }>({
       const { rows } = await db.query<BroadcastRow>(`SELECT id, institution_id, title, message, audience, campus_id, section_ids, channels FROM broadcasts WHERE id = $1`, [broadcastId]);
       const b = rows[0];
       if (!b) return;
-      const { userIds, phones } = await broadcastAudience(b);
+      const { userIds, phones, emails } = await broadcastAudience(b);
       const delivery = b.channels.filter((c): c is DeliveryChannel => c !== 'app');
       const people = await notify({ institutionId: b.institution_id, userIds, type: 'emergency', title: b.title, message: b.message, link: '/notifications', channels: delivery, dedupeKey: `broadcast:${b.id}` });
+      let emailed = 0;
+      if (b.channels.includes('email')) {
+        for (const to of emails) {
+          const text = `${b.message}\n\nThis is an emergency message from your child's institution.`;
+          await sendEmail({ to, subject: `Urgent: ${b.title}`, text, template: 'emergency', institutionId: b.institution_id });
+          emailed++;
+        }
+      }
       let texted = 0;
       for (const ch of ['whatsapp'] as Channel[]) {
         if (!b.channels.includes(ch) || !channelEnabled(ch)) continue;
         for (const phone of phones) if (await sendAndLog(b.institution_id, { channel: ch, to: phone, text: `${b.title}: ${b.message}`.slice(0, 640) })) texted++;
       }
-      await db.query(`UPDATE broadcasts SET counts = $2 WHERE id = $1`, [b.id, JSON.stringify({ people, phones_without_account: phones.length, texts_sent: texted })]);
+      await db.query(`UPDATE broadcasts SET counts = $2 WHERE id = $1`, [b.id, JSON.stringify({ people, emails_without_account: emailed, phones_without_account: phones.length, texts_sent: texted })]);
     });
   },
 });
@@ -496,7 +513,7 @@ router.get('/broadcasts', requirePermission('broadcast.send'), async (req, res) 
   res.json(rows);
 });
 
-/** Send an emergency broadcast now (in the app, by email, push and WhatsApp). */
+/** Send an emergency broadcast now (in the app, by email — also to guardians without an account — push and WhatsApp). */
 router.post('/broadcasts', requirePermission('broadcast.send'), async (req, res) => {
   const b = broadcastBody.parse(req.body);
   const inst = institutionId(req);

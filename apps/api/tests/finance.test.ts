@@ -251,7 +251,7 @@ describe('at the counter, fines, defaulters and reminders', () => {
     const csv = await admin.get('/api/finance/defaulters?format=csv');
     expect(csv.headers['content-type']).toContain('text/csv');
     // Sam's guardian, with a local mobile number
-    const g = (await q(`INSERT INTO guardians (institution_id, first_name, last_name, phone) VALUES ($1, 'Father', 'of Sam', '0300 1234567') RETURNING id`, [f.institutions.A.id]))[0];
+    const g = (await q(`INSERT INTO guardians (institution_id, first_name, last_name, phone, email) VALUES ($1, 'Father', 'of Sam', '0300 1234567', 'father.sam@family.test') RETURNING id`, [f.institutions.A.id]))[0];
     await q(`INSERT INTO guardianships (institution_id, guardian_id, student_id, relationship) VALUES ($1, $2, $3, 'father')`, [f.institutions.A.id, g.id, f.students.S2.id]);
     sentMessages.length = 0;
     const sam = await invoiceOf(f.students.S2.id, 'August');
@@ -264,6 +264,10 @@ describe('at the counter, fines, defaulters and reminders', () => {
     expect((await q(`SELECT count(*)::int n FROM delivery_logs WHERE channel = 'whatsapp' AND status = 'sent'`))[0].n).toBe(1);
     expect((await q(`SELECT count(*)::int n FROM delivery_logs WHERE channel = 'sms'`))[0].n).toBe(0);
     expect((await admin.post('/api/finance/reminders', { invoice_ids: [sam.id], channels: ['sms'] })).status).toBe(400);
+    // a guardian without an account gets the reminder by email, with the pay link
+    expect((await admin.post('/api/finance/reminders', { invoice_ids: [sam.id], channels: ['email'] })).body).toEqual({ invoices: 1, reminded: 1 });
+    const mails = await fixture.outbox('father.sam@family.test');
+    expect(mails.at(-1).text_body).toContain(`/pay/${sam.pay_token}`);
   });
 
   it('scheduled reminders go out once after the due date', async () => {

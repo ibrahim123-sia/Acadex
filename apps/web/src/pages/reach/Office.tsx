@@ -68,7 +68,7 @@ function RulesTab() {
 function BroadcastTab() {
   const { t } = useTranslation();
   const toast = useToast();
-  const history = useQuery({ queryKey: ['/broadcasts'], queryFn: () => api.get<{ id: number; title: string; message: string; audience: string; channels: string[]; counts: { people?: number; texts_sent?: number; phones_without_account?: number }; created_at: string; sent_by: string | null }[]>('/broadcasts') });
+  const history = useQuery({ queryKey: ['/broadcasts'], queryFn: () => api.get<{ id: number; title: string; message: string; audience: string; channels: string[]; counts: { people?: number; emails_without_account?: number; texts_sent?: number; phones_without_account?: number }; created_at: string; sent_by: string | null }[]>('/broadcasts') });
   const channels = useChannels();
   const [v, setV] = useState({ title: '', message: '', audience: 'everyone', channels: BROADCAST_CHANNELS.filter((c) => c !== 'whatsapp') as string[] });
   const [confirm, setConfirm] = useState(false);
@@ -84,7 +84,7 @@ function BroadcastTab() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card className="space-y-3 p-5">
-        <Alert tone="warning">{t('comm.bcHelp', 'For emergencies only (closures, safety). It ignores quiet hours and reaches people on every channel you tick — including guardians who have no account, by WhatsApp when it is switched on.')}</Alert>
+        <Alert tone="warning">{t('comm.bcHelp', 'For emergencies only (closures, safety). It ignores quiet hours and reaches people on every channel you tick — including guardians who have no account, by email (and WhatsApp when it is switched on). Keep the email addresses of guardians up to date.')}</Alert>
         <Field label={t('common.title', 'Title')}>{(a) => <Input {...a} maxLength={160} value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder={t('comm.bcTitle', 'School closed tomorrow')} />}</Field>
         <Field label={t('msg.message', 'Message')} hint={`${v.message.length} / 1000`}>{(a) => <Textarea {...a} maxLength={1000} rows={4} value={v.message} onChange={(e) => setV({ ...v, message: e.target.value })} />}</Field>
         <Field label={t('comm.audience', 'Who')}>
@@ -115,7 +115,7 @@ function BroadcastTab() {
             <li key={b.id} className="py-2">
               <div className="font-medium">{b.title}</div>
               <div className="text-xs text-fg-muted">{formatDateTime(b.created_at)} · {b.sent_by} · {t(`comm.aud.${b.audience}`, b.audience)} · {b.channels.join(', ')}</div>
-              <div className="text-xs">{t('comm.reached', '{{people}} people, {{texts}} text messages', { people: b.counts.people ?? '…', texts: b.counts.texts_sent ?? 0 })}</div>
+              <div className="text-xs">{t('comm.reachedEmail', '{{people}} people with an account, {{emails}} guardians by email, {{texts}} WhatsApp messages', { people: b.counts.people ?? '…', emails: b.counts.emails_without_account ?? 0, texts: b.counts.texts_sent ?? 0 })}</div>
             </li>
           ))}
         </ul>

@@ -7,6 +7,7 @@ import { db, runAsSystem } from '../../db/context';
 import { defineJob } from '../../jobs/queue';
 import { formatMoney, todayIn } from '../locale';
 import { logger } from '../logger';
+import { sendEmail } from '../mailer';
 import { sendAndLog } from '../messaging';
 import { notify } from '../notify';
 import { chargeLateFines, payerUserIds } from './ledger';
@@ -38,6 +39,16 @@ const DUE_SQL = `
          i.currency, ins.locale, ins.name AS institution, st.first_name AS student
     FROM invoices i JOIN institutions ins ON ins.id = i.institution_id JOIN students st ON st.id = i.student_id
    WHERE i.institution_id = $1 AND i.status IN ('issued', 'partially_paid') AND i.total > i.paid`;
+
+/** Guardians without an account who may see fees and have an email address (they get the reminder by email). */
+async function guardianEmailsWithoutAccount(invoiceId: number) {
+  const { rows } = await db.query<{ email: string }>(
+    `SELECT DISTINCT lower(g.email) AS email FROM invoices i JOIN guardianships gs ON gs.student_id = i.student_id JOIN guardians g ON g.id = gs.guardian_id
+      WHERE i.id = $1 AND gs.can_view_fees AND g.user_id IS NULL AND g.email LIKE '%_@_%' AND g.deleted_at IS NULL`,
+    [invoiceId]
+  );
+  return rows.map((r) => r.email);
+}
 
 /** Guardians who may see fees, with their phones (for WhatsApp). */
 async function guardianPhones(invoiceId: number) {
@@ -75,7 +86,15 @@ export async function remindInvoice(inv: DueInvoice, step: string, channels: Cha
         link: '/fees',
         dedupeKey: force ? undefined : `fee:${inv.id}:${step}`,
       });
-      if (n) sent.push(ch);
+      // families without an account get the same reminder by email, with the pay link
+      let emailed = 0;
+      if (channels.includes('email')) {
+        for (const to of await guardianEmailsWithoutAccount(inv.id)) {
+          await sendEmail({ to, subject: overdue ? `Overdue: ${inv.title}` : `Fee due ${inv.due_date}: ${inv.title}`, text, template: 'fee_reminder', institutionId: inv.institution_id });
+          emailed++;
+        }
+      }
+      if (n || emailed) sent.push(ch);
     } else {
       let any = false;
       for (const g of await guardianPhones(inv.id)) any = (await sendAndLog(inv.institution_id, { channel: ch, to: g.phone, text, userId: g.user_id })) || any;
