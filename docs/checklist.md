@@ -109,7 +109,7 @@ Items that were partial or missing in the walk-through were closed on this branc
 
 | Feature | Status | Where |
 |---|---|---|
-| In-app, web push, email, WhatsApp, SMS; preferences, quiet hours, digests, delivery logs, retry | Done | `api/lib/notify.ts`, `api/lib/messaging.ts`, `api/lib/push.ts` |
+| In-app, web push, email, WhatsApp (optional; SMS removed — paid); preferences, quiet hours, digests, delivery logs, retry | Done | `api/lib/notify.ts`, `api/lib/messaging.ts`, `api/lib/push.ts` |
 | Messaging with safeguarding for minors, guardian CC, reporting, profanity filter | Done | `api/lib/conversations.ts`, `api/lib/profanity.ts`, `web/pages/reach/Messages.tsx` |
 | Parent–teacher meetings, tickets | Done | `api/routes/reach.ts`, `web/pages/reach/Desk.tsx` |
 | Emergency broadcast | Done | `api/routes/reach.ts`, `web/pages/reach/Office.tsx` |

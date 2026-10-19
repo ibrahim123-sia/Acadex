@@ -74,7 +74,7 @@ platform owner, the SaaS business around it (plans, billing, usage, API manageme
  PostgreSQL (Neon in the cloud; embedded Postgres in tests)
     │
     ├─ Files: local disk, or S3 / MinIO / Cloudflare R2
-    ├─ Email (SMTP), SMS / WhatsApp (Twilio, Meta), web push
+    ├─ Email (SMTP), web push, WhatsApp (optional: Meta, Twilio)
     ├─ Payments (JazzCash, Easypaisa, Stripe, bank transfer)
     └─ AI providers (Gemini, Groq)
 ```
@@ -460,8 +460,9 @@ accounts.
 
 `lib/notify.ts`, `lib/messaging.ts`, `lib/conversations.ts`, `routes/messages.ts`, `routes/reach.ts`.
 
-- Notifications go to in-app, email, web push, SMS and WhatsApp per person's preferences, with
-  quiet hours, digests and delivery logs with retry.
+- Notifications go to in-app, email and web push (all free) per person's preferences, with
+  quiet hours, digests and delivery logs with retry. WhatsApp is built but off by default
+  (`WHATSAPP_DRIVER=none`) because it costs money per message; SMS was removed for the same reason.
 - **Safeguarding**: an adult and a student under 18 can't have a private conversation unless the
   institution allows it; guardians are copied; every chat is kept and reportable; a profanity
   filter (`lib/profanity.ts`).
@@ -673,7 +674,7 @@ Lesson: define a rule once and import it everywhere.
   creates the non-superuser role `acadex_app`, so RLS is really enforced in tests.
 - `tests/helpers/fixture.ts` resets the data and builds two institutions (A and B) with users of
   every role and their tokens — perfect for cross-tenant denial tests.
-- Jobs run inline, payment/SMS/AI providers are fakes, email goes to a test outbox.
+- Jobs run inline, payment/WhatsApp/AI providers are fakes, email goes to a test outbox.
 - Kinds of tests worth copying: denial tests for every permission rule, idempotency tests for
   webhooks, a test that every route file is mounted and documented, the schema-drift test, AI
   evals, and config tests.

@@ -4,7 +4,7 @@
 
 Plans live in the `plans` table (created with Free, Pro and Enterprise by migration 0020) and
 are edited by the platform owner under **Business → Plans**: prices per currency, limits
-(students, staff, storage, AI spend, SMS / WhatsApp a month — `null` is unlimited), features
+(students, staff, storage, AI spend, WhatsApp messages a month — `null` is unlimited), features
 (`api`, `sso`, `white_label`, `custom_domain`, `lti`) and the modules a plan includes.
 `lib/platform.ts` `entitlements()` combines the plan with per-institution overrides
 (`institutions.feature_overrides`, set by the platform) and the modules the institution has

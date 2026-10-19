@@ -96,11 +96,14 @@ The AI is English only too (decision of 2026-10-18): the tutor and help assistan
 whatever language a question is in, captions are made in English, and the copilot no longer offers
 translated versions of material or captions.
 
-### 9. Text messages and WhatsApp per country
-SMS goes through Twilio and WhatsApp through Meta's Cloud API. Sender IDs, registration rules and
-template approval differ by country (and prices too).
-**When needed:** check the customer's country with the provider before promising SMS / WhatsApp,
-and register the sender and templates there.
+### 9. WhatsApp per country (and no SMS)
+SMS was removed to keep the platform free to run (it is charged per message); notifications go in
+the app, by email and by push. WhatsApp (Meta's Cloud API or Twilio) is built but off by default,
+because it is also charged per message. Template approval and prices differ by country, and a
+number saved without a country code (03xx…) is sent as +92.
+**When needed:** switch on `WHATSAPP_DRIVER`, register the sender and template with the provider,
+decide who pays, and use the institution's country for local numbers. SMS can come back the same
+way (a driver in `lib/messaging.ts`).
 
 ### 10. Legal texts per country
 The privacy policy, terms, data processing agreement and sub-processor list are general templates

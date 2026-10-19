@@ -1,5 +1,12 @@
 # Changelog
 
+## No SMS: free channels first (2026-10-19)
+
+- **SMS removed** — it is charged per message. Notifications, fee reminders and emergency
+  broadcasts go in the app, by email and by web push, which cost nothing.
+- **WhatsApp is optional and off by default** (`WHATSAPP_DRIVER=none`); screens offer it only when
+  the server has it switched on. Old SMS delivery logs stay in the database and are not retried.
+
 ## AI: API management and usage for the platform owner; English only (2026-10-18)
 
 - **API management** (Platform → API management): the platform owner saves the Gemini and Groq

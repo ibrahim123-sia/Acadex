@@ -129,7 +129,7 @@ with your account id.
 In `cloudflare/wrangler.jsonc` → `vars`, set `APP_URL` and `CORS_ORIGINS` to the address people
 will use (first deploy: `https://acadex.<your-subdomain>.workers.dev`; later your own domain) and
 `MAIL_FROM`. Any other API setting from [`apps/api/.env.example`](../apps/api/.env.example) can be
-added here the same way (for example `SMS_DRIVER`, `PUSH_DRIVER`).
+added here the same way (for example `WHATSAPP_DRIVER`, `PUSH_DRIVER`).
 
 ### 4. Put in the secrets
 
