@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Megaphone, RotateCcw } from 'lucide-react';
 import { BROADCAST_CHANNELS, type MessagingSettings } from '@acadex/shared';
 import { api } from '@/lib/api';
+import { useChannels } from '@/lib/queries';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
 import { usePagedList } from '@/lib/queries';
@@ -32,7 +33,7 @@ export function CommunicationPage() {
 function RulesTab() {
   const { t } = useTranslation();
   const toast = useToast();
-  const q = useQuery({ queryKey: ['/messaging/settings'], queryFn: () => api.get<{ messaging: MessagingSettings; notify_by_phone: boolean; drivers: { sms: boolean; whatsapp: boolean } }>('/messaging/settings') });
+  const q = useQuery({ queryKey: ['/messaging/settings'], queryFn: () => api.get<{ messaging: MessagingSettings; notify_by_phone: boolean; drivers: { whatsapp: boolean } }>('/messaging/settings') });
   const [v, setV] = useState<{ messaging: MessagingSettings; notify_by_phone: boolean } | null>(null);
   const cur = v ?? q.data;
   const save = useMutation({ mutationFn: () => api.put('/messaging/settings', { messaging: cur!.messaging, notify_by_phone: cur!.notify_by_phone }), onSuccess: () => { toast('success', t('common.saved', 'Saved')); setV(null); void q.refetch(); } });
@@ -55,8 +56,8 @@ function RulesTab() {
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={m.student_to_student} onChange={(e) => set({ student_to_student: e.target.checked })} /> {t('comm.s2s', 'Students may message classmates')}</label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={m.guardian_to_teacher} onChange={(e) => set({ guardian_to_teacher: e.target.checked })} /> {t('comm.g2t', "Guardians may message their children's teachers")}</label>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={m.profanity_filter} onChange={(e) => set({ profanity_filter: e.target.checked })} /> {t('comm.profanity', 'Mask bad language and flag it for review')}</label>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cur.notify_by_phone} onChange={(e) => setV({ ...cur, notify_by_phone: e.target.checked })} /> {t('comm.byPhone', 'People may choose to get notifications by SMS / WhatsApp (your institution pays for the messages)')}</label>
-      {!q.data.drivers.sms && !q.data.drivers.whatsapp && <Alert tone="warning">{t('comm.noDriver', 'SMS and WhatsApp are not set up on this server yet.')}</Alert>}
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={cur.notify_by_phone} onChange={(e) => setV({ ...cur, notify_by_phone: e.target.checked })} /> {t('comm.byPhone', 'People may choose to get notifications by WhatsApp (your institution pays for the messages)')}</label>
+      {!q.data.drivers.whatsapp && <Alert>{t('comm.noWhatsapp', 'WhatsApp is not switched on (it is charged per message), so notifications go in the app, by email and by push.')}</Alert>}
       <Alert>{t('comm.kept', 'Every conversation is kept. People with the safeguarding permission can read any conversation; their reads are recorded.')}</Alert>
       <MutationError error={save.error} />
       <Button loading={save.isPending} onClick={() => save.mutate()}>{t('common.save', 'Save')}</Button>
@@ -68,7 +69,8 @@ function BroadcastTab() {
   const { t } = useTranslation();
   const toast = useToast();
   const history = useQuery({ queryKey: ['/broadcasts'], queryFn: () => api.get<{ id: number; title: string; message: string; audience: string; channels: string[]; counts: { people?: number; texts_sent?: number; phones_without_account?: number }; created_at: string; sent_by: string | null }[]>('/broadcasts') });
-  const [v, setV] = useState({ title: '', message: '', audience: 'everyone', channels: [...BROADCAST_CHANNELS] as string[] });
+  const channels = useChannels();
+  const [v, setV] = useState({ title: '', message: '', audience: 'everyone', channels: BROADCAST_CHANNELS.filter((c) => c !== 'whatsapp') as string[] });
   const [confirm, setConfirm] = useState(false);
   const send = useMutation({
     mutationFn: () => api.post('/broadcasts', v),
@@ -82,7 +84,7 @@ function BroadcastTab() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card className="space-y-3 p-5">
-        <Alert tone="warning">{t('comm.bcHelp', 'For emergencies only (closures, safety). It ignores quiet hours and reaches people on every channel you tick — including guardians who have no account, by SMS.')}</Alert>
+        <Alert tone="warning">{t('comm.bcHelp', 'For emergencies only (closures, safety). It ignores quiet hours and reaches people on every channel you tick — including guardians who have no account, by WhatsApp when it is switched on.')}</Alert>
         <Field label={t('common.title', 'Title')}>{(a) => <Input {...a} maxLength={160} value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder={t('comm.bcTitle', 'School closed tomorrow')} />}</Field>
         <Field label={t('msg.message', 'Message')} hint={`${v.message.length} / 1000`}>{(a) => <Textarea {...a} maxLength={1000} rows={4} value={v.message} onChange={(e) => setV({ ...v, message: e.target.value })} />}</Field>
         <Field label={t('comm.audience', 'Who')}>
@@ -94,7 +96,7 @@ function BroadcastTab() {
         </Field>
         <fieldset className="flex flex-wrap gap-3 text-sm">
           <legend className="mb-1 text-sm font-medium">{t('comm.channels', 'Channels')}</legend>
-          {BROADCAST_CHANNELS.map((c) => (
+          {BROADCAST_CHANNELS.filter((c) => c !== 'whatsapp' || channels.data?.whatsapp).map((c) => (
             <label key={c} className="flex items-center gap-1.5">
               <input type="checkbox" disabled={c === 'app'} checked={v.channels.includes(c)} onChange={(e) => setV({ ...v, channels: e.target.checked ? [...v.channels, c] : v.channels.filter((x) => x !== c) })} /> {t(`comm.ch.${c}`, c)}
             </label>
@@ -137,7 +139,7 @@ function DeliveryTab() {
         </Select>
         <Select aria-label={t('comm.channel', 'Channel')} value={f.channel} onChange={(e) => setF({ ...f, channel: e.target.value })} className="w-40">
           <option value="">{t('common.all', 'All')}</option>
-          {['email', 'push', 'sms', 'whatsapp'].map((s) => <option key={s} value={s}>{s}</option>)}
+          {['email', 'push', 'whatsapp'].map((s) => <option key={s} value={s}>{s}</option>)}
         </Select>
       </div>
       <DataTable

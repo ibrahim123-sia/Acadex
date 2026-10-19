@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 import { api, type Page } from './api';
 
 /** One page of a paginated list endpoint; resets to page 1 when the filters change. */
+/** Delivery channels this server offers (email and in-app always; push and WhatsApp when set up). */
+export const useChannels = () =>
+  useQuery({ queryKey: ['/notifications/channels'], queryFn: () => api.get<{ in_app: boolean; email: boolean; push: boolean; whatsapp: boolean }>('/notifications/channels'), staleTime: 5 * 60_000 });
+
 export function usePagedList<T>(path: string, filters: Record<string, string | number | undefined> = {}, pageSize = 50) {
   const [page, setPage] = useState(1);
   const key = JSON.stringify(filters);

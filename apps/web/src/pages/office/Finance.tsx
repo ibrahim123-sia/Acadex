@@ -7,6 +7,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, ArrowLeft, Banknote, BellRing, Plus, Receipt, TrendingDown, Wallet } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useChannels } from '@/lib/queries';
 import { useAuth } from '@/lib/auth';
 import { formatDate, formatDateTime, formatMoney, todayISO } from '@/lib/format';
 import { useDebounced, usePagedList } from '@/lib/queries';
@@ -597,6 +598,8 @@ function DefaultersTab() {
   const q = useQuery({ queryKey: ['/finance/defaulters', minDays], queryFn: () => api.get<Defaulter[]>('/finance/defaulters', { min_days: minDays }) });
   const [picked, setPicked] = useState<number[]>([]);
   const [channels, setChannels] = useState<string[]>(['in_app', 'email']);
+  const offered = useChannels();
+  const reminderChannels = (['in_app', 'email', 'whatsapp'] as const).filter((c) => c !== 'whatsapp' || offered.data?.whatsapp);
   const remind = useMutation({
     mutationFn: () => api.post<{ invoices: number; reminded: number }>('/finance/reminders', { invoice_ids: (q.data ?? []).filter((d) => picked.includes(d.student_id)).flatMap((d) => d.invoice_ids), channels }),
     onSuccess: (r) => {
@@ -614,10 +617,10 @@ function DefaultersTab() {
         </DownloadButton>
         {can('fees.manage') && (
           <div className="ms-auto flex flex-wrap items-center gap-3">
-            {(['in_app', 'email', 'sms', 'whatsapp'] as const).map((c) => (
+            {reminderChannels.map((c) => (
               <label key={c} className="flex items-center gap-1.5 text-sm">
                 <input type="checkbox" checked={channels.includes(c)} onChange={(e) => setChannels(e.target.checked ? [...channels, c] : channels.filter((x) => x !== c))} />
-                {{ in_app: t('fees.inApp', 'App'), email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp' }[c]}
+                {{ in_app: t('fees.inApp', 'App'), email: 'Email', whatsapp: 'WhatsApp' }[c]}
               </label>
             ))}
             <Button size="sm" disabled={!picked.length || !channels.length} loading={remind.isPending} onClick={() => remind.mutate()}>
