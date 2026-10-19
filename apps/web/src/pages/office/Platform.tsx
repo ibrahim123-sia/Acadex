@@ -61,7 +61,7 @@ export function BillingPage() {
           <Meter label={t('bill.students', 'Active students')} used={b.usage.students} limit={b.plan.limits.students} />
           <Meter label={t('bill.storage', 'Storage (GB)')} used={Math.round((b.usage.storage_bytes / 1e9) * 100) / 100} limit={b.plan.limits.storage_mb != null ? Math.round(b.plan.limits.storage_mb / 102.4) / 10 : null} />
           <Meter label={t('bill.ai', 'AI this month (USD)')} used={Math.round(b.usage.ai_usd * 100) / 100} limit={b.plan.limits.ai_usd} />
-          <Meter label={t('bill.messages', 'SMS / WhatsApp this month')} used={b.usage.messages} limit={b.plan.limits.messages} />
+          <Meter label={t('bill.messages', 'WhatsApp messages this month')} used={b.usage.messages} limit={b.plan.limits.messages} />
           <div className="flex flex-wrap gap-2 pt-2">
             {b.plans.filter((x) => x.key !== b.plan.key).map((x) => <Button key={x.key} size="sm" variant="outline" loading={changePlan.isPending && changePlan.variables === x.key} onClick={() => changePlan.mutate(x.key)}>{t('bill.switchTo', 'Switch to {{plan}}', { plan: x.name })}</Button>)}
           </div>

@@ -77,7 +77,7 @@ function CookieNotice() {
 const FEATURES = [
   { icon: Sparkles, title: 'AI that coaches, not cheats', text: 'A tutor that answers from your own course with sources and gives hints instead of answers; a copilot for teachers whose drafts are applied only on approval.' },
   { icon: Globe2, title: 'Any kind of institution', text: 'Schools, networks, colleges, universities and academies — each with its own words, grading and terms, in any country and currency.' },
-  { icon: CreditCard, title: 'Fees that collect themselves', text: 'Vouchers, JazzCash, Easypaisa, cards and bank transfer on your own account, reminders by SMS and WhatsApp, reconciliation.' },
+  { icon: CreditCard, title: 'Fees that collect themselves', text: 'Vouchers, JazzCash, Easypaisa, cards and bank transfer on your own account, reminders in the app and by email, reconciliation.' },
   { icon: MessagesSquare, title: 'Families in the loop, safely', text: 'Safeguarded messaging, parent–teacher meetings, emergency broadcasts and digests on every channel.' },
   { icon: WifiOff, title: 'Works on any phone', text: 'Installable, works offline for attendance and saved lessons, and a low-bandwidth mode for slow connections.' },
   { icon: ShieldCheck, title: 'Private by design', text: 'Each institution is isolated twice over, sensitive data is visible only to those who need it, and you can export or delete everything.' },
@@ -148,7 +148,7 @@ export function PricingPage() {
                   <p className="text-sm text-fg-muted">{p.description}</p>
                   <p className="text-3xl font-bold">{price == null ? t('site.contact', 'Contact us') : price === 0 ? t('site.free', 'Free') : <>{money(price, shown)} <span className="text-sm font-normal text-fg-muted">{t('site.perMonth', '/ month')}</span></>}</p>
                   <ul className="flex-1 space-y-1.5 text-sm">
-                    {[lim(p.limits.students, t('site.students', 'students')), lim(p.limits.storage_mb != null ? Math.round(p.limits.storage_mb / 1024) : null, t('site.gbStorage', 'GB storage')), lim(p.limits.messages, t('site.messages', 'SMS / WhatsApp a month')),
+                    {[lim(p.limits.students, t('site.students', 'students')), lim(p.limits.storage_mb != null ? Math.round(p.limits.storage_mb / 1024) : null, t('site.gbStorage', 'GB storage')), lim(p.limits.messages, t('site.messages', 'WhatsApp messages a month')),
                       ...(p.features.modules ?? []).map((m) => MODULE_LABELS[m]),
                       ...(p.features.api ? [t('site.api', 'REST API and webhooks')] : []), ...(p.features.sso ? [t('site.sso', 'Google / Microsoft sign-in')] : []), ...(p.features.lti ? ['LTI 1.3'] : []),
                       ...(p.features.white_label ? [t('site.whiteLabel', 'Your own brand')] : []), ...(p.features.custom_domain ? [t('site.domain', 'Your own domain')] : [])].map((x) => (
@@ -283,7 +283,7 @@ const LEGAL: Record<'privacy' | 'terms' | 'dpa' | 'subprocessors' | 'compliance'
       ['Hosting and database', 'Cloud hosting and managed PostgreSQL (Cloudflare, Neon) — application and database hosting.'],
       ['File storage', 'S3-compatible object storage (Cloudflare R2 or AWS S3) — uploaded files and backups.'],
       ['Email', 'SMTP provider configured by the platform — transactional email.'],
-      ['SMS and WhatsApp', 'Twilio and Meta (WhatsApp Business) — only when an institution uses text messages.'],
+      ['WhatsApp', 'Meta (WhatsApp Business) or Twilio — only if WhatsApp messages are switched on.'],
       ['Payments', 'Stripe, JazzCash and Easypaisa — only for payments; card data never reaches Acadex.'],
       ['AI providers', 'Anthropic, OpenAI, Google (Gemini) and Groq — only when AI features are on; personal identifiers are removed first and providers may not train on the data.'],
       ['Error monitoring', 'Sentry — error reports without personal content.'],
