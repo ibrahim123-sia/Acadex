@@ -318,6 +318,7 @@ export const lmsRoutes = (r: R): RouteDoc[] => [
   r('get', '/api/notifications/', 'Notifications', 'Get ', 'session'),
   r('post', '/api/notifications/read-all', 'Notifications', 'Create read all', 'session'),
   r('post', '/api/notifications/:id/read', 'Notifications', 'Create read', 'session'),
+  r('get', '/api/notifications/channels', 'Notifications', 'Delivery channels this server offers', 'session'),
   r('get', '/api/notifications/preferences', 'Notifications', 'Get preferences', 'session'),
   r('put', '/api/notifications/preferences', 'Notifications', 'Save preferences', 'session', { body: notificationPreferencesBody }),
   r('put', '/api/notifications/account-preferences', 'Notifications', 'The person’s language and low-bandwidth mode, kept on the account so every device follows it', 'session', { body: accountPreferencesBody }),
