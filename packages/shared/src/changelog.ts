@@ -14,6 +14,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [
       'Notifications, fee reminders and emergency alerts go in the app, by email and by push',
       'Text messages (SMS) are no longer sent; WhatsApp appears only where it is switched on',
+      'Emergency alerts and fee reminders reach guardians without an account by email',
+      'Two-step verification can send your code by email instead of using an app (Account → Security)',
     ],
   },
   {

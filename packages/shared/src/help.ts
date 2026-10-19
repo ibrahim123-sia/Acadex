@@ -114,6 +114,6 @@ To draft questions with AI, open Copilot, choose Quiz questions, pick the course
     slug: 'reset-password',
     title: 'Forgot your password',
     roles: ['admin', 'teacher', 'student', 'parent'],
-    body: `On the sign-in page click Forgot password and enter your email. Open the link in the email within an hour and choose a new password. If two-step sign-in is on, have your authenticator app or a recovery code ready.`,
+    body: `On the sign-in page click Forgot password and enter your email. Open the link in the email within an hour and choose a new password. If two-step sign-in is on, have your authenticator app, your email or a recovery code ready.`,
   },
 ];

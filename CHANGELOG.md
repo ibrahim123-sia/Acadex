@@ -6,6 +6,12 @@
   broadcasts go in the app, by email and by web push, which cost nothing.
 - **WhatsApp is optional and off by default** (`WHATSAPP_DRIVER=none`); screens offer it only when
   the server has it switched on. Old SMS delivery logs stay in the database and are not retried.
+- **Email instead of SMS where it mattered**: emergency broadcasts and fee reminders (with the pay
+  link) reach guardians who have no account by the email on their record; the broadcast history
+  counts them.
+- **Two-step verification by email**: besides an authenticator app, a person can get a six-digit
+  code by email (one a minute, five an hour, 10 minutes, 5 tries, stored hashed). Platform owners
+  must still use an app. New routes: `/auth/mfa/start`, `/auth/mfa/email/setup|enable|code`.
 
 ## AI: API management and usage for the platform owner; English only (2026-10-18)
 
