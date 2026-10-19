@@ -50,7 +50,7 @@ beforeAll(async () => {
   ids.ticket = (await q(`INSERT INTO tickets (institution_id, raised_by, category, subject, body) VALUES ($1,$2,'complaint','Alpha issue','b') RETURNING id`, [A, f.users.s1.id])).id;
   ids.ptm = (await q(`INSERT INTO ptm_events (institution_id, title, date, start_time, end_time, section_ids) VALUES ($1,'PTM',CURRENT_DATE + 7,'09:00','10:00',ARRAY[$2]::int[]) RETURNING id`, [A, f.sections.A1.id])).id;
   ids.ptmSlot = (await q(`INSERT INTO ptm_slots (institution_id, event_id, teacher_user_id, starts_at, ends_at) VALUES ($1,$2,$3, now() + interval '7 days', now() + interval '7 days 10 minutes') RETURNING id`, [A, ids.ptm, f.users.t1.id])).id;
-  ids.log = (await q(`INSERT INTO delivery_logs (institution_id, channel, status, body, to_address) VALUES ($1,'sms','failed','x','+923001234567') RETURNING id`, [A])).id;
+  ids.log = (await q(`INSERT INTO delivery_logs (institution_id, channel, status, body, to_address) VALUES ($1,'whatsapp','failed','x','+923001234567') RETURNING id`, [A])).id;
 });
 
 /** Fill a route's parameters with institution A's records. */

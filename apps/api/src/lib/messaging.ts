@@ -1,7 +1,7 @@
 // Text messages and WhatsApp behind one interface (fee reminders, absence alerts).
 //   log    → printed to the server log (development)
 //   fake   → recorded in memory (tests)
-//   twilio → Twilio Messaging API (SMS, and WhatsApp with a "whatsapp:" sender)
+//   twilio → Twilio Messaging API (WhatsApp, with a "whatsapp:" sender)
 //   meta   → WhatsApp Cloud API with a pre-approved template (one {{1}} text parameter)
 // Every attempt is written to delivery_logs.
 import { getConfig } from '../config';
@@ -10,7 +10,8 @@ import { defineJob, enqueue } from '../jobs/queue';
 import { messagesLeft } from './platform';
 import { logger } from './logger';
 
-export type Channel = 'sms' | 'whatsapp';
+/** Text messages go by WhatsApp only (SMS was removed: it costs money per message). */
+export type Channel = 'whatsapp';
 export interface OutgoingMessage {
   channel: Channel;
   to: string;
@@ -33,7 +34,7 @@ export function normalizePhone(raw: string, defaultCountry = '92'): string | nul
 
 async function twilio(m: OutgoingMessage): Promise<SendResult> {
   const t = getConfig().messaging.twilio;
-  const from = m.channel === 'whatsapp' ? t.whatsappFrom : t.smsFrom;
+  const from = t.whatsappFrom;
   if (!from) return { ok: false, error: `no Twilio ${m.channel} sender configured` };
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${t.accountSid}/Messages.json`, {
     method: 'POST',
@@ -64,14 +65,13 @@ async function meta(m: OutgoingMessage): Promise<SendResult> {
   return res.ok ? { ok: true, id: json.messages?.[0]?.id } : { ok: false, error: json.error?.message ?? `HTTP ${res.status}` };
 }
 
-export function channelEnabled(channel: Channel): boolean {
-  const cfg = getConfig().messaging;
-  return (channel === 'sms' ? cfg.sms : cfg.whatsapp) !== 'none';
+export function channelEnabled(_channel: Channel = 'whatsapp'): boolean {
+  return getConfig().messaging.whatsapp !== 'none';
 }
 
 export async function sendMessage(m: OutgoingMessage): Promise<SendResult> {
   const cfg = getConfig().messaging;
-  const driver = m.channel === 'sms' ? cfg.sms : cfg.whatsapp;
+  const driver = cfg.whatsapp;
   try {
     if (driver === 'none') return { ok: false, error: `${m.channel} is turned off` };
     if (driver === 'fake') {
@@ -120,13 +120,14 @@ export async function sendAndLog(
   return r.ok;
 }
 
-/** Sends a logged SMS / WhatsApp message again and records the attempt. */
+/** Sends a logged WhatsApp message again and records the attempt. */
 export async function resend(logId: number): Promise<{ ok: boolean; error?: string }> {
   const { rows } = await asSystem(() => db.query<{ id: number; channel: Channel; to_address: string | null; body: string | null; status: string; attempts: number }>(
     `SELECT id, channel, to_address, body, status, attempts FROM delivery_logs WHERE id = $1`, [logId]
   ));
   const l = rows[0];
-  if (!l || (l.channel !== 'sms' && l.channel !== 'whatsapp') || !l.to_address || !l.body) return { ok: false, error: 'nothing to resend' };
+  if ((l?.channel as string | undefined) === 'sms') return { ok: false, error: 'SMS is no longer sent' };
+  if (!l || l.channel !== 'whatsapp' || !l.to_address || !l.body) return { ok: false, error: 'nothing to resend' };
   if (l.status === 'sent') return { ok: true };
   const r = await sendMessage({ channel: l.channel, to: l.to_address, text: l.body });
   await asSystem(() => db.query(`UPDATE delivery_logs SET status = $2, error = $3, attempts = attempts + 1 WHERE id = $1`, [l.id, r.ok ? 'sent' : 'failed', r.ok ? null : r.error]));

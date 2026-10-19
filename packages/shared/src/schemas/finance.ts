@@ -127,9 +127,13 @@ export const periodQuery = z.object({ from: isoDate, to: isoDate, campus_id: opt
 
 export const reconcileBody = z.object({ provider: z.enum(PAYMENT_PROVIDERS), from: isoDate, to: isoDate });
 
+/** Reminder channels (SMS was removed; a saved 'sms' is dropped rather than refused). */
+const dropSms = (v: unknown) => (Array.isArray(v) ? v.filter((c) => c !== 'sms') : v);
+const REMINDER_CHANNELS = z.enum(['in_app', 'email', 'whatsapp']);
+
 export const reminderBody = z.object({
   invoice_ids: z.array(id).max(5000).optional(),
-  channels: z.array(z.enum(['in_app', 'email', 'sms', 'whatsapp'])).min(1).default(['in_app', 'email']),
+  channels: z.preprocess(dropSms, z.array(REMINDER_CHANNELS).min(1)).default(['in_app', 'email']),
 });
 
 export const feeSettingsBody = z.object({
@@ -137,7 +141,7 @@ export const feeSettingsBody = z.object({
   /** days before the due date to remind, and days after it (overdue) */
   remind_before_days: z.array(z.coerce.number().int().min(0).max(60)).max(5).default([3]),
   remind_after_days: z.array(z.coerce.number().int().min(1).max(120)).max(5).default([1, 7]),
-  reminder_channels: z.array(z.enum(['in_app', 'email', 'sms', 'whatsapp'])).default(['in_app', 'email']),
+  reminder_channels: z.preprocess(dropSms, z.array(REMINDER_CHANNELS)).default(['in_app', 'email']),
   voucher_note: text(500).default(''),
 });
 export type FeeSettings = z.infer<typeof feeSettingsBody>;

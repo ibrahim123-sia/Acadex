@@ -1,7 +1,7 @@
 // The full fee cycle: fee structure with instalments and a late fine → discounts → invoices
 // generated (once) → the guardian pays online (test provider): checkout → signed webhook,
 // applied exactly once → receipt → counter and bank payments → late fines → defaulters and
-// reminders over SMS → refund → reconciliation (provider and bank statement) → reports and
+// reminders over WhatsApp → refund → reconciliation (provider and bank statement) → reports and
 // accounting exports. Plus who may see what, and webhook forgeries.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { as, fixture, request, app } from './helpers/http';
@@ -115,7 +115,7 @@ describe('who sees fees', () => {
     expect((await as(f.tokens.s1).get('/api/finance/my')).body.hidden).toBe(true);
     expect((await as(f.tokens.s1).get('/api/me/student/overview')).body.fee).toBeNull();
     expect((await as(f.tokens.p1).get(`/api/finance/invoices/${inv.id}`)).status).toBe(200);
-    await admin.put('/api/finance/settings', { show_to_students: true, reminder_channels: ['in_app', 'sms'], remind_after_days: [1] });
+    await admin.put('/api/finance/settings', { show_to_students: true, reminder_channels: ['in_app', 'whatsapp'], remind_after_days: [1] });
   });
 });
 
@@ -241,7 +241,7 @@ describe('at the counter, fines, defaulters and reminders', () => {
     expect(Number((await invoiceOf(f.students.S1.id, 'August')).total)).toBe(7000);
   });
 
-  it('lists defaulters and reminds their guardians by SMS with a pay link', async () => {
+  it('lists defaulters and reminds their guardians by WhatsApp with a pay link', async () => {
     const d = await admin.get('/api/finance/defaulters');
     expect(d.status).toBe(200);
     const ids = d.body.map((r: { student_id: number }) => r.student_id);
@@ -255,12 +255,15 @@ describe('at the counter, fines, defaulters and reminders', () => {
     await q(`INSERT INTO guardianships (institution_id, guardian_id, student_id, relationship) VALUES ($1, $2, $3, 'father')`, [f.institutions.A.id, g.id, f.students.S2.id]);
     sentMessages.length = 0;
     const sam = await invoiceOf(f.students.S2.id, 'August');
+    // an old screen may still send 'sms': it is dropped, never sent
     const r = await admin.post('/api/finance/reminders', { invoice_ids: [sam.id], channels: ['sms', 'whatsapp'] });
     expect(r.body).toEqual({ invoices: 1, reminded: 1 });
-    expect(sentMessages.map((m) => m.channel).sort()).toEqual(['sms', 'whatsapp']);
+    expect(sentMessages.map((m) => m.channel)).toEqual(['whatsapp']);
     expect(sentMessages[0]!.to).toBe('+923001234567');
     expect(sentMessages[0]!.text).toContain(`/pay/${sam.pay_token}`);
-    expect((await q(`SELECT count(*)::int n FROM delivery_logs WHERE channel = 'sms' AND status = 'sent'`))[0].n).toBe(1);
+    expect((await q(`SELECT count(*)::int n FROM delivery_logs WHERE channel = 'whatsapp' AND status = 'sent'`))[0].n).toBe(1);
+    expect((await q(`SELECT count(*)::int n FROM delivery_logs WHERE channel = 'sms'`))[0].n).toBe(0);
+    expect((await admin.post('/api/finance/reminders', { invoice_ids: [sam.id], channels: ['sms'] })).status).toBe(400);
   });
 
   it('scheduled reminders go out once after the due date', async () => {

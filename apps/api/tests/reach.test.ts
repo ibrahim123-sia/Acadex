@@ -1,6 +1,6 @@
 // Phase 5 — reach and communication: messaging with safeguarding rules (who may message whom,
 // guardians copied for students under 18, profanity, reports, review, locking), help-desk
-// tickets, parent–teacher meetings, emergency broadcasts, digests, SMS / WhatsApp delivery and
+// tickets, parent–teacher meetings, emergency broadcasts, digests, WhatsApp delivery and
 // retry, live-class provider accounts with Zoom webhooks, and account preferences.
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { app, as, fixture, request } from './helpers/http';
@@ -189,10 +189,10 @@ describe('parent–teacher meetings', () => {
 });
 
 describe('emergency broadcasts and delivery', () => {
-  it('reaches accounts on every channel and guardians without an account by SMS, ignoring quiet hours', async () => {
+  it('reaches accounts on every channel and guardians without an account by WhatsApp, ignoring quiet hours', async () => {
     sentMessages.length = 0;
     await as(f.tokens.p1).put('/api/notifications/preferences', { channels: {}, quiet_hours: { start: '00:00', end: '23:59' } });
-    const r = await as(f.tokens.adminA).post('/api/broadcasts', { title: 'School closed tomorrow', message: 'Heavy rain: the school is closed on Monday.', audience: 'guardians', channels: ['app', 'email', 'sms'] });
+    const r = await as(f.tokens.adminA).post('/api/broadcasts', { title: 'School closed tomorrow', message: 'Heavy rain: the school is closed on Monday.', audience: 'guardians', channels: ['app', 'email', 'whatsapp'] });
     expect(r.status).toBe(202);
     await drainJobs();
     expect((await q(`SELECT type FROM notifications WHERE user_id = $1 AND title = 'School closed tomorrow'`, [f.users.p1.id]))[0].type).toBe('emergency');
@@ -206,9 +206,9 @@ describe('emergency broadcasts and delivery', () => {
     await as(f.tokens.p1).put('/api/notifications/preferences', { channels: {}, quiet_hours: null });
   });
 
-  it('sends notifications by SMS when the person and the institution choose it', async () => {
+  it('sends notifications by WhatsApp when the person and the institution choose it', async () => {
     sentMessages.length = 0;
-    await as(f.tokens.p1).put('/api/notifications/preferences', { channels: { fee_due: { email: false, push: false, sms: true, whatsapp: false } } });
+    await as(f.tokens.p1).put('/api/notifications/preferences', { channels: { fee_due: { email: false, push: false, whatsapp: true } } });
     const { notify } = await import('../src/lib/notify');
     const { runAsSystem } = await import('../src/db/context');
     await runAsSystem(() => notify({ institutionId: f.institutions.A.id, userIds: [f.users.p1.id], type: 'fee_due', title: 'Fee due', message: 'Tuition' }));
@@ -216,18 +216,23 @@ describe('emergency broadcasts and delivery', () => {
     expect(sentMessages).toEqual([]); // the institution has not turned on notifications by phone
     await setSettings({ notify_by_phone: true });
     const prefs = await as(f.tokens.p1).get('/api/notifications/preferences');
-    expect(prefs.body.phone.sms).toBe(true);
+    expect(prefs.body.phone).toEqual({ whatsapp: true });
+    expect((await as(f.tokens.p1).get('/api/notifications/channels')).body).toMatchObject({ in_app: true, email: true, whatsapp: true });
     await runAsSystem(() => notify({ institutionId: f.institutions.A.id, userIds: [f.users.p1.id], type: 'fee_due', title: 'Fee due again', message: 'Tuition' }));
     await drainJobs();
     expect(sentMessages.map((m) => m.text)).toEqual([expect.stringContaining('Fee due again')]);
   });
 
   it('logs deliveries and retries failures', async () => {
-    const log = (await q(`INSERT INTO delivery_logs (institution_id, channel, status, error, to_address, body) VALUES ($1,'sms','failed','timeout','+923009998887','Retry me') RETURNING id`, [f.institutions.A.id]))[0];
+    const log = (await q(`INSERT INTO delivery_logs (institution_id, channel, status, error, to_address, body) VALUES ($1,'whatsapp','failed','timeout','+923009998887','Retry me') RETURNING id`, [f.institutions.A.id]))[0];
+    const oldSms = (await q(`INSERT INTO delivery_logs (institution_id, channel, status, error, to_address, body) VALUES ($1,'sms','failed','timeout','+923009998887','Old') RETURNING id`, [f.institutions.A.id]))[0];
     const admin = as(f.tokens.adminA);
     const list = await admin.get('/api/delivery-logs?status=failed');
     expect(list.status, JSON.stringify(list.body)).toBe(200);
     expect(list.body.find((l) => l.id === log.id).retryable).toBe(true);
+    // SMS is no longer sent: an old SMS failure stays in the log but is not retried
+    expect(list.body.find((l) => l.id === oldSms.id).retryable).toBe(false);
+    expect((await admin.post(`/api/delivery-logs/${oldSms.id}/retry`, {})).status).toBe(409);
     const r = await admin.post(`/api/delivery-logs/${log.id}/retry`, {});
     expect(r.body.ok).toBe(true);
     expect((await q(`SELECT status, attempts FROM delivery_logs WHERE id = $1`, [log.id]))[0]).toEqual({ status: 'sent', attempts: 2 });
