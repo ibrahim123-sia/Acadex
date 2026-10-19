@@ -68,6 +68,21 @@ export async function sendVerifyEmail(p: { to: string; name: string; token: stri
   });
 }
 
+/** A two-step verification code (the code itself is never stored, only its hash). */
+export async function sendMfaCodeEmail(p: { to: string; name: string; userId: number; code: string; minutes: number }) {
+  await sendEmail({
+    to: p.to,
+    subject: `Your Acadex code: ${p.code}`,
+    template: 'mfa_code',
+    userId: p.userId,
+    text: `Hello ${p.name},\n\nYour Acadex verification code is ${p.code}. It works once, for ${p.minutes} minutes.\n\nNobody from Acadex or your institution will ever ask you for this code. If you didn't try to sign in, change your password now.`,
+    html: layout(
+      'Your verification code',
+      `<p>Hello ${esc(p.name)},</p><p style="font-size:28px;font-weight:700;letter-spacing:6px;margin:16px 0">${esc(p.code)}</p><p>It works once, for ${p.minutes} minutes.</p><p style="font-size:13px;color:#64748b">Nobody from Acadex or your institution will ever ask you for this code. If you didn't try to sign in, change your password now.</p>`
+    ),
+  });
+}
+
 export async function sendSecurityNotice(p: { to: string; name: string; userId: number; what: string }) {
   await sendEmail({
     to: p.to,

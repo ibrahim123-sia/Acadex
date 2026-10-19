@@ -25,13 +25,15 @@ export const passwordResetBody = z.object({ token: emailToken, password: newPass
 export const verifyEmailBody = z.object({ token: emailToken });
 
 export const totpCode = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code');
-/** A TOTP code or a recovery code (xxxxx-xxxxx). */
+/** A 6-digit code (authenticator app or email) or a recovery code (xxxxx-xxxxx). */
 export const mfaCode = z
   .string()
   .trim()
   .regex(/^(\d{6}|[a-z0-9]{5}-[a-z0-9]{5})$/i, 'Enter the 6-digit code or a recovery code');
 
 export const mfaVerifyBody = z.object({ mfa_token: z.string().min(20).max(2000), code: mfaCode });
+/** Which method the sign-in uses; with codes by email, one is sent now. */
+export const mfaStartBody = z.object({ mfa_token: z.string().min(20).max(2000) });
 export const mfaEnableBody = z.object({ code: totpCode });
 export const mfaDisableBody = z.object({ password: z.string().min(1).max(200), code: mfaCode });
 

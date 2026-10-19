@@ -105,6 +105,7 @@ export function createApp(config: Config = getConfig()) {
       message: { error: 'Too many attempts. Please wait 15 minutes and try again.' },
     });
   app.use('/api/auth/mfa/verify', sensitive(config.loginRateLimit, true));
+  app.use('/api/auth/mfa/start', sensitive(config.loginRateLimit, false));
   app.use('/api/public/signup', sensitive(5, false));
   app.use('/api/public/demo', sensitive(5, false));
   // the public API: per key

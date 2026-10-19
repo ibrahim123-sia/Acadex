@@ -57,6 +57,7 @@ import {
   mfaCode,
   mfaDisableBody,
   mfaEnableBody,
+  mfaStartBody,
   mfaVerifyBody,
   pageQuery,
   passwordResetBody,
@@ -100,6 +101,7 @@ export const ROUTES: RouteDoc[] = [
 
   // ---------- auth ----------
   r('post', '/api/auth/login', 'Auth', 'Sign in (returns a session, or a 2FA challenge)', 'public', { body: loginBody }),
+  r('post', '/api/auth/mfa/start', 'Auth', 'Second sign-in step: the method, and an emailed code when it is email', 'public', { body: mfaStartBody }),
   r('post', '/api/auth/mfa/verify', 'Auth', 'Complete sign-in with a 2FA or recovery code', 'public', { body: mfaVerifyBody }),
   r('post', '/api/auth/refresh', 'Auth', 'Exchange the refresh cookie for a new access token (rotates the cookie)', 'cookie'),
   r('post', '/api/auth/logout', 'Auth', 'Sign out this device', 'cookie'),
@@ -118,6 +120,9 @@ export const ROUTES: RouteDoc[] = [
   r('get', '/api/auth/mfa', 'Auth', '2FA status', 'session'),
   r('post', '/api/auth/mfa/totp/setup', 'Auth', 'Start authenticator-app enrolment', 'incomplete'),
   r('post', '/api/auth/mfa/totp/enable', 'Auth', 'Confirm enrolment (returns recovery codes)', 'incomplete', { body: mfaEnableBody }),
+  r('post', '/api/auth/mfa/email/setup', 'Auth', 'Start two-step verification by email (sends a code)', 'incomplete'),
+  r('post', '/api/auth/mfa/email/enable', 'Auth', 'Confirm codes by email (returns recovery codes)', 'incomplete', { body: mfaEnableBody }),
+  r('post', '/api/auth/mfa/email/code', 'Auth', 'Email a code to confirm a security change', 'session'),
   r('post', '/api/auth/mfa/disable', 'Auth', 'Turn 2FA off', 'session', { body: mfaDisableBody }),
   r('post', '/api/auth/mfa/recovery-codes', 'Auth', 'New recovery codes', 'session', { body: z.object({ code: mfaCode }) }),
 

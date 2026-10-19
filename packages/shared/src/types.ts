@@ -48,6 +48,18 @@ export interface MfaChallengeResponse {
   mfa_token: string;
 }
 
+/** How a person proves the second step: an authenticator app or a code sent by email. */
+export type MfaMethod = 'totp' | 'email';
+
+export interface MfaStartResponse {
+  method: MfaMethod;
+  /** the masked address the code went to (email method) */
+  email?: string;
+  sent?: boolean;
+  /** seconds until another code can be sent */
+  retry_after?: number;
+}
+
 export interface ApiErrorBody {
   error: string;
   code?: string;

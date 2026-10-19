@@ -11,7 +11,10 @@ import {
   mfaCode,
   mfaDisableBody,
   mfaEnableBody,
+  mfaStartBody,
   mfaVerifyBody,
+  MFA_APP_ONLY_ROLES,
+  type MfaStartResponse,
   passwordResetBody,
   passwordResetRequestBody,
   verifyEmailBody,
@@ -23,7 +26,19 @@ import { hashPassword } from '../lib/passwords';
 import { auth, authAllowingIncomplete, currentUser, loadUserRow, mfaEnrollmentRequired, toSessionUser } from '../middleware/auth';
 import { createEmailToken, consumeEmailToken, peekEmailToken } from '../auth/email-tokens';
 import { sendPasswordResetEmail, sendSecurityNotice, sendVerifyEmail } from '../auth/emails';
-import { disableTotp, enableTotp, regenerateRecoveryCodes, remainingRecoveryCodes, setupTotp, verifySecondFactor } from '../auth/mfa';
+import {
+  activeMethod,
+  disableTotp,
+  enableEmailMfa,
+  enableTotp,
+  maskEmail,
+  regenerateRecoveryCodes,
+  remainingRecoveryCodes,
+  sendEmailCode,
+  setupEmailMfa,
+  setupTotp,
+  verifySecondFactor,
+} from '../auth/mfa';
 import { clearRefreshCookie, loadInstitutionSummary, REFRESH_COOKIE, requestMeta, sessionResponse, setRefreshCookie, startSession } from '../auth/service';
 import { markSessionMfaVerified, revokeSession, revokeUserSessions, rotateRefreshToken } from '../auth/sessions';
 import { signMfaChallenge, verifyAccessToken, verifyMfaChallenge } from '../auth/tokens';
@@ -97,6 +112,20 @@ router.post('/login', async (req, res) => {
   res.json(session);
 });
 
+/** The second step of a sign-in: which method it uses, and with codes by email, send one (or another). */
+router.post('/mfa/start', async (req, res) => {
+  const { mfa_token } = mfaStartBody.parse(req.body);
+  const challenge = verifyMfaChallenge(mfa_token);
+  const user = challenge ? await accountById(challenge.id) : undefined;
+  if (!challenge || !user || !user.is_active || user.token_version !== challenge.tv || !user.mfa_enabled) {
+    throw unauthorized('This sign-in attempt expired. Please sign in again.', 'MFA_CHALLENGE_EXPIRED');
+  }
+  const method = (await activeMethod(user.id)) ?? 'totp';
+  if (method === 'totp') return void res.json({ method } satisfies MfaStartResponse);
+  const r = await sendEmailCode({ id: user.id, email: user.email, name: user.full_name }, 'verify');
+  res.json({ method, email: maskEmail(user.email), ...r } satisfies MfaStartResponse);
+});
+
 router.post('/mfa/verify', async (req, res) => {
   const { mfa_token, code } = mfaVerifyBody.parse(req.body);
   const challenge = verifyMfaChallenge(mfa_token);
@@ -109,11 +138,11 @@ router.post('/mfa/verify', async (req, res) => {
   const method = await verifySecondFactor(user.id, code);
   if (!method) {
     await auditStandalone(user, 'sign_in_failed', 'wrong second-factor code');
-    throw badRequest('That code is not valid. Try the latest code from your app.');
+    throw badRequest('That code is not valid. Use the newest code from your app or your email, or a recovery code.');
   }
   if (method === 'recovery') await auditSelf(user, 'mfa_recovery_code_used');
   const session = await startSession(req, res, user.id, { mfaVerified: true });
-  await auditSelf(user, 'sign_in', method === 'recovery' ? 'password + recovery code' : 'password + authenticator');
+  await auditSelf(user, 'sign_in', method === 'recovery' ? 'password + recovery code' : method === 'email' ? 'password + emailed code' : 'password + authenticator');
   res.json(session);
 });
 
@@ -307,7 +336,10 @@ router.get('/mfa', auth, async (req, res) => {
   const me = currentUser(req);
   res.json({
     enabled: me.mfa_enabled,
+    method: me.mfa_enabled ? await activeMethod(me.id) : null,
     required: mfaEnrollmentRequired(me.role, false),
+    /** codes by email are offered to everyone except platform owners, who must use an app */
+    email_allowed: !MFA_APP_ONLY_ROLES.includes(me.role),
     recovery_codes_remaining: me.mfa_enabled ? await remainingRecoveryCodes(me.id) : 0,
   });
 });
@@ -331,6 +363,36 @@ router.post('/mfa/totp/enable', authAllowingIncomplete, async (req, res) => {
   await sendSecurityNotice({ to: me.email, name: me.name, userId: me.id, what: 'Two-factor authentication was turned on' });
   const row = (await asSystem(() => loadUserRow(me.id, me.session_id)))!;
   res.json({ recovery_codes: recoveryCodes, ...(await sessionResponse(row, me.session_id)) });
+});
+
+router.post('/mfa/email/setup', authAllowingIncomplete, async (req, res) => {
+  const me = currentUser(req);
+  if (me.mfa_enabled) throw conflict('Two-factor authentication is already on');
+  if (MFA_APP_ONLY_ROLES.includes(me.role)) throw badRequest('Your role must use an authenticator app for two-step verification.');
+  const r = await setupEmailMfa({ id: me.id, email: me.email, name: me.name });
+  res.json({ method: 'email', email: maskEmail(me.email), ...r } satisfies MfaStartResponse);
+});
+
+router.post('/mfa/email/enable', authAllowingIncomplete, async (req, res) => {
+  const me = currentUser(req);
+  const { code } = mfaEnableBody.parse(req.body);
+  if (MFA_APP_ONLY_ROLES.includes(me.role)) throw badRequest('Your role must use an authenticator app for two-step verification.');
+  const recoveryCodes = await enableEmailMfa(me.id, code);
+  if (!recoveryCodes) throw badRequest('That code is not valid or has expired. Send a new code and try again.');
+  await markSessionMfaVerified(me.session_id);
+  await revokeUserSessions(me.id, '2FA enabled', me.session_id);
+  await auditSelf(me, 'mfa_enabled', 'codes by email');
+  await sendSecurityNotice({ to: me.email, name: me.name, userId: me.id, what: 'Two-step verification by email was turned on' });
+  const row = (await asSystem(() => loadUserRow(me.id, me.session_id)))!;
+  res.json({ recovery_codes: recoveryCodes, ...(await sessionResponse(row, me.session_id)) });
+});
+
+/** Signed in with codes by email: send one to confirm a security change (turning 2FA off, new recovery codes). */
+router.post('/mfa/email/code', auth, async (req, res) => {
+  const me = currentUser(req);
+  if ((await activeMethod(me.id)) !== 'email') throw badRequest('Your account does not use codes by email');
+  const r = await sendEmailCode({ id: me.id, email: me.email, name: me.name }, 'verify');
+  res.json({ method: 'email', email: maskEmail(me.email), ...r } satisfies MfaStartResponse);
 });
 
 router.post('/mfa/disable', auth, async (req, res) => {

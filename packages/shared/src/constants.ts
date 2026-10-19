@@ -29,3 +29,5 @@ export const HOME_ROUTE: Record<Role, string> = {
 
 /** Roles that must use two-factor authentication when ADMIN_MFA=required. */
 export const MFA_REQUIRED_ROLES: readonly Role[] = ['super_admin', 'group_admin', 'institution_admin'];
+/** Roles that must use an authenticator app: codes by email are only as safe as the mailbox. */
+export const MFA_APP_ONLY_ROLES: readonly Role[] = ['super_admin'];
