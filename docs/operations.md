@@ -128,17 +128,20 @@ are acknowledged and ignored. Run **Reconciliation** regularly: matched payments
 reconciled, and anything received but not recorded (or the reverse) is listed. The test
 provider is refused in production.
 
-## Text messages and WhatsApp
+## WhatsApp (optional)
 
-`SMS_DRIVER` / `WHATSAPP_DRIVER`: `log` (printed, the default), `twilio` (needs
-`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` / `TWILIO_WHATSAPP_FROM`) or,
-for WhatsApp, `meta` (the WhatsApp Cloud API: `META_WHATSAPP_TOKEN`, `META_WHATSAPP_PHONE_ID`
+There is no SMS: it is charged per message, so it was removed. Notifications go in the app, by
+email and by web push, which cost nothing. WhatsApp is also charged per message by the provider,
+so it is off by default.
+
+`WHATSAPP_DRIVER`: `none` (the default), `log` (printed), `twilio` (needs
+`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`) or `meta` (the WhatsApp Cloud API: `META_WHATSAPP_TOKEN`, `META_WHATSAPP_PHONE_ID`
 and an approved template `META_WHATSAPP_TEMPLATE` with one text parameter). Local numbers
 (03xx…) are sent as +92. Every attempt is in `delivery_logs`.
 
-People can also get notifications by SMS / WhatsApp when their institution turns on
+Once it is on, people can also get notifications by WhatsApp when their institution turns on
 "notifications by phone" (Communication → Messaging rules) — the institution pays for the
-messages. Emergency broadcasts always use every channel. A failed message is retried
+messages. Emergency broadcasts use every channel that is on. A failed message is retried
 automatically (5, 20 and 40 minutes later) and can be retried from Communication → Delivery.
 The `notify.digest` job (every hour, at :10) sends daily (18:00 local) and weekly (Mondays)
 digests.

@@ -46,7 +46,7 @@ scholarships and automatic sibling discounts, invoices and part payments, vouche
 details and a QR code, receipts, refunds and waivers; online payment with **Stripe,
 JazzCash, Easypaisa and bank transfer / Raast** on each institution's own merchant account
 (verified webhooks, applied once), pay links for families without an account, reminders in
-the app, by email, SMS and WhatsApp, defaulters, reconciliation with the provider or a bank
+the app and by email (WhatsApp optional), defaulters, reconciliation with the provider or a bank
 statement, expenses, reports and Tally / QuickBooks exports; fees can be hidden from students.
 
 **Exams** — secure online exams (access code, campus network only, full screen, no going
@@ -65,7 +65,7 @@ scores with interventions; Ask Acadex for questions about your own data; caption
 assistant — with budgets, usage and cost, and off switches everywhere ([docs/ai.md](docs/ai.md)).
 
 **Reach** — safeguarded messaging (guardians copied when a student under 18 is involved, a
-review queue, reports, nothing deleted), SMS / WhatsApp / email / push with digests and
+review queue, reports, nothing deleted), email / push (WhatsApp optional) with digests and
 emergency broadcasts, parent–teacher meeting booking, a help desk, Zoom / Teams / Meet created
 from Acadex, an installable app that works offline, and low-bandwidth mode.
 
