@@ -96,3 +96,6 @@ playwright-report/
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
+
+# --- Project docs (kept locally, not in the repository) ---
+docs/
