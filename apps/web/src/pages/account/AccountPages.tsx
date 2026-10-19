@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { KeyRound, Laptop, LogOut, MailCheck, ShieldCheck, Smartphone } from 'lucide-react';
-import { HOME_ROUTE, type AuthResponse } from '@acadex/shared';
+import { HOME_ROUTE, type AuthResponse, type MfaMethod, type MfaStartResponse } from '@acadex/shared';
 import { api, errorMessage } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatRelative } from '@/lib/format';
@@ -94,7 +94,7 @@ export function SecurityPage() {
   const [pwError, setPwError] = useState('');
 
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.get<{ email_verified: boolean }>('/auth/me') });
-  const mfa = useQuery({ queryKey: ['mfa'], queryFn: () => api.get<{ enabled: boolean; required: boolean; recovery_codes_remaining: number }>('/auth/mfa') });
+  const mfa = useQuery({ queryKey: ['mfa'], queryFn: () => api.get<{ enabled: boolean; method: MfaMethod | null; required: boolean; recovery_codes_remaining: number }>('/auth/mfa') });
   const sessions = useQuery({ queryKey: ['sessions'], queryFn: () => api.get<Session[]>('/auth/sessions') });
 
   const revoke = useMutation({
@@ -161,12 +161,15 @@ export function SecurityPage() {
               <div className="flex items-center gap-2">
                 <Badge tone={mfa.data.enabled ? 'success' : 'neutral'}>{mfa.data.enabled ? t('account.on', 'On') : t('account.off', 'Off')}</Badge>
                 {mfa.data.enabled && (
+                  <Badge tone="neutral">{mfa.data.method === 'email' ? t('auth.methodEmail', 'Code by email') : t('auth.methodAppShort', 'Authenticator app')}</Badge>
+                )}
+                {mfa.data.enabled && (
                   <span className="text-fg-muted">
                     {t('account.recoveryRemaining', '{{count}} recovery codes left', { count: mfa.data.recovery_codes_remaining })}
                   </span>
                 )}
               </div>
-              <p className="text-fg-muted">{t('account.twoFactorHelp', 'Ask for a code from your phone when you sign in, so a stolen password is not enough.')}</p>
+              <p className="text-fg-muted">{t('account.twoFactorHelp', 'Ask for a code from your phone or your email when you sign in, so a stolen password is not enough.')}</p>
               {mfa.data.enabled ? (
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={() => setCodesOpen(true)}>
@@ -237,13 +240,32 @@ export function SecurityPage() {
           />
         )}
       </Dialog>
-      <DisableMfaDialog open={disableOpen} onClose={() => setDisableOpen(false)} />
-      <RecoveryCodesDialog open={codesOpen} onClose={() => setCodesOpen(false)} />
+      <DisableMfaDialog open={disableOpen} onClose={() => setDisableOpen(false)} byEmail={mfa.data?.method === 'email'} />
+      <RecoveryCodesDialog open={codesOpen} onClose={() => setCodesOpen(false)} byEmail={mfa.data?.method === 'email'} />
     </>
   );
 }
 
-function DisableMfaDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** With codes by email there is no app to read a code from: send one to confirm the change. */
+function EmailCodeButton() {
+  const { t } = useTranslation();
+  const m = useMutation({ mutationFn: () => api.post<MfaStartResponse>('/auth/mfa/email/code') });
+  return (
+    <div className="text-sm">
+      <Button type="button" variant="outline" size="sm" loading={m.isPending} onClick={() => m.mutate()}>
+        {t('auth.emailMeCode', 'Email me a code')}
+      </Button>
+      {m.data && (
+        <p className="mt-1 text-fg-muted">
+          {m.data.sent ? t('auth.emailCodeSentShort', 'Sent to {{email}}.', { email: m.data.email }) : t('auth.emailCodeWaitShort', 'A code was sent a moment ago; try again in {{s}}s.', { s: m.data.retry_after })}
+        </p>
+      )}
+      {m.isError && <Alert tone="danger">{errorMessage(m.error)}</Alert>}
+    </div>
+  );
+}
+
+function DisableMfaDialog({ open, onClose, byEmail }: { open: boolean; onClose: () => void; byEmail: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [password, setPassword] = useState('');
@@ -265,6 +287,7 @@ function DisableMfaDialog({ open, onClose }: { open: boolean; onClose: () => voi
         }}
       >
         <Field label={t('auth.password', 'Password')}>{(a) => <PasswordInput {...a} value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
+        {byEmail && <EmailCodeButton />}
         <Field label={t('auth.code', 'Code')}>{(a) => <Input {...a} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" />}</Field>
         {m.isError && <Alert tone="danger">{errorMessage(m.error)}</Alert>}
         <div className="flex justify-end gap-2">
@@ -280,7 +303,7 @@ function DisableMfaDialog({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-function RecoveryCodesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function RecoveryCodesDialog({ open, onClose, byEmail }: { open: boolean; onClose: () => void; byEmail: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [code, setCode] = useState('');
@@ -317,6 +340,7 @@ function RecoveryCodesDialog({ open, onClose }: { open: boolean; onClose: () => 
           }}
         >
           <p className="text-sm text-fg-muted">{t('account.newCodesHelp', 'Your old recovery codes will stop working.')}</p>
+          {byEmail && <EmailCodeButton />}
           <Field label={t('auth.code', 'Code')}>{(a) => <Input {...a} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" />}</Field>
           {m.isError && <Alert tone="danger">{errorMessage(m.error)}</Alert>}
           <Button type="submit" loading={m.isPending}>

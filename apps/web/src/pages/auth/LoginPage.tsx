@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { GraduationCap, ShieldCheck } from 'lucide-react';
-import { HOME_ROUTE, loginBody, mfaCode } from '@acadex/shared';
+import { HOME_ROUTE, loginBody, mfaCode, type MfaStartResponse } from '@acadex/shared';
 import { useAuth } from '@/lib/auth';
-import { errorMessage } from '@/lib/api';
+import { api, errorMessage } from '@/lib/api';
 import { Alert, Button, Field, Input, PasswordInput } from '@/components/ui';
 import { AuthLayout } from './AuthLayout';
 import { SsoButtons } from '@/components/PlatformExtras';
@@ -34,6 +34,10 @@ export function LoginPage() {
 
   const creds = useForm<z.input<typeof loginBody>>({ resolver: zodResolver(loginBody), defaultValues: { email: '', password: '' } });
   const mfa = useForm<{ code: string }>({ resolver: zodResolver(z.object({ code: mfaCode })), defaultValues: { code: '' } });
+  const onMfaExpired = useCallback((message: string) => {
+    setError(message);
+    setMfaToken(null);
+  }, []);
 
   if (status === 'authenticated' && user) return <Navigate to={safeNext(params.get('next')) ?? HOME_ROUTE[user.role]} replace />;
 
@@ -98,7 +102,7 @@ export function LoginPage() {
             <ShieldCheck className="size-5" aria-hidden />
             <span className="font-semibold">{t('auth.mfaTitle', 'Two-step verification')}</span>
           </div>
-          <p className="mb-6 text-sm text-fg-muted">{t('auth.mfaSubtitle', 'Enter the 6-digit code from your authenticator app, or a recovery code.')}</p>
+          <MfaHint mfaToken={mfaToken} onExpired={onMfaExpired} />
           <form onSubmit={onCode} className="space-y-4" noValidate>
             <Field label={t('auth.code', 'Code')} error={mfa.formState.errors.code?.message}>
               {(a) => <Input {...a} autoFocus inputMode="text" autoComplete="one-time-code" className="text-center font-mono text-lg tracking-widest" {...mfa.register('code')} />}
@@ -114,5 +118,53 @@ export function LoginPage() {
         </>
       )}
     </AuthLayout>
+  );
+}
+
+/** What the second step asks for: the authenticator app, or a code we email (sent here, with resend). */
+function MfaHint({ mfaToken, onExpired }: { mfaToken: string; onExpired: (message: string) => void }) {
+  const { t } = useTranslation();
+  const [info, setInfo] = useState<MfaStartResponse | null>(null);
+  const [wait, setWait] = useState(0);
+  const [failed, setFailed] = useState('');
+
+  const start = useCallback(async () => {
+    setFailed('');
+    try {
+      const r = await api.post<MfaStartResponse>('/auth/mfa/start', { mfa_token: mfaToken }, { noRefresh: true });
+      setInfo(r);
+      setWait(r.retry_after ?? (r.sent ? 60 : 0));
+    } catch (e) {
+      if ((e as { code?: string }).code === 'MFA_CHALLENGE_EXPIRED') onExpired(errorMessage(e));
+      else setFailed(errorMessage(e));
+    }
+  }, [mfaToken, onExpired]);
+  useEffect(() => void start(), [start]);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const id = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(id);
+  }, [wait]);
+
+  if (info?.method !== 'email') {
+    return (
+      <>
+        <p className="mb-6 text-sm text-fg-muted">{t('auth.mfaSubtitle', 'Enter the 6-digit code from your authenticator app, or a recovery code.')}</p>
+        {failed && <Alert tone="danger">{failed}</Alert>}
+      </>
+    );
+  }
+  return (
+    <div className="mb-6 space-y-2 text-sm">
+      <p className="text-fg-muted">{t('auth.mfaEmailSubtitle', 'We emailed a 6-digit code to {{email}}. Enter it below, or use a recovery code.', { email: info.email })}</p>
+      {wait > 60 ? (
+        <Alert tone="warning">{t('auth.mfaEmailLimit', 'Too many codes were sent. Use the latest one, a recovery code, or try again in an hour.')}</Alert>
+      ) : (
+        <button type="button" disabled={wait > 0} onClick={() => void start()} className="text-primary hover:underline disabled:cursor-not-allowed disabled:text-fg-muted disabled:no-underline">
+          {wait > 0 ? t('auth.mfaResendIn', 'Send a new code in {{s}}s', { s: wait }) : t('auth.mfaResend', 'Send a new code')}
+        </button>
+      )}
+      {failed && <Alert tone="danger">{failed}</Alert>}
+    </div>
   );
 }
