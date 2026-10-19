@@ -49,6 +49,13 @@ router.post('/:id/read', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------------------------------------------------------------- channels
+
+/** Which delivery channels this server offers (email and in-app always; push and WhatsApp when set up). */
+router.get('/channels', async (_req, res) => {
+  res.json({ in_app: true, email: true, push: vapidPublicKey() !== null, whatsapp: channelEnabled('whatsapp') });
+});
+
 // ---------------------------------------------------------------- preferences
 
 router.get('/preferences', async (req, res) => {
@@ -58,12 +65,12 @@ router.get('/preferences', async (req, res) => {
     ? (await db.query<{ by_phone: boolean | null }>(`SELECT (settings->>'notify_by_phone')::boolean AS by_phone FROM institutions WHERE id = $1`, [u.institution_id])).rows[0]
     : undefined;
   res.json({
-    types: Object.entries(NOTIFICATION_TYPES).map(([key, t]) => ({ key, label: t.label, urgent: 'urgent' in t && t.urgent, default: { email: t.email, push: t.push, sms: false, whatsapp: false } })),
+    types: Object.entries(NOTIFICATION_TYPES).map(([key, t]) => ({ key, label: t.label, urgent: 'urgent' in t && t.urgent, default: { email: t.email, push: t.push, whatsapp: false } })),
     channels: rows[0]?.channels ?? {},
     quiet_hours: rows[0]?.quiet_hours ?? null,
     digest: rows[0]?.digest ?? 'off',
-    /** whether the institution sends notifications by SMS / WhatsApp at all */
-    phone: { sms: !!inst?.by_phone && channelEnabled('sms'), whatsapp: !!inst?.by_phone && channelEnabled('whatsapp') },
+    /** whether the institution sends notifications by WhatsApp at all */
+    phone: { whatsapp: !!inst?.by_phone && channelEnabled('whatsapp') },
     push: { available: vapidPublicKey() !== null, public_key: vapidPublicKey() },
   });
 });
