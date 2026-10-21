@@ -1,130 +1,86 @@
-# 🎓 Acadex
-
-> **AI-native learning platform and institute management** — one platform where institutions run admissions, teaching, attendance, grading, fees and family communication from their own secure, isolated workspace.
-
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![Node.js](https://img.shields.io/badge/Node.js-Express%205-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-RLS-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+<h1 align="center">Acadex</h1>
 
 <p align="center">
-  <img src="preview.png" alt="Acadex preview" width="100%"/>
+  <b>AI-native learning platform and institute management</b><br>
+  Admissions, teaching, attendance, exams, fees and family communication — for schools, colleges,
+  universities and training centres, each in its own secure, isolated workspace.
 </p>
 
-Acadex is being rebuilt in phases from a school-management app into an AI-native LMS and
-institute ERP. See [CHANGELOG.md](CHANGELOG.md) for what each phase delivered.
+<p align="center">
+  <a href="https://github.com/ibrahim123-sia/Acadex/actions/workflows/ci.yml"><img src="https://github.com/ibrahim123-sia/Acadex/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript strict">
+  <img src="https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white" alt="Node.js 22">
+  <img src="https://img.shields.io/badge/PostgreSQL-row--level%20security-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL with row-level security">
+  <img src="https://img.shields.io/badge/license-proprietary-lightgrey" alt="Proprietary licence">
+</p>
 
-## ✨ What's in it today
+<p align="center">
+  <img src=".github/assets/preview.png" alt="The Acadex dashboard" width="100%">
+</p>
 
-**Platform** — register institutions (each gets an invited administrator), plans, suspend /
-reactivate, cross-tenant KPIs, platform audit log. **Groups** (school networks, university
-systems) with a group administrator who sees every member institution.
+## Contents
 
-**Any kind of institution** — school, school network, college, university, academy or
-training center, each with its own words (Class / Batch / Cohort, Teacher / Instructor /
-Trainer, Term / Semester / Intake…), grading (letter, percentage, GPA 4.0 / 5.0 with credit
-hours, pass/fail, competency, custom bands) and term system — set up in minutes with the
-onboarding guide.
+- [Overview](#overview)
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Getting started](#getting-started)
+- [Testing and quality](#testing-and-quality)
+- [Deployment](#deployment)
+- [Project structure](#project-structure)
+- [Security](#security)
+- [Contributing](#contributing)
+- [Licence](#licence)
 
-**Structure** — campuses / branches → departments → programs → levels → sections, academic
-years and terms, a holiday calendar that attendance and due dates respect, the course
-catalog, offerings with co-teachers and TAs, open enrolment with capacity and a waitlist,
-year-end promotion / graduation and archiving.
+## Overview
 
-**People** — complete student records (guardians with per-guardian permissions, medical notes
-behind their own permission, documents, custom fields, history), staff profiles with
-teaching load, bulk import from CSV / Excel (OneRoster columns) with a dry run, bulk
-invitations, ID cards with QR codes, leaving / character certificates and bonafide
-letters with public verification, a recycle bin and a full audit trail.
+Acadex is one platform for the whole life of an institution: from the first enquiry and the
+admission form, through courses, attendance, exams and fees, to results, transcripts and
+messages to families. It adapts to the kind of institution — a school speaks of classes and
+terms, a university of programmes, semesters and GPA, a training centre of batches and
+cohorts — and to its country, which sets the currency, time zone, number format and payment
+methods.
 
-**Institute office** — dashboards with a campus-by-campus comparison, announcements,
-**custom roles & permissions** (also limited to one campus), invitations instead of shared
-passwords.
+AI is built in where it saves people time, always with a person in control: a tutor that
+answers from the course's own material, a teacher copilot whose drafts are applied only on
+approval, and early warnings for students who need help.
 
-**Fees & finance** — fee structures with instalments and late fines, discounts,
-scholarships and automatic sibling discounts, invoices and part payments, vouchers with bank
-details and a QR code, receipts, refunds and waivers; online payment with **Stripe,
-JazzCash, Easypaisa and bank transfer / Raast** on each institution's own merchant account
-(verified webhooks, applied once), pay links for families without an account, reminders in
-the app and by email (WhatsApp optional), defaulters, reconciliation with the provider or a bank
-statement, expenses, reports and Tally / QuickBooks exports; fees can be hidden from students.
+It serves five kinds of users — platform owner, institution or group administrators,
+teachers, students and parents — each with their own dashboard and permissions.
 
-**Exams** — secure online exams (access code, campus network only, full screen, no going
-back, automatic hand-in), date sheets with a generator, seating plans, invigilation, admit
-cards with eligibility, marks entry with teacher → head of department → controller approval
-and moderation, published results with positions or SGPA, merit lists, result cards and a
-verifiable transcript. **Outcome-based education**: CLOs, PLOs, mapping, attainment and
-accreditation reports, skills transcripts.
+## Features
 
-**AI that coaches** — a tutor that answers from the course's own material with sources,
-gives hints instead of answers (following each assignment's AI policy), and replies in English; a
-teacher copilot whose drafts (quizzes, rubrics, lesson plans, feedback, report comments,
-"extend this by two days") are applied only on approval; grading suggestions kept as
-drafts; evidence of how work was written instead of AI detection; nightly early-warning
-scores with interventions; Ask Acadex for questions about your own data; captions; a help
-assistant — with budgets, usage and cost, and off switches everywhere (details in `docs/ai.md`).
+| Area | What it covers |
+| --- | --- |
+| **Institutions** | Schools, school networks, colleges, universities, academies and training centres, each with its own vocabulary, grading (letter, percentage, GPA with credit hours, pass/fail, competency) and term system; groups that oversee several institutions; guided onboarding. |
+| **Structure & people** | Campuses, departments, programmes, levels and sections; academic years, terms and holidays; complete student records with guardians, medical notes and documents; staff profiles; bulk CSV / Excel import with a dry run; ID cards and certificates with QR verification; recycle bin and full audit trail. |
+| **Courses (LMS)** | Modules with drip release, rich pages, files, video, SCORM 1.2 / 2004; assignments with versions, group work, peer review, rubrics and feedback; quizzes from question banks (12 question types, pools, timers, item analysis); a weighted gradebook; discussions, live classes and certificates; import from Common Cartridge, Moodle, QTI and Google Classroom. |
+| **Attendance & timetable** | Registers by day or by class, offline on a phone; rotating QR check-in; leave requests; exam-eligibility thresholds and alerts; timetable generator with clash checks, rooms, substitutions and room bookings. |
+| **Exams** | Secure online exams, date sheets, seating plans, admit cards, marks entry with approval and moderation, published results, merit lists, result cards and verifiable transcripts; outcome-based education (CLOs, PLOs, attainment). |
+| **Fees & finance** | Fee structures with instalments, fines and discounts; invoices, vouchers and receipts; online payment on each institution's own merchant account — JazzCash and Easypaisa in Pakistan, Stripe elsewhere, bank transfer everywhere — with verified, idempotent webhooks; pay links for families without an account; reminders; reconciliation; expenses; Tally / QuickBooks export. |
+| **Admissions** | Branded online application forms with documents and an application fee, an enquiry tracker, entrance tests, merit lists, offers and one-click enrolment. |
+| **Communication** | Safeguarded messaging (guardians copied for students under 18), notifications in the app, by email and by browser push with quiet hours and digests, emergency broadcasts that also reach guardians without an account by email, parent–teacher meeting booking, a help desk and Zoom / Teams / Meet integration. |
+| **AI** | Course-grounded tutor with citations, teacher copilot (quizzes, rubrics, lesson plans, feedback) applied only on approval, grading suggestions as drafts, writing-process evidence instead of AI detection, nightly early-warning scores, questions over your own data, captions — with budgets, usage and cost reporting and off switches at every level. The platform owner chooses the models (Gemini or Groq). |
+| **Platform & modules** | Plans with limits, trials and self-serve sign-up; invoices with tax; usage and margin; white-label domains; data export and account closure; Library, HR & payroll, Transport, Hostel, Inventory and Visitors modules; scheduled reports. |
+| **Integrations** | REST API with scoped keys, signed webhooks, LTI 1.3, OneRoster, Google and Microsoft sign-in, calendar feeds, OpenAPI documentation at `/api/docs`. |
+| **Every day** | Role dashboards, announcements by scope, a personal calendar, live updates, an installable app that works offline, low-bandwidth mode, light and dark themes. |
 
-**Reach** — safeguarded messaging (guardians copied when a student under 18 is involved, a
-review queue, reports, nothing deleted), email / push (WhatsApp optional) with digests and
-emergency broadcasts, parent–teacher meeting booking, a help desk, Zoom / Teams / Meet created
-from Acadex, an installable app that works offline, and low-bandwidth mode.
+## Tech stack
 
-**Platform** — plans with limits, trials and self-serve sign-up, invoices with tax, card or
-bank payment, usage and margin, white-label domains, data exports and account closing; Library,
-HR & payroll, Transport, Hostel, Inventory and Visitors modules; reports with scheduled emails;
-a REST API, webhooks, LTI 1.3, OneRoster and Google / Microsoft sign-in (details in `docs/platform.md`).
+| Layer | Technology |
+| --- | --- |
+| API | Node.js 22, Express 5, TypeScript (strict), Zod, Drizzle ORM and SQL, pg-boss background jobs, Pino logging |
+| Database | PostgreSQL 16 with row-level security on every tenant table |
+| Web | React 18, Vite, Tailwind CSS 4, TanStack Query, React Router, React Hook Form |
+| Shared | `@acadex/shared` — Zod schemas, permissions and types used by both the API and the web app |
+| AI | Gemini and Groq behind one gateway with budgets, redaction and usage logging |
+| Storage & email | Local disk, S3 or Cloudflare R2; SMTP (Mailpit in development) |
+| Testing | Vitest and Supertest with embedded PostgreSQL, Playwright (desktop and 360 px), axe accessibility checks |
+| Delivery | GitHub Actions, Docker, Cloudflare Workers and Containers |
 
-**Admissions** — branded online application forms with documents and an application fee,
-an enquiry tracker with follow-ups, online or in-hall entrance tests, merit lists, offers
-and a waiting list, and one-click enrolment with guardian and portal accounts.
+## Getting started
 
-**Courses (the LMS)** — a course space per offering: modules with drip release (by date,
-after another module, or after reaching a score), rich pages with maths and code, files,
-videos (YouTube / Vimeo / Loom / Drive), links, SCORM 1.2 / 2004 packages; progress and
-"continue where you left off"; blueprints built once and pushed to every section.
-Assignments with drafts and saved versions, group work, peer review, late policies,
-extensions and accommodations, rubrics, feedback files (marked-up PDFs, audio and video
-comments), draft vs released grades with a change history. Quizzes from shared question
-banks (12 question types, random pools, timers, extra time), auto-marking, essay marking,
-item analysis and regrading. A weighted gradebook (categories, drop lowest, excused /
-missing, late penalties, overrides, lock, CSV / Excel export). Discussions with Q&A mode
-and moderation, polls, anonymous course evaluations, live classes (Jitsi / Zoom / Meet /
-Teams — joining marks attendance), course certificates with public verification, optional
-badges and points. Import from Common Cartridge (Canvas, Blackboard, Schoology), Moodle
-backups, QTI and Google Classroom; starter templates and open-resource libraries.
-
-**Attendance & timetable** — registers per day or per class with "all present", working
-offline on a phone and syncing later, rotating QR check-in, late minutes, leave requests
-approved by the class teacher that mark the register, staff attendance, attendance
-percentages with the exam-eligibility threshold and alerts. The bell schedule, rooms, a
-timetable grid with clash checks, a generator, substitutions, and every week aware of
-holidays.
-
-**Every day** — role dashboards ("what to do today" for teachers, students, families and the
-office), announcements by scope (institution, campus, section, course), my calendar with a
-private feed for Google / Outlook / Apple Calendar, notifications in the app, by email and
-by browser push with per-type choices and quiet hours, live updates without reloading.
-
-**Foundation**
-- 🔒 **Tenant isolation twice over** — every query is scoped in code *and* by Postgres
-  row-level security, so a missed filter can't leak another institution's data
-- 🔐 **Accounts** — invitations, password reset, email confirmation, authenticator-app 2FA
-  with recovery codes (required for administrators in production), per-device sessions
-  with rotating refresh tokens and "sign out other devices"
-- 🧩 **RBAC** — permissions, built-in and custom roles; the UI shows exactly what a role may do
-- 🌍 **Country** — each institution picks its country; currency, timezone, number format, week start
-  and online payments follow (JazzCash / Easypaisa in Pakistan, Stripe elsewhere). The interface is in
-  English; light / dark theme
-- 📜 **API docs** generated from the same Zod schemas that validate requests (`/api/docs`)
-
-Details are in the `docs/` folder, which the team keeps locally (it is not in the repository):
-architecture, security, operations, Cloudflare hosting, future gaps, the feature checklist and the
-learning guide (also as a PDF).
-
-## 🚀 Getting started
-
-Prerequisites: Node.js 22+, and PostgreSQL 16 — either a free [Neon](https://neon.tech)
-database or the bundled Docker Compose stack.
+**Prerequisites:** Node.js 22 (see `.nvmrc`) and PostgreSQL 16 — a free [Neon](https://neon.tech)
+database or the Docker Compose stack in this repository.
 
 ```bash
 npm install
@@ -135,88 +91,116 @@ npm run db:seed       # demo data (refused in production and on a non-empty data
 npm run dev           # API on http://localhost:5000, web app on http://localhost:3000
 ```
 
-No Postgres at hand? `docker compose up -d` starts Postgres (with pgvector), MinIO and
-Mailpit (catches every email at http://localhost:8025). Then use
+**With Docker:** `docker compose up -d` starts PostgreSQL, MinIO (S3-compatible storage) and
+Mailpit (catches every email at http://localhost:8025). Then set
 `DATABASE_URL=postgres://acadex:acadex@localhost:5432/acadex`, `DATABASE_SSL=false`,
-`MAIL_DRIVER=smtp`, `SMTP_URL=smtp://localhost:1025`.
-`docker compose --profile app up --build` also runs the API and the web app (http://localhost:8080).
+`MAIL_DRIVER=smtp` and `SMTP_URL=smtp://localhost:1025`.
+`docker compose --profile app up --build` also runs the API and the web app on
+http://localhost:8080.
 
-`npm run db:reset` wipes and reseeds the demo data (refused when `NODE_ENV=production`).
-In development, emails (invitations, reset links) are written to the API log unless
-`MAIL_DRIVER=smtp`.
+`npm run db:reset` wipes and reseeds the demo data (refused when `NODE_ENV=production`). In
+development, emails are written to the API log unless `MAIL_DRIVER=smtp`.
 
-### 🔑 Demo accounts (password: `Acadex@123`)
-Seeded demo accounts only. People added in the app receive an invitation and choose their
-own password.
+### Demo accounts
 
-Four institutions that each look native, plus the platform and a group:
+Created by `npm run db:seed` for local development only; the password of every demo account is
+`Acadex@123`. People added through the app receive an invitation and choose their own password.
 
-| | Greenwood High School (school) | Sunrise Schools (3 branches) | Northfield University | Skillforge Academy (training) |
-|---|---|---|---|---|
+| | Greenwood High School | Sunrise Schools (3 branches) | Northfield University | Skillforge Academy |
+| --- | --- | --- | --- | --- |
 | Admin | `admin@greenwood.edu` | `admin@sunrise.edu` | `registrar@northfield.edu` | `admin@skillforge.edu` |
-| Branch principal | | `principal.dha@sunrise.edu` (DHA only) | | |
+| Branch principal | | `principal.dha@sunrise.edu` | | |
 | Teacher | `ali.sheikh.t0@greenwood.edu` | `ali.nadeem.t8@sunrise.edu` | `zainab.baig.t17@northfield.edu` | `zainab.shah.t25@skillforge.edu` |
 | Student | `ali.butt.s0@greenwood.edu` | `ali.butt.s36@sunrise.edu` | `omar.baig.s88@northfield.edu` | `omar.baig.s112@skillforge.edu` |
 | Parent | `parent1@greenwood.edu` | | | |
 
-Platform admin: `superadmin@acadex.com` · Group admin (Greenwood + Sunrise): `group@acadex.com`
+Platform owner: `superadmin@acadex.com` · Group admin (Greenwood and Sunrise): `group@acadex.com`
 
-Try Phase 3 in the demo: sign in as `parent1@greenwood.edu` → **Fees** → **Pay** with the
-**Test payment** provider (no money moves); Greenwood's public admission form is at
-`/apply/greenwood/class-one-2027`; the office has a mid-term date sheet under **Exams office**
-and learning outcomes for Class 9 mathematics under **Learning outcomes**.
+To see online payments without moving money, sign in as `parent1@greenwood.edu`, open **Fees**
+and pay with the **Test payment** provider. Greenwood's public admission form is at
+`/apply/greenwood/class-one-2027`.
 
-## 🧪 Tests & checks
+## Testing and quality
+
 ```bash
-npm test          # API (embedded Postgres, no setup needed) and web unit tests
+npm test              # API tests (embedded PostgreSQL, no setup needed) and web unit tests
 npm run typecheck
 npm run lint
 npm run build
-npm run e2e       # browser tests: the full teacher → student journey on desktop and at 360 px
-```
-The end-to-end tests (Playwright) run against the dev servers (started automatically) and the
-database in `apps/api/.env` with the demo data. First time: `npx playwright install chromium`.
-Every endpoint has denial tests (cross-role, cross-teacher, cross-institution), and the
-RLS suite checks isolation directly in the database as a non-superuser role. To use an
-existing server instead of the embedded one, set `TEST_DATABASE_URL` to a **separate**
-database. CI runs the tests, typecheck, lint and build (the browser tests run locally with
-`npm run e2e`) plus a migrate-twice check, a backup-and-restore drill, a smoke test of the
-built server, the Docker image builds, gitleaks and `npm audit`.
-
-## 📁 Project structure
-
-```
-apps/
-  api/                 @acadex/api — Express 5 + TypeScript
-    src/
-      app.ts, server.ts, worker.ts, config.ts, openapi.ts
-      auth/            sessions, refresh tokens, invitations, password reset, 2FA, SSO helpers
-      rbac/            permission catalogue sync, can(), requirePermission
-      db/              Drizzle schema, migration runner, request context (RLS), seed
-      ai/              AI gate (client), model catalog, providers, prompts, tutor, knowledge base
-      jobs/            background job queue (pg-boss) and job registry
-      lib/             domain logic: ledger, payments, notify, webhooks, LTI, reports, privacy …
-      middleware/      authentication
-      routes/          one file per area (institution, people, lms, finance, exams, ai,
-                       platform-ai, platform-saas, api-v1 … — see apps/api/src/routes)
-      storage/         file storage drivers (local / S3 / R2), uploads, virus scanning
-    drizzle/           migrations (generated, reviewed, forward-only)
-    tests/             Vitest + Supertest, two-tenant fixture
-  web/                 @acadex/web — React + Vite + TypeScript
-    src/
-      components/      design system (ui/), AppShell, dialogs
-      lib/             api client, auth, i18n, formatting, theme, queries
-      locales/         en.json (labels for enum values; the interface is English)
-      pages/           account, admin, ai, auth, group, lms, modules, office, parent,
-                       platform, public, reach, site, student, teacher
-packages/
-  shared/              @acadex/shared — Zod schemas, permissions, constants, types
-ops/                   backup / restore / restore-verification scripts
-docs/                  (local only, git-ignored) architecture, security, operations, AI, platform,
-                       Cloudflare hosting, feature checklist, future gaps, learning guide (+ PDF)
-cloudflare/            the Cloudflare Worker and wrangler config (docs/cloudflare.md)
+npm run e2e           # browser journeys on desktop and at 360 px (first: npx playwright install chromium)
+npm run secrets:check # scan for credentials before committing
 ```
 
----
+- Every endpoint has denial tests (another role, another teacher, another institution), and a
+  row-level security suite checks isolation directly in the database as a non-superuser role.
+- The end-to-end tests run against the dev servers and the database in `apps/api/.env` with the
+  demo data. To run the API tests against your own server instead of the embedded one, set
+  `TEST_DATABASE_URL` to a **separate** database.
+- CI runs lint, typecheck, tests and build for every package, applies the migrations twice on an
+  empty database, rehearses a backup and restore, smoke-tests the built server, builds the Docker
+  images, validates the Cloudflare Worker, and runs gitleaks and `npm audit`.
 
-<p align="center">Built by <b>Syed Ibrahim Ali</b> — Full-Stack &amp; AI Engineer</p>
+## Deployment
+
+- **Cloudflare** — a Worker serves the web app and forwards `/api` to the API running in a
+  Cloudflare Container; files go to R2 and the database is PostgreSQL (for example Neon).
+  Deploys run only by hand from GitHub Actions (**Deploy to Cloudflare**). Application secrets
+  are set with `wrangler secret put` and never stored in the repository.
+- **Docker** — `apps/api/Dockerfile` and `apps/web/Dockerfile` build production images; the
+  Compose `app` profile shows how they fit together.
+- **Backups** — `ops/backup.sh` writes encrypted, checksummed database backups, and
+  `ops/verify-restore.sh` proves a backup restores with matching row counts.
+
+Migrations are applied on start-up, are forward-only and refuse destructive statements unless
+they have been explicitly reviewed.
+
+## Project structure
+
+```
+.
+├── apps/
+│   ├── api/                 @acadex/api — Express 5 + TypeScript
+│   │   ├── src/
+│   │   │   ├── ai/          AI gateway, model catalogue, providers, prompts, tutor, knowledge base
+│   │   │   ├── auth/        sessions, refresh tokens, invitations, two-step verification, SSO
+│   │   │   ├── db/          Drizzle schema, migration runner, request context (RLS), seed
+│   │   │   ├── jobs/        background job queue and registry
+│   │   │   ├── lib/         domain logic: ledger, payments, notifications, webhooks, LTI, reports
+│   │   │   ├── middleware/  authentication and permissions
+│   │   │   ├── rbac/        permission catalogue
+│   │   │   ├── routes/      one router per area (institution, people, lms, finance, exams, ai …)
+│   │   │   └── storage/     file storage drivers (local, S3, R2) and virus scanning
+│   │   ├── drizzle/         generated, reviewed, forward-only migrations
+│   │   └── tests/           Vitest + Supertest with a two-institution fixture
+│   └── web/                 @acadex/web — React + Vite + TypeScript
+│       └── src/
+│           ├── components/  design system and application shell
+│           ├── lib/         API client, auth, formatting, theme, queries
+│           └── pages/       one folder per area and role
+├── packages/
+│   └── shared/              @acadex/shared — Zod schemas, permissions, constants, types
+├── e2e/                     Playwright end-to-end tests
+├── cloudflare/              Cloudflare Worker and wrangler configuration
+├── ops/                     backup, restore and restore-verification scripts
+├── scripts/                 repository tooling (credential scan)
+└── .github/                 CI and deploy workflows, templates, code owners
+```
+
+## Security
+
+Tenant isolation in code and in the database, bcrypt password hashing, rotating refresh tokens,
+two-step verification (authenticator app or emailed code, required for administrators in
+production), encrypted secrets at rest and credential scanning on every commit. To report a
+vulnerability, see [SECURITY.md](SECURITY.md) — please do not open a public issue.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, commit conventions and the rules that
+keep tenants' data safe. Notable changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+## Licence
+
+Proprietary — copyright © 2024–2026 Syed Ibrahim Ali. All rights reserved. No use, copying or
+distribution without written permission; see [LICENSE](LICENSE).
+
+<p align="center"><sub>Built by <b>Syed Ibrahim Ali</b> — Full-Stack &amp; AI Engineer</sub></p>
