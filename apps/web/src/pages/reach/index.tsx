@@ -1,4 +1,4 @@
-// Routes of Phase 5 (reach and communication) and the "saved for offline" list.
+// Routes of reach and communication, and the "saved for offline" list.
 import { useState, type ReactNode } from 'react';
 import { Link, Navigate } from 'react-router';
 import { useTranslation } from 'react-i18next';

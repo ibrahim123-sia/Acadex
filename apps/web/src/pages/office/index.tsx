@@ -1,4 +1,4 @@
-// Routes of Phase 3: finance (/finance), paying fees (/fees, /pay), exams (/exams),
+// Office routes: finance (/finance), paying fees (/fees, /pay), exams (/exams),
 // learning outcomes (/outcomes) and admissions (/admissions). Each screen still needs its
 // own permission; the API enforces it again.
 import type { ReactNode } from 'react';

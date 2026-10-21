@@ -338,7 +338,7 @@ export const assessments = pgTable(
     /** { reviews_per_student, due_at, anonymous } when peer review is on */
     peerReview: jsonb('peer_review'),
     rubricId: integer('rubric_id'),
-    /** what AI help is allowed (enforced by the AI tutor in Phase 4) */
+    /** what AI help is allowed (enforced by the AI tutor) */
     aiPolicy: text('ai_policy').notNull().default('allowed'),
     /** quizzes: { time_limit_minutes, shuffle_questions, shuffle_options, one_at_a_time, show_results } */
     quiz: jsonb('quiz'),

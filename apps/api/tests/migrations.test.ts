@@ -51,7 +51,7 @@ afterAll(async () => {
 
 describe('migrations', () => {
   it('a pre-Drizzle database and a new database end up with the same schema', async () => {
-    // simulate a Phase 0A database: legacy files applied and recorded by the old runner
+    // simulate a pre-Drizzle database: legacy files applied and recorded by the old runner
     await legacyPool.query(`CREATE TABLE schema_migrations (id TEXT PRIMARY KEY, checksum TEXT NOT NULL,
                               applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
     for (const m of loadLegacyMigrations()) {

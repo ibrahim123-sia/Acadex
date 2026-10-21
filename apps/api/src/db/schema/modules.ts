@@ -1,4 +1,4 @@
-// Optional institute modules (Phase 6), each switched on per institution: Library (catalogue,
+// Optional institute modules, each switched on per institution: Library (catalogue,
 // copies with barcodes, loans, fines), HR & payroll (salary structures, payroll runs,
 // payslips, staff leave and balances), Transport (vehicles, routes, stops, assignments),
 // Hostel (rooms, allocations), Inventory & assets, and the visitor log / gate passes.

@@ -1,6 +1,6 @@
 # Legacy migrations (frozen)
 
-The four SQL files in `legacy/` built the schema before Drizzle was introduced (Phase 0A).
+The four SQL files in `legacy/` built the schema before Drizzle was introduced.
 They are kept only so that databases created back then can be brought up to date: the
 runner applies any of them that such a database is missing, then records Drizzle's
 `0000_baseline` as already applied (it describes the same schema).

@@ -1,4 +1,4 @@
-// The SaaS platform and the ecosystem (Phase 6): plans, billing, self-serve sign-up,
+// The SaaS platform and the ecosystem: plans, billing, self-serve sign-up,
 // white-label domains, data exports, the public API (keys, scopes, webhooks), LTI tools,
 // consents and privacy requests, scheduled reports, the public site, and the optional
 // institute modules.

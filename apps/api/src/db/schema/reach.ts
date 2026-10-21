@@ -1,4 +1,4 @@
-// Reach and communication (Phase 5): conversations and messages (kept for safeguarding review,
+// Reach and communication: conversations and messages (kept for safeguarding review,
 // with reports), help-desk tickets, parent–teacher meetings, emergency broadcasts and the
 // institution's live-class provider accounts (Zoom, Teams, Meet).
 import { sql } from 'drizzle-orm';

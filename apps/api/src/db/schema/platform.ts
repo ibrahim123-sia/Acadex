@@ -1,4 +1,4 @@
-// The SaaS platform (Phase 6): plans with limits and features, tenant billing (invoices with
+// The SaaS platform: plans with limits and features, tenant billing (invoices with
 // tax and dunning), daily usage metering, platform announcements, custom domains, tenant data
 // exports, public API keys and webhooks, consents and data-subject requests, report
 // schedules, demo requests and product feedback.

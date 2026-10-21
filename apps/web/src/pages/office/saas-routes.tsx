@@ -1,4 +1,4 @@
-// Routes of Phase 6 inside the app (the institution's platform pages and the modules).
+// Platform routes inside the app (the institution's platform pages and the modules).
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { HOME_ROUTE, type Permission } from '@acadex/shared';

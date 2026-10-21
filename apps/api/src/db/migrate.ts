@@ -3,7 +3,7 @@
 // checksum, under an advisory lock. Destructive statements are refused unless the file is
 // explicitly marked as reviewed.
 //
-// Databases created before Drizzle (Phase 0A) carry the legacy migrations instead; for them
+// Databases created before Drizzle carry the legacy migrations instead; for them
 // the runner finishes any missing legacy files and records the Drizzle baseline as applied.
 import fs from 'node:fs';
 import path from 'node:path';

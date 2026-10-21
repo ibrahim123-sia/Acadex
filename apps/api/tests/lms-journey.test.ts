@@ -1,4 +1,4 @@
-// The Phase 2 acceptance journey through the API: a teacher builds a course (modules, a page,
+// The LMS journey through the API: a teacher builds a course (modules, a page,
 // an assignment, a quiz), a student works through it, hands in, takes the quiz, the teacher
 // grades and releases, the gradebook and the certificate follow, and notifications go out.
 import { describe, it, expect, beforeAll } from 'vitest';

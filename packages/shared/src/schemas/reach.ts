@@ -1,4 +1,4 @@
-// Reach and communication (Phase 5): messaging with safeguarding rules, tickets, parent–teacher
+// Reach and communication: messaging with safeguarding rules, tickets, parent–teacher
 // meetings, emergency broadcasts, live-class provider accounts and per-person delivery choices.
 import { z } from 'zod';
 import { id, isoDate, optionalId, requiredText, text } from './common';

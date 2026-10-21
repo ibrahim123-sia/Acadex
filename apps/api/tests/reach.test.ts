@@ -1,4 +1,4 @@
-// Phase 5 — reach and communication: messaging with safeguarding rules (who may message whom,
+// Reach and communication: messaging with safeguarding rules (who may message whom,
 // guardians copied for students under 18, profanity, reports, review, locking), help-desk
 // tickets, parent–teacher meetings, emergency broadcasts, digests, WhatsApp delivery and
 // retry, live-class provider accounts with Zoom webhooks, and account preferences.

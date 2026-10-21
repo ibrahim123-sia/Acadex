@@ -1,4 +1,4 @@
-// Phase 6 — the platform and the ecosystem: plans and modules, the Library and HR & payroll
+// The platform and the ecosystem: plans and modules, the Library and HR & payroll
 // modules (and transport / hostel billing, inventory, visitors), tenant invoices with tax and
 // dunning, usage metering, support sign-in with consent, data exports and deletion, the public
 // API with keys and scopes, webhooks, LTI 1.3 launches, Google sign-in, consents and privacy

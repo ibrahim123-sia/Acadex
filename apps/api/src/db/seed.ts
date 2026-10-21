@@ -698,7 +698,7 @@ async function seedGreenwood(groupId: number) {
   await notify(inst, [parent!], 'fee', 'Fee reminder', 'A tuition fee instalment is due for your child this week.');
   await notify(inst, [parent!], 'grade', 'New result published', 'Mid-term results are now available.');
 
-  // ---- Phase 3 demo: discounts, an open admission form with applicants and enquiries, a
+  // ---- Fees and admissions demo: discounts, an open admission form with applicants and enquiries, a
   // mid-term date sheet, and learning outcomes for Class 9 mathematics
   await insertMany('discounts', ['institution_id', 'name', 'kind', 'method', 'value', 'heads', 'sibling_from'], [
     [inst.id, 'Sibling discount', 'sibling', 'percent', 10, ['Tuition'], 2],
@@ -1025,7 +1025,7 @@ async function seedAll() {
   console.log(`SEED DONE. Password for all demo users: ${PW}`);
 }
 
-/** Phase 5 demo at Greenwood: a parent–teacher meeting day (one booking), help-desk tickets and a conversation. */
+/** Communication demo at Greenwood: a parent–teacher meeting day (one booking), help-desk tickets and a conversation. */
 async function seedReach() {
   const [g] = await q(`SELECT id, timezone FROM institutions WHERE slug = 'greenwood'`);
   const [teacher] = await q(`SELECT id, ref_id, full_name FROM users WHERE email = 'ali.sheikh.t0@greenwood.edu'`);
@@ -1078,7 +1078,7 @@ async function seedReach() {
   );
 }
 
-/** Phase 6 demo at Greenwood (Pro plan): library, HR & payroll and transport switched on with a little data. */
+/** Platform and modules demo at Greenwood (Pro plan): library, HR & payroll and transport switched on with a little data. */
 async function seedModules() {
   const [g] = await q(`SELECT id FROM institutions WHERE slug = 'greenwood'`);
   if (!g) return;
