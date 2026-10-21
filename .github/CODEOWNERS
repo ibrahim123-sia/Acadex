@@ -1,0 +1,11 @@
+# Every change is reviewed by the owner. Paths below are listed so they stand out in reviews.
+*                         @ibrahim123-sia
+
+# Security-sensitive areas
+/apps/api/src/auth/       @ibrahim123-sia
+/apps/api/src/db/         @ibrahim123-sia
+/apps/api/drizzle/        @ibrahim123-sia
+/apps/api/src/lib/finance/ @ibrahim123-sia
+/cloudflare/              @ibrahim123-sia
+/ops/                     @ibrahim123-sia
+/.github/                 @ibrahim123-sia

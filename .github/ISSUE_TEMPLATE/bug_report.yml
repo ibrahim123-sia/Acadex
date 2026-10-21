@@ -1,0 +1,48 @@
+name: Bug report
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Found a security problem? Do not open an issue — use **Security → Report a vulnerability** instead (see SECURITY.md).
+        Please remove real names, emails, phone numbers and other personal data from everything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as an institution admin (demo: admin@greenwood.edu)
+        2. Go to …
+        3. Click …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Sign-in and accounts, Structure and people, Courses (LMS), Attendance and timetable, Exams, Fees and payments, Admissions, Communication, AI, Platform, Other]
+    validations:
+      required: true
+  - type: input
+    id: role
+    attributes:
+      label: Role
+      placeholder: e.g. teacher, parent, institution admin
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      placeholder: e.g. Chrome 140 on Android, 360 px wide
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Error messages, the request id from the API response, or a screenshot.
