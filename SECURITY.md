@@ -15,7 +15,7 @@ Report it privately through GitHub: open the repository's **Security** tab and c
 - any logs, requests or screenshots that help — with real personal data removed.
 
 You will get an acknowledgement within **3 working days** and an assessment within
-**10 working days**. Fixes for confirmed issues are prioritised by severity; you will be told
+**10 working days**. Fixes for confirmed issues are prioritized by severity; you will be told
 when a fix is released and, if you wish, credited for the report.
 
 ## Scope

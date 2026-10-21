@@ -1,9 +1,9 @@
 <h1 align="center">Acadex</h1>
 
 <p align="center">
-  <b>AI-native learning platform and institute management</b><br>
-  Admissions, teaching, attendance, exams, fees and family communication — for schools, colleges,
-  universities and training centres, each in its own secure, isolated workspace.
+  <b>The AI-native platform for running schools, colleges and universities</b><br>
+  Admissions, teaching, attendance, exams, fees and family communication — for every kind of
+  institution, each in its own secure, isolated workspace.
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white" alt="Node.js 22">
   <img src="https://img.shields.io/badge/PostgreSQL-row--level%20security-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL with row-level security">
-  <img src="https://img.shields.io/badge/license-proprietary-lightgrey" alt="Proprietary licence">
+  <img src="https://img.shields.io/badge/license-proprietary-lightgrey" alt="Proprietary license">
 </p>
 
 <p align="center">
@@ -29,14 +29,14 @@
 - [Project structure](#project-structure)
 - [Security](#security)
 - [Contributing](#contributing)
-- [Licence](#licence)
+- [License](#license)
 
 ## Overview
 
 Acadex is one platform for the whole life of an institution: from the first enquiry and the
 admission form, through courses, attendance, exams and fees, to results, transcripts and
 messages to families. It adapts to the kind of institution — a school speaks of classes and
-terms, a university of programmes, semesters and GPA, a training centre of batches and
+terms, a university of programs, semesters and GPA, a training center of batches and
 cohorts — and to its country, which sets the currency, time zone, number format and payment
 methods.
 
@@ -51,13 +51,13 @@ teachers, students and parents — each with their own dashboard and permissions
 
 | Area | What it covers |
 | --- | --- |
-| **Institutions** | Schools, school networks, colleges, universities, academies and training centres, each with its own vocabulary, grading (letter, percentage, GPA with credit hours, pass/fail, competency) and term system; groups that oversee several institutions; guided onboarding. |
-| **Structure & people** | Campuses, departments, programmes, levels and sections; academic years, terms and holidays; complete student records with guardians, medical notes and documents; staff profiles; bulk CSV / Excel import with a dry run; ID cards and certificates with QR verification; recycle bin and full audit trail. |
+| **Institutions** | Schools, school networks, colleges, universities, academies and training centers, each with its own vocabulary, grading (letter, percentage, GPA with credit hours, pass/fail, competency) and term system; groups that oversee several institutions; guided onboarding. |
+| **Structure & people** | Campuses, departments, programs, levels and sections; academic years, terms and holidays; complete student records with guardians, medical notes and documents; staff profiles; bulk CSV / Excel import with a dry run; ID cards and certificates with QR verification; recycle bin and full audit trail. |
 | **Courses (LMS)** | Modules with drip release, rich pages, files, video, SCORM 1.2 / 2004; assignments with versions, group work, peer review, rubrics and feedback; quizzes from question banks (12 question types, pools, timers, item analysis); a weighted gradebook; discussions, live classes and certificates; import from Common Cartridge, Moodle, QTI and Google Classroom. |
 | **Attendance & timetable** | Registers by day or by class, offline on a phone; rotating QR check-in; leave requests; exam-eligibility thresholds and alerts; timetable generator with clash checks, rooms, substitutions and room bookings. |
 | **Exams** | Secure online exams, date sheets, seating plans, admit cards, marks entry with approval and moderation, published results, merit lists, result cards and verifiable transcripts; outcome-based education (CLOs, PLOs, attainment). |
 | **Fees & finance** | Fee structures with instalments, fines and discounts; invoices, vouchers and receipts; online payment on each institution's own merchant account — JazzCash and Easypaisa in Pakistan, Stripe elsewhere, bank transfer everywhere — with verified, idempotent webhooks; pay links for families without an account; reminders; reconciliation; expenses; Tally / QuickBooks export. |
-| **Admissions** | Branded online application forms with documents and an application fee, an enquiry tracker, entrance tests, merit lists, offers and one-click enrolment. |
+| **Admissions** | Branded online application forms with documents and an application fee, an enquiry tracker, entrance tests, merit lists, offers and one-click enrollment. |
 | **Communication** | Safeguarded messaging (guardians copied for students under 18), notifications in the app, by email and by browser push with quiet hours and digests, emergency broadcasts that also reach guardians without an account by email, parent–teacher meeting booking, a help desk and Zoom / Teams / Meet integration. |
 | **AI** | Course-grounded tutor with citations, teacher copilot (quizzes, rubrics, lesson plans, feedback) applied only on approval, grading suggestions as drafts, writing-process evidence instead of AI detection, nightly early-warning scores, questions over your own data, captions — with budgets, usage and cost reporting and off switches at every level. The platform owner chooses the models (Gemini or Groq). |
 | **Platform & modules** | Plans with limits, trials and self-serve sign-up; invoices with tax; usage and margin; white-label domains; data export and account closure; Library, HR & payroll, Transport, Hostel, Inventory and Visitors modules; scheduled reports. |
@@ -161,13 +161,13 @@ they have been explicitly reviewed.
 ├── apps/
 │   ├── api/                 @acadex/api — Express 5 + TypeScript
 │   │   ├── src/
-│   │   │   ├── ai/          AI gateway, model catalogue, providers, prompts, tutor, knowledge base
+│   │   │   ├── ai/          AI gateway, model catalog, providers, prompts, tutor, knowledge base
 │   │   │   ├── auth/        sessions, refresh tokens, invitations, two-step verification, SSO
 │   │   │   ├── db/          Drizzle schema, migration runner, request context (RLS), seed
 │   │   │   ├── jobs/        background job queue and registry
 │   │   │   ├── lib/         domain logic: ledger, payments, notifications, webhooks, LTI, reports
 │   │   │   ├── middleware/  authentication and permissions
-│   │   │   ├── rbac/        permission catalogue
+│   │   │   ├── rbac/        permission catalog
 │   │   │   ├── routes/      one router per area (institution, people, lms, finance, exams, ai …)
 │   │   │   └── storage/     file storage drivers (local, S3, R2) and virus scanning
 │   │   ├── drizzle/         generated, reviewed, forward-only migrations
@@ -198,7 +198,7 @@ vulnerability, see [SECURITY.md](SECURITY.md) — please do not open a public is
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, commit conventions and the rules that
 keep tenants' data safe. Notable changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
-## Licence
+## License
 
 Proprietary — copyright © 2024–2026 Syed Ibrahim Ali. All rights reserved. No use, copying or
 distribution without written permission; see [LICENSE](LICENSE).

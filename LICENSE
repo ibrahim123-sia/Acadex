@@ -6,7 +6,7 @@ This repository and everything in it — source code, database schema and migrat
 documentation, images and other material (together, "the Software") — is the exclusive property
 of the copyright holder.
 
-No licence is granted. Without the prior written permission of the copyright holder, you may not:
+No license is granted. Without the prior written permission of the copyright holder, you may not:
 
   - copy, reproduce or distribute the Software, in whole or in part;
   - modify it, translate it or create derivative works from it;
@@ -23,4 +23,4 @@ BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR P
 NON-INFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR
 OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
 
-Third-party packages used by the Software remain under their own licences.
+Third-party packages used by the Software remain under their own licenses.
