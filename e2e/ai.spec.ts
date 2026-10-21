@@ -1,4 +1,4 @@
-// Phase 4 acceptance in the browser (desktop and 360 px), on the demo data with the offline
+// AI in the browser (desktop and 360 px), on the demo data with the offline
 // fake provider: a student asks the tutor; a teacher drafts quiz questions and applies them;
 // the office sees AI usage, early-warning scores and asks a question about its data.
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';

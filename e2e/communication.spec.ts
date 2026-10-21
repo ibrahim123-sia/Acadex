@@ -1,4 +1,4 @@
-// Phase 5 acceptance in the browser (desktop and 360 px): a parent books a parent–teacher
+// Communication in the browser (desktop and 360 px): a parent books a parent–teacher
 // meeting and messages the teacher (who replies), raises a help-desk ticket the office
 // resolves; the office sends an emergency broadcast; low-bandwidth mode works.
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';

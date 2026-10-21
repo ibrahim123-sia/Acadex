@@ -1,4 +1,4 @@
-// Phase 2 acceptance: a teacher builds → assigns → collects → grades → releases, and a student
+// The LMS journey: a teacher builds → assigns → collects → grades → releases, and a student
 // works through the course and hands in — on a desktop and at 360 px.
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import path from 'node:path';

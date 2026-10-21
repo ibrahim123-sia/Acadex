@@ -1,4 +1,4 @@
-// Phase 3 acceptance, in the browser (desktop and 360 px):
+// Fees, exams and admissions in the browser (desktop and 360 px):
 //   fees: a guardian pays an invoice online (test provider) → receipt → the office sees it
 //         paid and reconciles it with what the provider settled;
 //   exams: the office sets a paper → the teacher enters marks in the grid and submits → the
