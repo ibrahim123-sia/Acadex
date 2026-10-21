@@ -5,21 +5,23 @@ node_modules/
 .yarn/cache/
 .yarn/install-state.gz
 
-# --- Environment & secrets ---
+# --- Environment & secrets (only the documented examples are committed) ---
 .env
-.env.local
-.env.*.local
-.env.production
+.env.*
 **/.env
-**/.env.local
-**/.env.*.local
+**/.env.*
+!**/.env.example
 *.pem
 *.key
 *.crt
+*.p12
+*.pfx
+id_rsa*
 *-secret*
 *-credentials*
 secrets/
 .config/
+.npmrc
 
 # --- Build outputs ---
 dist/
