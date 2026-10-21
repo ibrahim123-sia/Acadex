@@ -1,0 +1,26 @@
+Copyright (c) 2024-2026 Syed Ibrahim Ali. All rights reserved.
+
+PROPRIETARY AND CONFIDENTIAL
+
+This repository and everything in it — source code, database schema and migrations, designs,
+documentation, images and other material (together, "the Software") — is the exclusive property
+of the copyright holder.
+
+No licence is granted. Without the prior written permission of the copyright holder, you may not:
+
+  - copy, reproduce or distribute the Software, in whole or in part;
+  - modify it, translate it or create derivative works from it;
+  - use it, host it, or offer it as a service to anyone;
+  - sell, sublicense, rent or otherwise transfer it; or
+  - remove or alter this notice.
+
+Being able to view the Software (for example on GitHub) does not grant any of these rights.
+Permission to use the Software is given only by a separate written agreement with the copyright
+holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NON-INFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+Third-party packages used by the Software remain under their own licences.

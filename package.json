@@ -1,7 +1,13 @@
 {
   "name": "acadex",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Acadex — AI-native learning platform and institute management for every kind of institution",
+  "author": "Syed Ibrahim Ali",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ibrahim123-sia/Acadex.git"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"

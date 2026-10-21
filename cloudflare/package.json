@@ -1,6 +1,7 @@
 {
   "name": "acadex-cloudflare",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Runs Acadex on Cloudflare: a Worker serves the web app and sends /api to the API container. See docs/cloudflare.md.",
   "type": "module",
   "scripts": {

@@ -2,6 +2,7 @@
   "name": "@acadex/shared",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Types, Zod schemas, permission names and constants shared by the Acadex API and web app",
   "type": "module",
   "main": "./src/index.ts",
