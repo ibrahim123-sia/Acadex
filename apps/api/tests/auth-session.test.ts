@@ -139,6 +139,13 @@ describe('startup configuration', () => {
     expect(() => loadConfig({ JWT_SECRET: 'x'.repeat(40) })).toThrow(/DATABASE_URL/);
   });
 
+  it('in production, emails must really be sent (they carry sign-in codes and emergency alerts)', () => {
+    const prod = { NODE_ENV: 'production', DATABASE_URL: 'postgres://x', JWT_SECRET: 'x'.repeat(40), MFA_ENCRYPTION_KEY: '0'.repeat(64) };
+    expect(() => loadConfig(prod)).toThrow(/MAIL_DRIVER: must be smtp in production/);
+    expect(() => loadConfig({ ...prod, MAIL_DRIVER: 'smtp' })).toThrow(/SMTP_URL/);
+    expect(loadConfig({ ...prod, MAIL_DRIVER: 'smtp', SMTP_URL: 'smtp://mail.example.test:587' }).mailDriver).toBe('smtp');
+  });
+
   it('accepts a valid configuration', () => {
     const c = loadConfig({ DATABASE_URL: 'postgres://x', JWT_SECRET: 'x'.repeat(40), CORS_ORIGINS: 'https://a.test, https://b.test' });
     expect(c.corsOrigins).toEqual(['https://a.test', 'https://b.test']);

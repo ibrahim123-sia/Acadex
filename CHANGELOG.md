@@ -16,6 +16,8 @@ in-app "What's new" (Help → What's new).
 - **Two-step verification by email**: besides an authenticator app, a person can get a six-digit
   code by email (one a minute, five an hour, 10 minutes, 5 tries, stored hashed). Platform owners
   must still use an app. New routes: `/auth/mfa/start`, `/auth/mfa/email/setup|enable|code`.
+- **Production refuses to start without real email** (`MAIL_DRIVER=smtp` with `SMTP_URL`): sign-in
+  codes, invitations and emergency alerts would otherwise only be written to the log.
 
 ## [6.1.1] - 2026-10-18 — AI: API management and usage for the platform owner
 

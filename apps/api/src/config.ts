@@ -181,6 +181,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     problems.push('  - MFA_ENCRYPTION_KEY: required in production (openssl rand -hex 32)');
   }
   if (c.MAIL_DRIVER === 'smtp' && !c.SMTP_URL) problems.push('  - SMTP_URL: required when MAIL_DRIVER=smtp');
+  // email carries sign-in codes, invitations, password resets and emergency alerts (there is no
+  // SMS): in production they must really be sent, never only written to the log
+  if (production && c.MAIL_DRIVER === 'log') problems.push('  - MAIL_DRIVER: must be smtp in production (with SMTP_URL) — emails would otherwise only be logged');
   if (c.COOKIE_SAMESITE === 'none' && c.COOKIE_SECURE === 'false') {
     problems.push('  - COOKIE_SAMESITE=none requires COOKIE_SECURE=true');
   }
