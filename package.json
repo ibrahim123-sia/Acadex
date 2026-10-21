@@ -28,7 +28,7 @@
     "secrets:check": "node scripts/leak-scan.mjs"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.1",
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.64.1",
     "concurrently": "^10.0.6",
     "dotenv": "^18.0.8",

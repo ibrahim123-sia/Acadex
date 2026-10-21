@@ -14,19 +14,19 @@
   },
   "dependencies": {
     "@acadex/shared": "*",
-    "@hookform/resolvers": "^5.9.1",
-    "@sentry/react": "^11.7.0",
-    "@tanstack/react-query": "^5.104.2",
+    "@hookform/resolvers": "^5.9.2",
+    "@sentry/react": "^11.8.0",
+    "@tanstack/react-query": "^5.104.4",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.17",
-    "i18next": "^26.4.4",
+    "i18next": "^26.5.2",
     "katex": "^0.19.0",
-    "lucide-react": "^1.56.0",
+    "lucide-react": "^1.59.0",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.90.0",
-    "react-i18next": "^17.0.16",
+    "react-i18next": "^17.1.0",
     "react-router": "^7.18.4",
     "recharts": "^2.15.0",
     "tailwind-merge": "^3.7.0"
@@ -36,7 +36,7 @@
     "@tailwindcss/vite": "^4.0.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
-    "@types/katex": "^0.16.7",
+    "@types/katex": "^0.16.8",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
@@ -50,6 +50,6 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.2",
     "vite": "^6.0.7",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.5"
   }
 }
