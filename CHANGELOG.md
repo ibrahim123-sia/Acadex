@@ -1,6 +1,10 @@
 # Changelog
 
-## No SMS: free channels first (2026-10-19)
+All notable changes to Acadex are recorded here, newest first. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers match the
+in-app "What's new" (Help → What's new).
+
+## [6.2.0] - 2026-10-19 — Free channels first: no SMS, email codes and email to guardians
 
 - **SMS removed** — it is charged per message. Notifications, fee reminders and emergency
   broadcasts go in the app, by email and by web push, which cost nothing.
@@ -13,7 +17,7 @@
   code by email (one a minute, five an hour, 10 minutes, 5 tries, stored hashed). Platform owners
   must still use an app. New routes: `/auth/mfa/start`, `/auth/mfa/email/setup|enable|code`.
 
-## AI: API management and usage for the platform owner; English only (2026-10-18)
+## [6.1.1] - 2026-10-18 — AI: API management and usage for the platform owner
 
 - **API management** (Platform → API management): the platform owner saves the Gemini and Groq
   keys (encrypted) and picks the model of every AI feature from a dropdown that offers only models
@@ -32,7 +36,7 @@
 - Fixed: on the public site, a visitor's pricing page could keep spinning (the cache was cleared on
   load while plans were still loading). API answers now carry `Cache-Control: no-store`.
 
-## Country-based setup, English interface (2026-10-18)
+## [6.1.0] - 2026-10-18 — Country-based setup, English interface
 
 - An institution picks its **country** (platform registration, public sign-up, Settings) from a full
   list; the currency, timezone, number format and week start follow, and the online payment
@@ -40,14 +44,14 @@
   everywhere). The currency locks once fee invoices exist.
 - The interface is **English only**; the language picker and the Urdu / Arabic translations were
   removed (they remain in git history).
-- [docs/future-gaps.md](docs/future-gaps.md) lists what is deliberately not done yet (one database,
+- The internal gaps list (`docs/future-gaps.md`) records what is deliberately not done yet (one database,
   more gateways, fee tax, Hijri dates, …) and what is out of scope (certifications).
 - The floating feedback button moved into the menu on phones; the production server no longer runs
   migrations itself (a bug that closed its database pool).
 
-## Cloudflare hosting (2026-10-17)
+## [6.0.2] - 2026-10-17 — Cloudflare hosting
 
-Acadex can run entirely on Cloudflare — guide: [docs/cloudflare.md](docs/cloudflare.md).
+Acadex can run entirely on Cloudflare — guide: `docs/cloudflare.md` (internal).
 
 - `cloudflare/`: a Worker serves the web app from static assets and sends `/api/*` to the API, which
   runs unchanged from `apps/api/Dockerfile` as a Cloudflare Container; files go to R2 through the S3
@@ -57,9 +61,9 @@ Acadex can run entirely on Cloudflare — guide: [docs/cloudflare.md](docs/cloud
 - A manual "Deploy to Cloudflare" GitHub workflow; CI validates the Worker on every push.
 - `TRUST_PROXY` accepts a hop count; the S3 client skips optional checksums for S3-compatible stores.
 
-## Section 4 walk-through (2026-10-17)
+## [6.0.1] - 2026-10-17 — Feature checklist walk-through
 
-Every line of the brief's feature checklist checked against the code: [docs/checklist.md](docs/checklist.md).
+Every line of the brief's feature checklist checked against the code (internal checklist `docs/checklist.md`).
 Gaps closed:
 
 - **Room and resource bookings** — no double booking and no clash with timetabled classes (migration 0021).
@@ -71,9 +75,9 @@ Gaps closed:
 - **Google Drive / OneDrive** picker for course links (optional keys).
 - **In-app What's new**, a help link for the current page, and the sample-data switch in the setup wizard.
 
-## Phase 6 — Platform, modules and ecosystem (2026-10-17)
+## [6.0.0] - 2026-10-17 — Platform, modules and ecosystem
 
-Acadex as a business, and as part of a school's other tools. Details: [docs/platform.md](docs/platform.md).
+Acadex as a business, and as part of a school's other tools. Details: `docs/platform.md` (internal).
 
 - **SaaS**: self-serve sign-up with a trial, plans with limits and features, per-tenant
   overrides, monthly invoices with tax and an AI add-on, card (Stripe) or bank payment,
@@ -94,7 +98,7 @@ Acadex as a business, and as part of a school's other tools. Details: [docs/plat
 - **Operations**: a load-test script; dependency and secret scanning in CI (gitleaks) and a
   local `npm run secrets:check` before every commit.
 
-## Phase 5 — Reach and communication (2026-10-17)
+## [5.0.0] - 2026-10-17 — Reach and communication
 
 Acadex reaches every family, on any phone, in their language — safely.
 
@@ -124,11 +128,11 @@ Acadex reaches every family, on any phone, in their language — safely.
 - **Accessibility**: an automated WCAG 2.2 AA audit (axe-core) of every main page in English
   and Urdu, with the issues it found fixed; captions for course videos.
 
-## Phase 4 — The AI layer (2026-10-16)
+## [4.0.0] - 2026-10-16 — The AI layer
 
 AI that helps people learn instead of doing the work for them — every feature can be switched
 off, logs its usage and cost, labels its output, and changes nothing until a person approves.
-Details: [docs/ai.md](docs/ai.md).
+Details: `docs/ai.md` (internal).
 
 - **Foundation**: Anthropic, OpenAI, Gemini and Groq behind one interface, a model per
   feature, an institution's own key, usage and cost per call, monthly budgets with a hard cap,
@@ -155,7 +159,7 @@ Details: [docs/ai.md](docs/ai.md).
 - **Fix**: course materials, submissions, feedback files and SCORM packages could not be saved
   (the files purpose check was too narrow); migration 0018.
 
-## Phase 3 — Exams, finance and admissions (2026-10-16)
+## [3.0.0] - 2026-10-16 — Exams, finance and admissions
 
 A full fee cycle (invoice → online payment → receipt → reconciliation) and a full exam cycle
 (date sheet → marks → approvals → published results) work end to end, in API tests and in
@@ -217,7 +221,7 @@ payments and exam series / papers by migration 0014 before those tables were dro
   portal invitations.
 - Enquiries with sources, follow-ups and next follow-up dates, linked to later applications.
 
-## Phase 2 — The LMS core (2026-10-15)
+## [2.0.0] - 2026-10-15 — The LMS core
 
 A teacher can build a course, set work, collect it, grade it and release the grades, and a
 student can work through the course and hand everything in — on a computer or a phone.
@@ -320,7 +324,7 @@ model by migration 0011 (nothing was lost; the old tables were dropped afterward
 - Pages are slow against a far-away database (~0.25 s per round trip to Neon); deploy the
   API next to the database.
 
-## Phase 1 — Universal structure & people (2026-10-14)
+## [1.0.0] - 2026-10-14 — Universal structure & people
 
 Acadex now fits any kind of institution. The four demo tenants each look native: a school,
 a three-branch school network, a university and a training academy. Existing data was
@@ -386,7 +390,7 @@ guardians).
 - Requests from far away are slow (several sequential round trips per request); deploy the
   API next to the database.
 
-## Phase 0B — Foundation (2026-10-13)
+## [0.2.0] - 2026-10-13 — Foundation
 
 The platform underneath everything that follows. The demo data was reseeded (agreed data
 reset); existing databases migrate forward without loss.
@@ -443,7 +447,7 @@ reset); existing databases migrate forward without loss.
 - Tables still use `school` naming; Phase 1 generalises to institutions.
 - No end-to-end browser tests yet.
 
-## Phase 0A — Security & stability (2026-10-13)
+## [0.1.0] - 2026-10-13 — Security & stability
 
 Fixes to the existing app with no big refactor. Every item has a regression test that
 failed before the fix.
