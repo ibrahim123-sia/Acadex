@@ -7,3 +7,11 @@
 **/coverage
 .git
 backups
+
+# not needed in any image (and docs/ and screenshots/ stay on the developer's machine)
+docs
+screenshots
+e2e
+test-results
+playwright-report
+**/.wrangler

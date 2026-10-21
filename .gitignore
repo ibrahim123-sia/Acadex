@@ -40,62 +40,58 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# --- Uploads / runtime data ---
+# --- Uploads and runtime data ---
 apps/api/uploads/*
 !apps/api/uploads/.gitkeep
 apps/api/storage/*
 apps/api/.tmp/
+**/.storage/
 *.sqlite
 *.sqlite3
 *.db
 
-# --- Test artefacts ---
+# --- Database dumps and backups (never commit real data) ---
+*.bak
+backups/
+migration-bundle/
+migration-bundle.zip
+Database Backup/
+
+# --- Tests ---
 .vitest-cache/
 junit.xml
+test-results/
+playwright-report/
 
-# --- IDE / editor ---
+# --- Cloudflare (wrangler) ---
+.wrangler/
+.wrangler-dry/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# --- Editors ---
 .vscode/
 !.vscode/settings.json.example
 .idea/
 *.swp
 *.swo
 *~
+
+# --- Operating systems ---
 .DS_Store
 Thumbs.db
-desktop.ini
-
-# --- OS ---
-$RECYCLE.BIN/
 ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
 
-# --- Misc ---
+# --- Tooling caches ---
 *.tsbuildinfo
 .eslintcache
 .parcel-cache/
 .turbo/
 .tool-versions
 
-# --- Legacy project artefacts (already tracked, but keep new dumps out) ---
-migration-bundle/
-migration-bundle.zip
-Database Backup/
-*.bak
-
-# portfolio screenshot gallery (kept locally, not committed)
-screenshots/
-
-# uploaded files (local storage driver)
-**/.storage/
-
-# Playwright
-test-results/
-playwright-report/
-
-# --- Cloudflare (wrangler) ---
-.wrangler/
-.dev.vars
-.dev.vars.*
-!.dev.vars.example
-
-# --- Project docs (kept locally, not in the repository) ---
+# --- Kept locally, not in the repository ---
 docs/
+screenshots/
