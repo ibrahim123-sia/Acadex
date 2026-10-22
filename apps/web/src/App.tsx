@@ -3,6 +3,7 @@ import { Link, Route, Routes } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { HomeRedirect, RequireAuth } from '@/components/RequireAuth';
 import { Spinner } from '@/components/ui';
+import { useRouteSeo } from '@/lib/seo';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from '@/pages/auth/AccountLinkPages';
 import { ForcedMfaSetupPage, ForcedPasswordChangePage, SecurityPage } from '@/pages/account/AccountPages';
@@ -91,6 +92,7 @@ function NotFound() {
 }
 
 export default function App() {
+  useRouteSeo();
   return (
     <Suspense fallback={<Spinner className="h-full" />}>
       <Routes>
