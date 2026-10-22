@@ -1,12 +1,14 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useDocumentTitle } from '@/lib/seo';
 
 export const Card = ({ className, ...p }: HTMLAttributes<HTMLDivElement>) => (
   <div className={cn('rounded-xl border border-border bg-surface shadow-sm', className)} {...p} />
 );
 
 export function PageHeader({ title, subtitle, actions }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
+  useDocumentTitle(typeof title === 'string' ? title : null);
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
