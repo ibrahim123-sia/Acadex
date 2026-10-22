@@ -146,6 +146,12 @@ npm run secrets:check # scan for credentials before committing
   Cloudflare Container; files go to R2 and the database is PostgreSQL (for example Neon).
   Deploys run only by hand from GitHub Actions (**Deploy to Cloudflare**). Application secrets
   are set with `wrangler secret put` and never stored in the repository.
+- **Search and link previews** — the build writes every public page (home, pricing, help
+  articles, legal pages) as its own HTML file with its title, description, Open Graph and Twitter
+  tags and structured data, so search engines and link previews (LinkedIn, WhatsApp, Slack) see
+  them without running JavaScript. Set `SITE_URL` (for example `https://acadex.app`; a repository
+  variable for the deploy workflow) to make canonical links and preview images absolute and to
+  generate `sitemap.xml`. Pages behind sign-in are marked `noindex`.
 - **Docker** — `apps/api/Dockerfile` and `apps/web/Dockerfile` build production images; the
   Compose `app` profile shows how they fit together.
 - **Backups** — `ops/backup.sh` writes encrypted, checksummed database backups, and

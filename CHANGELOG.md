@@ -4,6 +4,18 @@ All notable changes to Acadex are recorded here, newest first. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers match the
 in-app "What's new" (Help → What's new).
 
+## [6.3.0] - 2026-10-22 — Search and link previews
+
+- **Every public page has its own title, description and link preview** — home, pricing, demo,
+  sign-up, each help article and the legal pages are written as their own HTML files at build
+  time, with Open Graph and Twitter tags, a canonical link and (on the home page) structured data,
+  so search engines and link previews see them without running JavaScript.
+- **`sitemap.xml`** when `SITE_URL` is set, and a `robots.txt` that keeps payment links,
+  certificate checks, invitations and password resets out of search; pages behind sign-in send
+  `noindex`.
+- **Browser tabs show the page** ("Students — Acadex"), and a share image (`og-image.png`).
+- The sub-processors page lists the AI providers actually used (Google Gemini and Groq).
+
 ## [6.2.0] - 2026-10-19 — Free channels first: no SMS, email codes and email to guardians
 
 - **SMS removed** — it is charged per message. Notifications, fee reminders and emergency
