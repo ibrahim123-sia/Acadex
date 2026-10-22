@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '6.3',
+    date: '2026-10-22',
+    title: 'Easier to find and to share',
+    items: [
+      'Browser tabs show the page you are on',
+      'Links to Acadex pages show a title, description and picture when shared',
+      'Help articles and the public pages can be found in search engines',
+    ],
+  },
+  {
     version: '6.2',
     date: '2026-10-19',
     title: 'Notifications that cost nothing',
