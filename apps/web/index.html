@@ -17,11 +17,6 @@
         var t = localStorage.getItem('acadex.theme') || 'system';
         if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
         if (localStorage.getItem('acadex.lowBandwidth') === '1') document.documentElement.setAttribute('data-low-bandwidth', '');
-        var l = localStorage.getItem('acadex.lang');
-        if (l) {
-          document.documentElement.lang = l;
-          document.documentElement.dir = l === 'ur' || l === 'ar' ? 'rtl' : 'ltr';
-        }
       } catch (e) {}
     </script>
   </head>
