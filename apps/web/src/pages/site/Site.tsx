@@ -285,7 +285,7 @@ const LEGAL: Record<'privacy' | 'terms' | 'dpa' | 'subprocessors' | 'compliance'
       ['Email', 'SMTP provider configured by the platform — transactional email.'],
       ['WhatsApp', 'Meta (WhatsApp Business) or Twilio — only if WhatsApp messages are switched on.'],
       ['Payments', 'Stripe, JazzCash and Easypaisa — only for payments; card data never reaches Acadex.'],
-      ['AI providers', 'Anthropic, OpenAI, Google (Gemini) and Groq — only when AI features are on; personal identifiers are removed first and providers may not train on the data.'],
+      ['AI providers', 'Google (Gemini) and Groq, as chosen by the platform — only when AI features are on; personal identifiers are removed first and providers may not train on the data.'],
       ['Error monitoring', 'Sentry — error reports without personal content.'],
     ],
   },
