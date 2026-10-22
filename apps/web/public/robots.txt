@@ -1,3 +1,14 @@
-# https://www.robotstxt.org/robotstxt.html
+# Public pages may be crawled. Private links (payment links, certificate checks, invitations,
+# password resets) carry personal data or tokens and must never be indexed; everything behind
+# sign-in also sends "noindex". The build adds the Sitemap line when SITE_URL is set.
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /api/
+Disallow: /pay/
+Disallow: /verify/
+Disallow: /verify-email
+Disallow: /accept-invite
+Disallow: /reset-password
+Disallow: /apply/status
+Disallow: /apply/test
+Disallow: /account/
