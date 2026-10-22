@@ -44,6 +44,9 @@ jobs:
         run: npm run typecheck --prefix cloudflare
       - name: Build the web app
         run: npm run build -w @acadex/web
+        env:
+          # the public address (repository variable), for canonical links, link previews and sitemap.xml
+          SITE_URL: ${{ vars.SITE_URL }}
       - name: Deploy (builds apps/api/Dockerfile and rolls out the container)
         working-directory: cloudflare
         run: npx wrangler deploy
