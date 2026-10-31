@@ -40,7 +40,7 @@ describe('platform: groups of institutions', () => {
 
     // accept the invitation, sign in, and see both institutions
     const token = await fixture.tokenFromEmail('director@beacon.test', 'accept-invite');
-    const accept = await request(app).post('/api/auth/invites/accept').send({ token, password: 'Director2026' });
+    const accept = await request(app).post('/api/auth/invites/accept').send({ token, password: 'test-director-2026' });
     expect(accept.status, JSON.stringify(accept.body)).toBe(200);
     const overview = await as(accept.body.access_token).get('/api/group/overview');
     expect(overview.status).toBe(200);
