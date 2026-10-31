@@ -4,6 +4,22 @@ All notable changes to Acadex are recorded here, newest first. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the version numbers match the
 in-app "What's new" (Help → What's new).
 
+## [6.4.0] - 2026-10-31 — The platform owner can correct and organise institutions
+
+- **Edit an institution after registering it** — Platform → Institutions → Manage: name, address
+  name, kind (school, college, university…), contact email, brand colour, plan, group and country
+  (currency locked once fee invoices exist). Every change is audited.
+- **Administrators of an institution** — correct a mistyped email (a new invitation goes to the
+  right address and the old link stops working), resend the invitation, or add another
+  administrator. The email of someone who has already signed up is never changed for them.
+- **Groups & team** — create groups of institutions and invite read-only group administrators;
+  add platform administrators and turn their access off (never your own, never the last one).
+- Search and status filter on the institutions list; suspending asks for confirmation; the kind of
+  institution can be chosen when registering it.
+- **Development email** — `MAIL_REDIRECT_TO` now only catches the made-up demo addresses
+  (greenwood.edu, example.com, …); real addresses get their own mail.
+- The browser tab shows the Acadex icon (the old icon file still held a placeholder logo).
+
 ## [6.3.0] - 2026-10-22 — Search and link previews
 
 - **Every public page has its own title, description and link preview** — home, pricing, demo,

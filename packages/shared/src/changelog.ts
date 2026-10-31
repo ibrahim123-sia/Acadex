@@ -8,6 +8,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '6.4',
+    date: '2026-10-31',
+    title: 'Run the platform with fewer surprises',
+    items: [
+      'Correct an institution after registering it: name, web address, kind, plan, group and country',
+      'Fix a mistyped administrator email, resend the invitation or add another administrator',
+      'Groups of institutions and the platform team, in Platform → Groups & team',
+    ],
+  },
+  {
     version: '6.3',
     date: '2026-10-22',
     title: 'Easier to find and to share',
