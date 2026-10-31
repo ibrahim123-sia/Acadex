@@ -34,6 +34,8 @@ const schema = z.object({
   MAIL_DRIVER: z.enum(['log', 'smtp']).default('log'),
   SMTP_URL: z.string().optional(),
   MAIL_FROM: z.string().default('Acadex <no-reply@acadex.app>'),
+  // development only: deliver every email to this one address (demo data uses made-up addresses)
+  MAIL_REDIRECT_TO: z.preprocess((v) => (v === '' ? undefined : v), z.string().email().optional()),
   // Comma-separated list of browser origins allowed to call the API.
   CORS_ORIGINS: z.string().default('http://localhost:3000,http://127.0.0.1:3000'),
   // Set when running behind a proxy/load balancer so rate limits see the real client IP.
@@ -121,6 +123,7 @@ export interface Config {
   mailDriver: 'log' | 'smtp';
   smtpUrl?: string;
   mailFrom: string;
+  mailRedirectTo?: string;
   corsOrigins: string[];
   trustProxy: boolean | number | string;
   loginRateLimit: number;
@@ -184,6 +187,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   // email carries sign-in codes, invitations, password resets and emergency alerts (there is no
   // SMS): in production they must really be sent, never only written to the log
   if (production && c.MAIL_DRIVER === 'log') problems.push('  - MAIL_DRIVER: must be smtp in production (with SMTP_URL) — emails would otherwise only be logged');
+  if (production && c.MAIL_REDIRECT_TO) problems.push('  - MAIL_REDIRECT_TO: development only — in production every email must reach its real recipient');
   if (c.COOKIE_SAMESITE === 'none' && c.COOKIE_SECURE === 'false') {
     problems.push('  - COOKIE_SAMESITE=none requires COOKIE_SECURE=true');
   }
@@ -218,6 +222,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     mailDriver: c.MAIL_DRIVER,
     smtpUrl: c.SMTP_URL,
     mailFrom: c.MAIL_FROM,
+    mailRedirectTo: c.MAIL_REDIRECT_TO,
     corsOrigins: c.CORS_ORIGINS.split(',')
       .map((s) => s.trim())
       .filter(Boolean),

@@ -3,6 +3,7 @@
 // A background flusher then delivers pending rows.
 //   MAIL_DRIVER=log  → nothing leaves the machine; rows are marked sent and logged (development, tests)
 //   MAIL_DRIVER=smtp → delivered through SMTP_URL (any provider: SES, Postmark, Resend, Brevo, ...)
+//   MAIL_REDIRECT_TO → (development) every email is delivered to this one address instead
 import nodemailer, { type Transporter } from 'nodemailer';
 import { getConfig } from '../config';
 import { asSystem, db, runAsSystem, withTransaction } from '../db/context';
@@ -78,7 +79,10 @@ export async function flushOutbox(limit = 20): Promise<number> {
   let sent = 0;
   for (const m of pending) {
     try {
-      await transporter.sendMail({ from: cfg.mailFrom, to: m.to_email, subject: m.subject, text: m.text_body, html: m.html_body || undefined });
+      // MAIL_REDIRECT_TO (development): everything goes to one inbox, marked with the real recipient
+      const to = cfg.mailRedirectTo ?? m.to_email;
+      const subject = cfg.mailRedirectTo ? `[for ${m.to_email}] ${m.subject}` : m.subject;
+      await transporter.sendMail({ from: cfg.mailFrom, to, subject, text: m.text_body, html: m.html_body || undefined });
       await runAsSystem(() => db.query(`UPDATE email_outbox SET sent_at = now(), attempts = attempts + 1 WHERE id = $1`, [m.id]));
       sent++;
     } catch (err) {

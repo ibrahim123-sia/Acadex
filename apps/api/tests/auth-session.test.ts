@@ -144,6 +144,9 @@ describe('startup configuration', () => {
     expect(() => loadConfig(prod)).toThrow(/MAIL_DRIVER: must be smtp in production/);
     expect(() => loadConfig({ ...prod, MAIL_DRIVER: 'smtp' })).toThrow(/SMTP_URL/);
     expect(loadConfig({ ...prod, MAIL_DRIVER: 'smtp', SMTP_URL: 'smtp://mail.example.test:587' }).mailDriver).toBe('smtp');
+    expect(() => loadConfig({ ...prod, MAIL_DRIVER: 'smtp', SMTP_URL: 'smtp://mail.example.test:587', MAIL_REDIRECT_TO: 'me@example.test' })).toThrow(/MAIL_REDIRECT_TO/);
+    expect(loadConfig({ DATABASE_URL: 'postgres://x', JWT_SECRET: 'x'.repeat(40), MAIL_REDIRECT_TO: '' }).mailRedirectTo).toBeUndefined();
+    expect(loadConfig({ DATABASE_URL: 'postgres://x', JWT_SECRET: 'x'.repeat(40), MAIL_REDIRECT_TO: 'me@example.test' }).mailRedirectTo).toBe('me@example.test');
   });
 
   it('accepts a valid configuration', () => {
