@@ -34,7 +34,7 @@ const schema = z.object({
   MAIL_DRIVER: z.enum(['log', 'smtp']).default('log'),
   SMTP_URL: z.string().optional(),
   MAIL_FROM: z.string().default('Acadex <no-reply@acadex.app>'),
-  // development only: deliver every email to this one address (demo data uses made-up addresses)
+  // development only: mail for the made-up demo addresses goes to this inbox (real addresses get their own)
   MAIL_REDIRECT_TO: z.preprocess((v) => (v === '' ? undefined : v), z.string().email().optional()),
   // Comma-separated list of browser origins allowed to call the API.
   CORS_ORIGINS: z.string().default('http://localhost:3000,http://127.0.0.1:3000'),

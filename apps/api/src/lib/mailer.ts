@@ -3,7 +3,7 @@
 // A background flusher then delivers pending rows.
 //   MAIL_DRIVER=log  → nothing leaves the machine; rows are marked sent and logged (development, tests)
 //   MAIL_DRIVER=smtp → delivered through SMTP_URL (any provider: SES, Postmark, Resend, Brevo, ...)
-//   MAIL_REDIRECT_TO → (development) every email is delivered to this one address instead
+//   MAIL_REDIRECT_TO → (development) mail for demo addresses (see isDemoAddress) goes to this inbox
 import nodemailer, { type Transporter } from 'nodemailer';
 import { getConfig } from '../config';
 import { asSystem, db, runAsSystem, withTransaction } from '../db/context';
@@ -60,6 +60,16 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
   if (logOnly) logger.info({ to: msg.to, subject: msg.subject, template: msg.template }, 'email recorded (MAIL_DRIVER=log)');
 }
 
+/** Domains of the demo data (db/seed.ts) and names reserved for examples (RFC 2606). */
+const DEMO_DOMAINS = ['greenwood.edu', 'sunrise.edu', 'northfield.edu', 'skillforge.edu', 'acadex.com', 'example.com', 'example.net', 'example.org'];
+const RESERVED_TLDS = ['.example', '.test', '.invalid', '.localhost'];
+
+/** A made-up address from the demo data or an example — never a real person's inbox. */
+export function isDemoAddress(email: string): boolean {
+  const domain = email.trim().toLowerCase().split('@')[1] ?? '';
+  return DEMO_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`)) || RESERVED_TLDS.some((t) => domain.endsWith(t));
+}
+
 let transporter: Transporter | undefined;
 
 /** Deliver up to `limit` pending emails (SMTP driver). Returns how many were sent. */
@@ -79,9 +89,11 @@ export async function flushOutbox(limit = 20): Promise<number> {
   let sent = 0;
   for (const m of pending) {
     try {
-      // MAIL_REDIRECT_TO (development): everything goes to one inbox, marked with the real recipient
-      const to = cfg.mailRedirectTo ?? m.to_email;
-      const subject = cfg.mailRedirectTo ? `[for ${m.to_email}] ${m.subject}` : m.subject;
+      // MAIL_REDIRECT_TO (development): mail for the made-up demo addresses goes to one inbox,
+      // marked with the address it was for; real addresses get their own mail
+      const redirect = cfg.mailRedirectTo && isDemoAddress(m.to_email) ? cfg.mailRedirectTo : null;
+      const to = redirect ?? m.to_email;
+      const subject = redirect ? `[for ${m.to_email}] ${m.subject}` : m.subject;
       await transporter.sendMail({ from: cfg.mailFrom, to, subject, text: m.text_body, html: m.html_body || undefined });
       await runAsSystem(() => db.query(`UPDATE email_outbox SET sent_at = now(), attempts = attempts + 1 WHERE id = $1`, [m.id]));
       sent++;
