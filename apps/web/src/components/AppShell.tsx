@@ -115,6 +115,7 @@ function useNav(): { title: string; items: NavItem[] }[] {
       items: [
         { to: '/platform', label: t('nav.dashboard', 'Dashboard'), icon: LayoutDashboard, permission: 'platform.institutions.read', end: true },
         { to: '/platform/institutions', label: t('nav.institutions', 'Institutions'), icon: Building2, permission: 'platform.institutions.read' },
+        { to: '/platform/people', label: t('nav.groupsTeam', 'Groups & team'), icon: Network, permission: 'platform.institutions.read' },
         { to: '/platform/audit', label: t('nav.audit', 'Audit log'), icon: ScrollText, permission: 'platform.audit.read' },
         { to: '/platform/business', label: t('nav.business', 'Business'), icon: BarChart3, permission: 'platform.institutions.read' },
         { to: '/platform/ai', label: t('nav.apiManagement', 'API management'), icon: Sparkles, permission: 'platform.institutions.read', end: true },
