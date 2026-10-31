@@ -39,6 +39,7 @@ const MOUNTS: Record<string, string> = {
   'tenant-saas.ts': '/api',
   'platform-saas.ts': '/api/platform',
   'platform-ai.ts': '/api/platform',
+  'platform-team.ts': '/api/platform',
   'site.ts': '/api/public',
   'lti-launch.ts': '/api/lti',
   'sso.ts': '/api/auth/sso',

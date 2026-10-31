@@ -34,6 +34,7 @@ import paymentRoutes from './routes/payments';
 import integrationWebhooks from './routes/integrations';
 import platformSaasRoutes from './routes/platform-saas';
 import platformAiRoutes from './routes/platform-ai';
+import platformTeamRoutes from './routes/platform-team';
 import siteRoutes from './routes/site';
 import ltiLaunchRoutes from './routes/lti-launch';
 import ssoRoutes from './routes/sso';
@@ -160,6 +161,7 @@ export function createApp(config: Config = getConfig()) {
   app.use('/api/platform', platformRoutes);
   app.use('/api/platform', platformSaasRoutes);
   app.use('/api/platform', platformAiRoutes);
+  app.use('/api/platform', platformTeamRoutes);
   app.use('/api/institution', rolesRoutes);
   app.use('/api/institution', institutionRoutes);
   app.use('/api/institution', structureRoutes);
