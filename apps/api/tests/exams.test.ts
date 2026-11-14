@@ -8,6 +8,15 @@ import { pool } from './helpers/fixture';
 
 let f: Awaited<ReturnType<typeof fixture.resetDb>>;
 let admin: ReturnType<typeof as>;
+// the date sheet starts on the first Sunday at least two weeks away, so the papers are always upcoming
+const day = (offset: number) => {
+  const d = new Date(Date.now() + 14 * 86400000);
+  d.setUTCDate(d.getUTCDate() + ((7 - d.getUTCDay()) % 7) + offset);
+  return d.toISOString().slice(0, 10);
+};
+const SUN = day(0);
+const MON = day(1);
+const TUE = day(2);
 let series = 0;
 const sessions: Record<string, number> = {};
 const rooms: Record<string, number> = {};
@@ -38,35 +47,35 @@ describe('planning', () => {
   });
 
   it('lays out the date sheet, skipping Sundays', async () => {
-    const body = { section_ids: [f.sections.A1.id, f.sections.A2.id], from: '2026-11-01', slots: [{ starts_at: '09:00', ends_at: '12:00' }] };
+    const body = { section_ids: [f.sections.A1.id, f.sections.A2.id], from: SUN, slots: [{ starts_at: '09:00', ends_at: '12:00' }] };
     const preview = await admin.post(`/api/exams/series/${series}/timetable`, body);
     expect(preview.status).toBe(200);
     expect(preview.body.papers).toBe(2);
-    expect(preview.body.plan.every((p: { date: string }) => p.date === '2026-11-02')).toBe(true); // 1 Nov 2026 is a Sunday
+    expect(preview.body.plan.every((p: { date: string }) => p.date === MON)).toBe(true); // the sheet starts on a Sunday
     expect((await admin.post(`/api/exams/series/${series}/timetable`, { ...body, commit: true })).status).toBe(201);
     const detail = await admin.get(`/api/exams/series/${series}`);
     expect(detail.body.status).toBe('scheduled');
     for (const s of detail.body.sessions) sessions[s.course] = s.id;
     expect(Object.keys(sessions).sort()).toEqual(['A1-MATH', 'A2-MATH']);
     // a course gets one paper per series
-    expect((await admin.post(`/api/exams/series/${series}/sessions`, { offering_id: f.courses['A1-MATH'].id, date: '2026-11-03', starts_at: '09:00', ends_at: '10:00' })).status).toBe(409);
+    expect((await admin.post(`/api/exams/series/${series}/sessions`, { offering_id: f.courses['A1-MATH'].id, date: TUE, starts_at: '09:00', ends_at: '10:00' })).status).toBe(409);
   });
 
   it('seats candidates so neighbours write different papers, within room capacity', async () => {
     rooms.R1 = (await admin.post('/api/timetable/rooms', { name: 'Room 1', code: 'R1', capacity: 2, kind: 'classroom' })).body.id;
     rooms.R2 = (await admin.post('/api/timetable/rooms', { name: 'Hall', code: 'HALL', capacity: 40, kind: 'hall' })).body.id;
-    expect((await admin.post(`/api/exams/series/${series}/seating`, { date: '2026-11-02', room_ids: [rooms.R1] })).status).toBe(400); // 3 candidates, 2 seats
-    const res = await admin.post(`/api/exams/series/${series}/seating`, { date: '2026-11-02', room_ids: [rooms.R1, rooms.R2] });
+    expect((await admin.post(`/api/exams/series/${series}/seating`, { date: MON, room_ids: [rooms.R1] })).status).toBe(400); // 3 candidates, 2 seats
+    const res = await admin.post(`/api/exams/series/${series}/seating`, { date: MON, room_ids: [rooms.R1, rooms.R2] });
     expect(res.body).toEqual({ seated: 3, rooms: 2 });
-    const plan = await admin.get(`/api/exams/series/${series}/seating?date=2026-11-02`);
+    const plan = await admin.get(`/api/exams/series/${series}/seating?date=${MON}`);
     const r1 = plan.body.filter((s: { room: string }) => s.room === 'R1');
     expect(r1.map((s: { course: string }) => s.course).sort()).toEqual(['A1-MATH', 'A2-MATH']);
-    const pdf = await admin.get(`/api/exams/series/${series}/seating.pdf?date=2026-11-02`);
+    const pdf = await admin.get(`/api/exams/series/${series}/seating.pdf?date=${MON}`);
     expect(pdf.headers['content-type']).toBe('application/pdf');
   });
 
   it('assigns invigilators who are not teaching a paper at that time, without clashes', async () => {
-    const auto = await admin.post(`/api/exams/series/${series}/duties/auto`, { date: '2026-11-02' });
+    const auto = await admin.post(`/api/exams/series/${series}/duties/auto`, { date: MON });
     expect(auto.status).toBe(201);
     expect(auto.body.assigned).toBe(1); // only Iqra is free: Tina and Tom teach the papers
     expect(auto.body.short).toHaveLength(1);
