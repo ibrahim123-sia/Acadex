@@ -54,7 +54,7 @@
     "sharp": "^0.35.5",
     "unpdf": "^1.9.0",
     "web-push": "^3.6.7",
-    "write-excel-file": "^2.3.10",
+    "write-excel-file": "^4.1.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
