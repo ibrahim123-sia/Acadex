@@ -43,8 +43,8 @@
   // container as an environment variable — see apps/api/.env.example for the full list.
   "vars": {
     "API_INSTANCES": "1",
-    "APP_URL": "https://REPLACE-ME.example.com",
-    "CORS_ORIGINS": "https://REPLACE-ME.example.com",
+    "APP_URL": "https://acadex.syedibrahimali.workers.dev",
+    "CORS_ORIGINS": "https://acadex.syedibrahimali.workers.dev",
     "COOKIE_SECURE": "true",
     "DATABASE_SSL": "true",
     "JOBS_DRIVER": "pgboss",
@@ -55,7 +55,7 @@
     "S3_FORCE_PATH_STYLE": "true",
     "S3_ENDPOINT": "https://4332134c34daf9571750f9994bfff95c.r2.cloudflarestorage.com",
     "MAIL_DRIVER": "smtp",
-    "MAIL_FROM": "Acadex <no-reply@REPLACE-ME.example.com>",
+    // MAIL_FROM is set as a secret (npx wrangler secret put MAIL_FROM): it holds a personal address
     "LOG_LEVEL": "info"
   }
   // secrets (wrangler secret put …): DATABASE_URL, DATABASE_DIRECT_URL, JWT_SECRET,
