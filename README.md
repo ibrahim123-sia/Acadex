@@ -152,6 +152,10 @@ npm run secrets:check # scan for credentials before committing
   them without running JavaScript. Set `SITE_URL` (for example `https://acadex.app`; a repository
   variable for the deploy workflow) to make canonical links and preview images absolute and to
   generate `sitemap.xml`. Pages behind sign-in are marked `noindex`.
+- **First run (no demo data)** — `npm run db:empty -- --yes` clears the database named in
+  `apps/api/.env`, then `npm run admin:create -- --email you@example.com --name "Your Name"` creates the
+  first platform administrator and prints a one-time link to set a password. Everything else —
+  institutions, groups, more administrators — is set up in the app (Platform menu).
 - **Docker** — `apps/api/Dockerfile` and `apps/web/Dockerfile` build production images; the
   Compose `app` profile shows how they fit together.
 - **Backups** — `ops/backup.sh` writes encrypted, checksummed database backups, and

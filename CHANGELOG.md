@@ -18,6 +18,9 @@ in-app "What's new" (Help → What's new).
   institution can be chosen when registering it.
 - **Development email** — `MAIL_REDIRECT_TO` now only catches the made-up demo addresses
   (greenwood.edu, example.com, …); real addresses get their own mail.
+- **First run without demo data** — `npm run db:empty -- --yes` and `npm run admin:create` leave a
+  database with nothing but one platform administrator.
+- Build fixes: Vite 8 chunking, eslint kept on 9 (its React plugin crashes on 10), audit fixes.
 - The browser tab shows the Acadex icon (the old icon file still held a placeholder logo).
 
 ## [6.3.0] - 2026-10-22 — Search and link previews
