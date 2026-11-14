@@ -20,5 +20,9 @@ regexes = [
   '''Acadex@123''',
   '''local-compose-secret-change-me''',
   '''acadex-dev-secret''',
+  # obviously fake passwords used by tests
+  '''Director2026''',
+  '''test-director-2026''',
+  '''test-owner-pass-2026''',
 ]
 paths = ['''(^|/)node_modules/''', '''package-lock\.json''']

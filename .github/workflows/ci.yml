@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   api:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -75,7 +75,7 @@ jobs:
       - run: npm audit --omit=dev --audit-level=high
 
   web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -89,7 +89,7 @@ jobs:
       - run: npm run build -w @acadex/web
 
   cloudflare:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -104,7 +104,7 @@ jobs:
           npx wrangler deploy --dry-run --containers-rollout=none --outdir ../.wrangler-dry
 
   images:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Build the API and web images
@@ -113,7 +113,7 @@ jobs:
           docker build -f apps/web/Dockerfile -t acadex-web:ci .
 
   security:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
